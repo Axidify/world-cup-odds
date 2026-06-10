@@ -1,0 +1,650 @@
+[
+  {
+    "id": "grp-a-1",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "mex",
+    "awayTeamId": "rsa",
+    "date": "2026-06-11T19:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-a-2",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "kor",
+    "awayTeamId": "cze",
+    "date": "2026-06-12T19:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-a-3",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "cze",
+    "awayTeamId": "mex",
+    "date": "2026-06-18T19:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-a-4",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "rsa",
+    "awayTeamId": "kor",
+    "date": "2026-06-19T19:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-a-5",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "mex",
+    "awayTeamId": "kor",
+    "date": "2026-06-24T19:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-a-6",
+    "stage": "group",
+    "group": "A",
+    "homeTeamId": "rsa",
+    "awayTeamId": "cze",
+    "date": "2026-06-25T19:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-b-1",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "can",
+    "awayTeamId": "bih",
+    "date": "2026-06-13T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-b-2",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "qat",
+    "awayTeamId": "sui",
+    "date": "2026-06-14T20:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-b-3",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "sui",
+    "awayTeamId": "can",
+    "date": "2026-06-20T20:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-b-4",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "bih",
+    "awayTeamId": "qat",
+    "date": "2026-06-21T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-b-5",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "can",
+    "awayTeamId": "qat",
+    "date": "2026-06-26T20:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-b-6",
+    "stage": "group",
+    "group": "B",
+    "homeTeamId": "bih",
+    "awayTeamId": "sui",
+    "date": "2026-06-27T20:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-c-1",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "bra",
+    "awayTeamId": "mar",
+    "date": "2026-06-15T21:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-c-2",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "hai",
+    "awayTeamId": "sco",
+    "date": "2026-06-16T21:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-c-3",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "sco",
+    "awayTeamId": "bra",
+    "date": "2026-06-22T21:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-c-4",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "mar",
+    "awayTeamId": "hai",
+    "date": "2026-06-23T21:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-c-5",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "bra",
+    "awayTeamId": "hai",
+    "date": "2026-06-24T21:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-c-6",
+    "stage": "group",
+    "group": "C",
+    "homeTeamId": "mar",
+    "awayTeamId": "sco",
+    "date": "2026-06-25T21:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-d-1",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "usa",
+    "awayTeamId": "par",
+    "date": "2026-06-17T19:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-d-2",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "aus",
+    "awayTeamId": "tur",
+    "date": "2026-06-11T19:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-d-3",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "tur",
+    "awayTeamId": "usa",
+    "date": "2026-06-18T19:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-d-4",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "par",
+    "awayTeamId": "aus",
+    "date": "2026-06-19T19:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-d-5",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "usa",
+    "awayTeamId": "aus",
+    "date": "2026-06-26T19:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-d-6",
+    "stage": "group",
+    "group": "D",
+    "homeTeamId": "par",
+    "awayTeamId": "tur",
+    "date": "2026-06-27T19:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-e-1",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "ger",
+    "awayTeamId": "cuw",
+    "date": "2026-06-12T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-e-2",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "civ",
+    "awayTeamId": "ecu",
+    "date": "2026-06-13T20:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-e-3",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "ecu",
+    "awayTeamId": "ger",
+    "date": "2026-06-20T20:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-e-4",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "cuw",
+    "awayTeamId": "civ",
+    "date": "2026-06-21T20:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-e-5",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "ger",
+    "awayTeamId": "civ",
+    "date": "2026-06-24T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-e-6",
+    "stage": "group",
+    "group": "E",
+    "homeTeamId": "cuw",
+    "awayTeamId": "ecu",
+    "date": "2026-06-25T20:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-f-1",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "ned",
+    "awayTeamId": "jpn",
+    "date": "2026-06-14T21:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-f-2",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "alb",
+    "awayTeamId": "tun",
+    "date": "2026-06-15T21:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-f-3",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "tun",
+    "awayTeamId": "ned",
+    "date": "2026-06-22T21:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-f-4",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "jpn",
+    "awayTeamId": "alb",
+    "date": "2026-06-23T21:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-f-5",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "ned",
+    "awayTeamId": "alb",
+    "date": "2026-06-26T21:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-f-6",
+    "stage": "group",
+    "group": "F",
+    "homeTeamId": "jpn",
+    "awayTeamId": "tun",
+    "date": "2026-06-27T21:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-g-1",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "bel",
+    "awayTeamId": "egy",
+    "date": "2026-06-16T19:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-g-2",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "irn",
+    "awayTeamId": "nzl",
+    "date": "2026-06-17T19:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-g-3",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "nzl",
+    "awayTeamId": "bel",
+    "date": "2026-06-18T19:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-g-4",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "egy",
+    "awayTeamId": "irn",
+    "date": "2026-06-19T19:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-g-5",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "bel",
+    "awayTeamId": "irn",
+    "date": "2026-06-24T19:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-g-6",
+    "stage": "group",
+    "group": "G",
+    "homeTeamId": "egy",
+    "awayTeamId": "nzl",
+    "date": "2026-06-25T19:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-h-1",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "esp",
+    "awayTeamId": "cpv",
+    "date": "2026-06-11T20:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-h-2",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "ksa",
+    "awayTeamId": "uru",
+    "date": "2026-06-12T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-h-3",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "uru",
+    "awayTeamId": "esp",
+    "date": "2026-06-20T20:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-h-4",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "cpv",
+    "awayTeamId": "ksa",
+    "date": "2026-06-21T20:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-h-5",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "esp",
+    "awayTeamId": "ksa",
+    "date": "2026-06-26T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-h-6",
+    "stage": "group",
+    "group": "H",
+    "homeTeamId": "cpv",
+    "awayTeamId": "uru",
+    "date": "2026-06-27T20:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-i-1",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "fra",
+    "awayTeamId": "sen",
+    "date": "2026-06-13T21:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-i-2",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "irq",
+    "awayTeamId": "nor",
+    "date": "2026-06-14T21:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-i-3",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "nor",
+    "awayTeamId": "fra",
+    "date": "2026-06-22T21:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-i-4",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "sen",
+    "awayTeamId": "irq",
+    "date": "2026-06-23T21:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-i-5",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "fra",
+    "awayTeamId": "irq",
+    "date": "2026-06-24T21:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-i-6",
+    "stage": "group",
+    "group": "I",
+    "homeTeamId": "sen",
+    "awayTeamId": "nor",
+    "date": "2026-06-25T21:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-j-1",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "arg",
+    "awayTeamId": "alg",
+    "date": "2026-06-15T19:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  },
+  {
+    "id": "grp-j-2",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "aut",
+    "awayTeamId": "jor",
+    "date": "2026-06-16T19:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-j-3",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "jor",
+    "awayTeamId": "arg",
+    "date": "2026-06-18T19:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-j-4",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "alg",
+    "awayTeamId": "aut",
+    "date": "2026-06-19T19:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-j-5",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "arg",
+    "awayTeamId": "aut",
+    "date": "2026-06-26T19:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-j-6",
+    "stage": "group",
+    "group": "J",
+    "homeTeamId": "alg",
+    "awayTeamId": "jor",
+    "date": "2026-06-27T19:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-k-1",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "por",
+    "awayTeamId": "cod",
+    "date": "2026-06-17T20:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas"
+  },
+  {
+    "id": "grp-k-2",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "uzb",
+    "awayTeamId": "col",
+    "date": "2026-06-11T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-k-3",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "col",
+    "awayTeamId": "por",
+    "date": "2026-06-20T20:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-k-4",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "cod",
+    "awayTeamId": "uzb",
+    "date": "2026-06-21T20:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-k-5",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "por",
+    "awayTeamId": "uzb",
+    "date": "2026-06-24T20:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-k-6",
+    "stage": "group",
+    "group": "K",
+    "homeTeamId": "cod",
+    "awayTeamId": "col",
+    "date": "2026-06-25T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-l-1",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "eng",
+    "awayTeamId": "cro",
+    "date": "2026-06-12T21:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta"
+  },
+  {
+    "id": "grp-l-2",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "gha",
+    "awayTeamId": "pan",
+    "date": "2026-06-13T21:00:00.000Z",
+    "venue": "BC Place, Vancouver"
+  },
+  {
+    "id": "grp-l-3",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "pan",
+    "awayTeamId": "eng",
+    "date": "2026-06-22T21:00:00.000Z",
+    "venue": "BMO Field, Toronto"
+  },
+  {
+    "id": "grp-l-4",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "cro",
+    "awayTeamId": "gha",
+    "date": "2026-06-23T21:00:00.000Z",
+    "venue": "Estadio Azteca, Mexico City"
+  },
+  {
+    "id": "grp-l-5",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "eng",
+    "awayTeamId": "gha",
+    "date": "2026-06-26T21:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey"
+  },
+  {
+    "id": "grp-l-6",
+    "stage": "group",
+    "group": "L",
+    "homeTeamId": "cro",
+    "awayTeamId": "pan",
+    "date": "2026-06-27T21:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles"
+  }
+]

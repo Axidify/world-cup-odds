@@ -1,0 +1,322 @@
+[
+  {
+    "id": "r32-1",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-28T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-2",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-29T04:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-3",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-29T12:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-4",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-29T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-5",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-30T04:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-6",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-30T12:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-7",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-06-30T20:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-8",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-01T04:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-9",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-01T12:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-10",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-01T20:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-11",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-02T04:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-12",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-02T12:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-13",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-02T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-14",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-03T04:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-15",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-03T12:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r32-16",
+    "stage": "r32",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "date": "2026-07-03T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 16
+  },
+  {
+    "id": "r16-1",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-1",
+    "awaySlot": "W:r32-2",
+    "date": "2026-07-04T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-2",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-3",
+    "awaySlot": "W:r32-4",
+    "date": "2026-07-05T06:17:08.571Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-3",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-5",
+    "awaySlot": "W:r32-6",
+    "date": "2026-07-05T16:34:17.142Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-4",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-7",
+    "awaySlot": "W:r32-8",
+    "date": "2026-07-06T02:51:25.714Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-5",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-9",
+    "awaySlot": "W:r32-10",
+    "date": "2026-07-06T13:08:34.285Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-6",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-11",
+    "awaySlot": "W:r32-12",
+    "date": "2026-07-06T23:25:42.857Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-7",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-13",
+    "awaySlot": "W:r32-14",
+    "date": "2026-07-07T09:42:51.428Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 8
+  },
+  {
+    "id": "r16-8",
+    "stage": "r16",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r32-15",
+    "awaySlot": "W:r32-16",
+    "date": "2026-07-07T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 8
+  },
+  {
+    "id": "qf-1",
+    "stage": "qf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r16-1",
+    "awaySlot": "W:r16-2",
+    "date": "2026-07-09T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 4
+  },
+  {
+    "id": "qf-2",
+    "stage": "qf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r16-3",
+    "awaySlot": "W:r16-4",
+    "date": "2026-07-10T04:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 4
+  },
+  {
+    "id": "qf-3",
+    "stage": "qf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r16-5",
+    "awaySlot": "W:r16-6",
+    "date": "2026-07-10T12:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 4
+  },
+  {
+    "id": "qf-4",
+    "stage": "qf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:r16-7",
+    "awaySlot": "W:r16-8",
+    "date": "2026-07-10T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 4
+  },
+  {
+    "id": "sf-1",
+    "stage": "sf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:qf-1",
+    "awaySlot": "W:qf-2",
+    "date": "2026-07-14T20:00:00.000Z",
+    "venue": "MetLife Stadium, New Jersey",
+    "knockoutRound": 2
+  },
+  {
+    "id": "sf-2",
+    "stage": "sf",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:qf-3",
+    "awaySlot": "W:qf-4",
+    "date": "2026-07-15T20:00:00.000Z",
+    "venue": "AT&T Stadium, Dallas",
+    "knockoutRound": 2
+  },
+  {
+    "id": "3rd-1",
+    "stage": "third_place",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "L:sf-1",
+    "awaySlot": "L:sf-2",
+    "date": "2026-07-18T20:00:00.000Z",
+    "venue": "SoFi Stadium, Los Angeles",
+    "knockoutRound": 1
+  },
+  {
+    "id": "final-1",
+    "stage": "final",
+    "homeTeamId": "TBD",
+    "awayTeamId": "TBD",
+    "homeSlot": "W:sf-1",
+    "awaySlot": "W:sf-2",
+    "date": "2026-07-19T20:00:00.000Z",
+    "venue": "Mercedes-Benz Stadium, Atlanta",
+    "knockoutRound": 1
+  }
+]

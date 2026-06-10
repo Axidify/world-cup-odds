@@ -1,0 +1,133 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { RefreshCw, Sparkles } from "lucide-react";
+import type { MatchPredictionView } from "@/lib/types";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { ProbabilityBars } from "@/components/ProbabilityBars";
+
+type Props = {
+  matchId: string;
+  homeName: string;
+  awayName: string;
+  initial: MatchPredictionView | null;
+};
+
+export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
+  const [prediction, setPrediction] = useState<MatchPredictionView | null>(initial);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const check = () =>
+      fetch("/api/analyze/bulk")
+        .then((r) => r.json())
+        .then((d) => {
+          if (active) setBulkRunning(Boolean(d.active) || d.job?.status === "running");
+        })
+        .catch(() => {});
+    void check();
+    const id = setInterval(check, 3000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  async function run(refresh = false) {
+    if (bulkRunning) {
+      setError("Bulk analyze is running — try again when it finishes");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/analyze/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, refresh }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Analysis failed");
+      setPrediction(data.prediction);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!prediction) {
+    return (
+      <Card className="p-6 text-center">
+        <Sparkles className="mx-auto mb-3 text-brand" size={28} />
+        <p className="text-sm text-text-muted">No AI prediction yet for this match.</p>
+        {error && <p className="mt-2 text-xs text-loss">{error}</p>}
+        <Button variant="primary" className="mt-4" disabled={loading || bulkRunning} onClick={() => run(false)}>
+          {loading ? "Analyzing…" : "Analyze match"}
+        </Button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-text-muted">
+          <span className="font-semibold uppercase tracking-wider text-brand">AI prediction</span>
+          <span className="num ml-2">
+            {prediction.provider} · {prediction.model}
+          </span>
+          {prediction.stale && (
+            <span className="ml-2 rounded bg-money-tint px-1.5 py-0.5 text-[10px] font-semibold text-money">
+              stale
+            </span>
+          )}
+        </div>
+        <Button variant="ghost" disabled={loading || bulkRunning} onClick={() => run(true)}>
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </Button>
+      </div>
+
+      <ProbabilityBars
+        homeLabel={homeName}
+        awayLabel={awayName}
+        homeWinPct={prediction.homeWinPct}
+        drawPct={prediction.drawPct}
+        awayWinPct={prediction.awayWinPct}
+      />
+
+      {prediction.predictedScore && (
+        <p className="num text-center text-sm text-text-muted">
+          Predicted score: <b className="text-text">{prediction.predictedScore}</b>
+        </p>
+      )}
+
+      {prediction.analysis && (
+        <p className="text-sm leading-relaxed text-text-muted">{prediction.analysis}</p>
+      )}
+
+      {prediction.keyFactors.length > 0 && (
+        <ul className="space-y-1 text-xs text-text-muted">
+          {prediction.keyFactors.map((f) => (
+            <li key={f} className="flex gap-2">
+              <span className="text-brand">•</span>
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error && <p className="text-xs text-loss">{error}</p>}
+
+      <p className="num text-[10px] text-text-muted">
+        Generated {new Date(prediction.generatedAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC
+        {prediction.fromCache ? " · cached" : " · fresh"}
+      </p>
+    </div>
+  );
+}

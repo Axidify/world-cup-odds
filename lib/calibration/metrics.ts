@@ -1,0 +1,311 @@
+import { eq } from "drizzle-orm";
+import type { Match, Prediction } from "@/lib/types";
+import { getMatch } from "@/lib/data/load";
+import { getDb } from "@/lib/db";
+import { actualResults, predictionLog } from "@/lib/db/schema";
+import { listProviderInfos } from "@/lib/ai/config";
+import { getPredictionForPair } from "@/lib/ai/predictions";
+import type { LLMProvider } from "@/lib/types";
+import type { ResultRow } from "@/lib/results/store";
+
+export type ActualOutcome = "home" | "draw" | "away";
+
+export type PredictionLogEntry = {
+  id: string;
+  matchId: string;
+  cacheKey: string | null;
+  predicted: { home: number; draw: number; away: number };
+  actual: ActualOutcome;
+  brier: number;
+  logLoss: number;
+  directionCorrect: boolean;
+  createdAt: string;
+};
+
+export type AccuracySummary = {
+  count: number;
+  avgBrier: number | null;
+  avgLogLoss: number | null;
+  directionAccuracy: number | null;
+  byStage: Record<string, { count: number; avgBrier: number | null; directionAccuracy: number | null }>;
+  calibrationBins: Array<{ bin: string; predicted: number; actual: number; count: number }>;
+  worstMisses: Array<{
+    matchId: string;
+    stage: string;
+    predicted: string;
+    actual: string;
+    brier: number;
+  }>;
+};
+
+export function deriveActualOutcome(
+  match: Match,
+  result: Pick<ResultRow, "homeScore" | "awayScore" | "winnerTeamId">,
+): ActualOutcome {
+  if (match.stage !== "group") {
+    if (result.winnerTeamId === match.homeTeamId) return "home";
+    if (result.winnerTeamId === match.awayTeamId) return "away";
+    if (result.homeScore > result.awayScore) return "home";
+    if (result.awayScore > result.homeScore) return "away";
+    return "home";
+  }
+  if (result.homeScore > result.awayScore) return "home";
+  if (result.homeScore < result.awayScore) return "away";
+  return "draw";
+}
+
+export function orientProbabilities(
+  prediction: Prediction,
+  homeTeamId: string,
+): { home: number; draw: number; away: number } {
+  if (prediction.teamA === homeTeamId) {
+    return {
+      home: prediction.homeWinPct / 100,
+      draw: prediction.drawPct / 100,
+      away: prediction.awayWinPct / 100,
+    };
+  }
+  return {
+    home: prediction.awayWinPct / 100,
+    draw: prediction.drawPct / 100,
+    away: prediction.homeWinPct / 100,
+  };
+}
+
+export function computeBrier(probs: { home: number; draw: number; away: number }, actual: ActualOutcome): number {
+  const actualVec = {
+    home: actual === "home" ? 1 : 0,
+    draw: actual === "draw" ? 1 : 0,
+    away: actual === "away" ? 1 : 0,
+  };
+  return (
+    (probs.home - actualVec.home) ** 2 +
+    (probs.draw - actualVec.draw) ** 2 +
+    (probs.away - actualVec.away) ** 2
+  );
+}
+
+export function computeLogLoss(probs: { home: number; draw: number; away: number }, actual: ActualOutcome): number {
+  const p = Math.max(0.001, probs[actual]);
+  return -Math.log(p);
+}
+
+function rankOutcomes(
+  probs: { home: number; draw: number; away: number },
+  allowDraw: boolean,
+): Array<[ActualOutcome, number]> {
+  const ranked: Array<[ActualOutcome, number]> = [
+    ["home", probs.home],
+    ["away", probs.away],
+  ];
+  if (allowDraw) ranked.push(["draw", probs.draw]);
+  ranked.sort((a, b) => b[1] - a[1]);
+  return ranked;
+}
+
+export function isDirectionCorrect(
+  probs: { home: number; draw: number; away: number },
+  actual: ActualOutcome,
+  options: { allowDraw?: boolean } = {},
+): boolean {
+  return rankOutcomes(probs, options.allowDraw !== false)[0][0] === actual;
+}
+
+export function storedPredictedToProbs(predicted: { home: number; draw: number; away: number }) {
+  return {
+    home: predicted.home / 100,
+    draw: predicted.draw / 100,
+    away: predicted.away / 100,
+  };
+}
+
+export function pickFavoriteOutcome(
+  predicted: { home: number; draw: number; away: number },
+  stage?: string,
+): ActualOutcome {
+  const allowDraw = !stage || stage === "group";
+  return rankOutcomes(storedPredictedToProbs(predicted), allowDraw)[0][0];
+}
+
+function findPredictionForLogging(match: Match): Prediction | null {
+  const providers = listProviderInfos()
+    .filter((p) => p.configured)
+    .map((p) => p.id as LLMProvider);
+  for (const provider of providers) {
+    const prediction = getPredictionForPair(match.homeTeamId, match.awayTeamId, match.stage, provider);
+    if (prediction) return prediction;
+  }
+  return null;
+}
+
+function parseLogRow(row: typeof predictionLog.$inferSelect): PredictionLogEntry {
+  const predicted = JSON.parse(row.predicted) as { home: number; draw: number; away: number };
+  const actual = row.actual as ActualOutcome;
+  const probs = storedPredictedToProbs(predicted);
+  const match = getMatch(row.matchId);
+  const allowDraw = match?.stage === "group";
+  return {
+    id: row.id,
+    matchId: row.matchId,
+    cacheKey: row.cacheKey,
+    predicted,
+    actual,
+    brier: row.brier ?? computeBrier(probs, actual),
+    logLoss: row.logLoss ?? computeLogLoss(probs, actual),
+    directionCorrect: isDirectionCorrect(probs, actual, { allowDraw }),
+    createdAt: row.createdAt,
+  };
+}
+
+export function logPredictionAccuracy(matchId: string): PredictionLogEntry | null {
+  const match = getMatch(matchId);
+  if (!match || match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return null;
+
+  const db = getDb();
+  const existing = db.select().from(predictionLog).where(eq(predictionLog.matchId, matchId)).get();
+
+  const resultRow = db
+    .select()
+    .from(actualResults)
+    .where(eq(actualResults.matchId, matchId))
+    .get();
+  if (!resultRow || resultRow.confirmed !== 1) {
+    return existing ? parseLogRow(existing) : null;
+  }
+  if (resultRow.homeScore == null || resultRow.awayScore == null) {
+    return existing ? parseLogRow(existing) : null;
+  }
+
+  const prediction = findPredictionForLogging(match);
+  if (!prediction) return existing ? parseLogRow(existing) : null;
+
+  const probs = orientProbabilities(prediction, match.homeTeamId);
+  const actual = deriveActualOutcome(match, {
+    homeScore: resultRow.homeScore,
+    awayScore: resultRow.awayScore,
+    winnerTeamId: resultRow.winnerTeamId,
+  });
+  const brier = computeBrier(probs, actual);
+  const logLoss = computeLogLoss(probs, actual);
+  const predictedJson = JSON.stringify({
+    home: Math.round(probs.home * 1000) / 10,
+    draw: Math.round(probs.draw * 1000) / 10,
+    away: Math.round(probs.away * 1000) / 10,
+  });
+
+  if (existing) {
+    db.update(predictionLog)
+      .set({ predicted: predictedJson, actual, brier, logLoss })
+      .where(eq(predictionLog.id, existing.id))
+      .run();
+    return parseLogRow(db.select().from(predictionLog).where(eq(predictionLog.id, existing.id)).get()!);
+  }
+
+  const id = `log-${matchId}`;
+  const now = new Date().toISOString();
+
+  db.insert(predictionLog)
+    .values({
+      id,
+      matchId,
+      cacheKey: prediction.cacheKey,
+      predicted: predictedJson,
+      actual,
+      brier,
+      logLoss,
+      createdAt: now,
+    })
+    .run();
+
+  return parseLogRow(db.select().from(predictionLog).where(eq(predictionLog.id, id)).get()!);
+}
+
+export function getAccuracySummary(): AccuracySummary {
+  const db = getDb();
+  const rows = db.select().from(predictionLog).all();
+  const entries = rows.map(parseLogRow);
+
+  if (entries.length === 0) {
+    return {
+      count: 0,
+      avgBrier: null,
+      avgLogLoss: null,
+      directionAccuracy: null,
+      byStage: {},
+      calibrationBins: [],
+      worstMisses: [],
+    };
+  }
+
+  const avgBrier = entries.reduce((s, e) => s + e.brier, 0) / entries.length;
+  const avgLogLoss = entries.reduce((s, e) => s + e.logLoss, 0) / entries.length;
+  const directionHits = entries.filter((e) => e.directionCorrect).length;
+
+  const byStage: AccuracySummary["byStage"] = {};
+  for (const e of entries) {
+    const match = getMatch(e.matchId);
+    const stage = match?.stage ?? "unknown";
+    if (!byStage[stage]) byStage[stage] = { count: 0, avgBrier: null, directionAccuracy: null };
+    byStage[stage].count += 1;
+  }
+  for (const stage of Object.keys(byStage)) {
+    const stageEntries = entries.filter((e) => (getMatch(e.matchId)?.stage ?? "unknown") === stage);
+    byStage[stage].avgBrier = stageEntries.reduce((s, e) => s + e.brier, 0) / stageEntries.length;
+    byStage[stage].directionAccuracy =
+      Math.round(
+        (stageEntries.filter((e) => e.directionCorrect).length / stageEntries.length) * 1000,
+      ) / 10;
+  }
+
+  const bins = Array.from({ length: 10 }, (_, i) => ({
+    bin: `${i * 10}-${(i + 1) * 10}%`,
+    predicted: 0,
+    actual: 0,
+    count: 0,
+  }));
+
+  for (const e of entries) {
+    const match = getMatch(e.matchId);
+    if (!match) continue;
+    const fav = pickFavoriteOutcome(e.predicted, match.stage);
+    const favProb = e.predicted[fav] / 100;
+    const binIdx = Math.min(9, Math.floor(favProb * 10));
+    bins[binIdx].count += 1;
+    bins[binIdx].predicted += favProb;
+    bins[binIdx].actual += e.directionCorrect ? 1 : 0;
+  }
+
+  const calibrationBins = bins
+    .filter((b) => b.count > 0)
+    .map((b) => ({
+      bin: b.bin,
+      predicted: Math.round((b.predicted / b.count) * 100),
+      actual: Math.round((b.actual / b.count) * 100),
+      count: b.count,
+    }));
+
+  const worstMisses = [...entries]
+    .sort((a, b) => b.brier - a.brier)
+    .slice(0, 10)
+    .map((e) => {
+      const match = getMatch(e.matchId);
+      const fav = pickFavoriteOutcome(e.predicted, match?.stage);
+      return {
+        matchId: e.matchId,
+        stage: match?.stage ?? "?",
+        predicted: `${fav} (${e.predicted.home}/${e.predicted.draw}/${e.predicted.away}%)`,
+        actual: e.actual,
+        brier: Math.round(e.brier * 1000) / 1000,
+      };
+    });
+
+  return {
+    count: entries.length,
+    avgBrier: Math.round(avgBrier * 1000) / 1000,
+    avgLogLoss: Math.round(avgLogLoss * 1000) / 1000,
+    directionAccuracy: Math.round((directionHits / entries.length) * 1000) / 10,
+    byStage,
+    calibrationBins,
+    worstMisses,
+  };
+}

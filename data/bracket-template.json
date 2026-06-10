@@ -1,0 +1,25 @@
+{
+  "r32": [
+    { "matchId": "r32-1", "home": "2A", "away": "2B" },
+    { "matchId": "r32-2", "home": "1E", "away": "3A/B/C/D/F" },
+    { "matchId": "r32-3", "home": "1F", "away": "2C" },
+    { "matchId": "r32-4", "home": "1C", "away": "2F" },
+    { "matchId": "r32-5", "home": "1I", "away": "3C/D/F/G/H" },
+    { "matchId": "r32-6", "home": "2E", "away": "2I" },
+    { "matchId": "r32-7", "home": "1A", "away": "3C/E/F/H/I" },
+    { "matchId": "r32-8", "home": "1L", "away": "3E/H/I/J/K" },
+    { "matchId": "r32-9", "home": "1D", "away": "3B/E/F/I/J" },
+    { "matchId": "r32-10", "home": "1G", "away": "3A/E/H/I/J" },
+    { "matchId": "r32-11", "home": "2K", "away": "2L" },
+    { "matchId": "r32-12", "home": "1H", "away": "2J" },
+    { "matchId": "r32-13", "home": "1B", "away": "3E/F/G/I/J" },
+    { "matchId": "r32-14", "home": "1J", "away": "2H" },
+    { "matchId": "r32-15", "home": "1K", "away": "3D/E/I/J/L" },
+    { "matchId": "r32-16", "home": "2D", "away": "2G" }
+  ],
+  "thirdPlaceCombos": "FIFA_2026_OFFICIAL",
+  "advancement": {
+    "groupTop2": true,
+    "bestThirdCount": 8
+  }
+}
