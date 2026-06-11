@@ -29,6 +29,14 @@
         "reveal": "always",
         "panel": "dedicated",
         "focus": false
+      },
+      "osx": {
+        "options": {
+          "shell": {
+            "executable": "/bin/zsh",
+            "args": ["-ilc"]
+          }
+        }
       }
     },
     {
@@ -68,6 +76,14 @@
       "presentation": {
         "reveal": "always",
         "panel": "dedicated"
+      },
+      "osx": {
+        "options": {
+          "shell": {
+            "executable": "/bin/zsh",
+            "args": ["-ilc"]
+          }
+        }
       }
     },
     {
@@ -94,6 +110,14 @@
       "presentation": {
         "reveal": "always",
         "panel": "dedicated"
+      },
+      "osx": {
+        "options": {
+          "shell": {
+            "executable": "/bin/zsh",
+            "args": ["-ilc"]
+          }
+        }
       }
     },
     {

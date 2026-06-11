@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+data/*.db
+data/*.db-*
+data/backups
+.env
+.env*.local
+coverage
+.playwright-mcp
+*.md
+!README.md
+.vscode
+.cursor

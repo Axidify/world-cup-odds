@@ -38,6 +38,8 @@ Copy `.env.local.example` to `.env.local` and set `LLM_PROVIDER` plus matching c
 
 For local vLLM on an H100, see **[docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md)**.
 
+For cloud hosting, see **[docs/RAILWAY.md](docs/RAILWAY.md)**.
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/ai/health` | GET | Active provider status |
