@@ -28,4 +28,4 @@ RUN mkdir -p /data
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start:all"]
+CMD ["npm", "start"]

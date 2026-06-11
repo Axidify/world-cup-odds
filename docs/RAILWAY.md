@@ -5,9 +5,11 @@ This app runs **Next.js + a background poller** in one container (`npm run start
 ## 1. Create the service
 
 1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → select `world-cup-odds`.
-2. Railway picks up `railway.toml` / `railpack.json`. Start command must be **`npm run start:all`** (not `npm run start`).
+2. Railway picks up `railway.toml` / `railway.json` / `railpack.json` (if configured — see below). Production **`npm start`** runs Next.js **and** the poller.
 
-> **Important:** Railpack auto-detects `npm run start`, which runs Next.js **without** the results poller. If you see “Results poller has not run yet” in production, set **Settings → Deploy → Start Command** to `npm run start:all` and redeploy.
+> **Config file not applied?** In the service **Settings** tab, set **Config file path** to `/railway.toml` (absolute from repo root). Dashboard start commands override Railpack auto-detect only when config-as-code is not loaded.
+>
+> **Fallback:** `package.json` `"start"` already runs app + poller, so Railpack’s default `npm run start` is correct even without config files.
 
 ## 2. Add persistent storage
 

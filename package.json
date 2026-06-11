@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "concurrently -k \"next start -H 0.0.0.0\" \"npm run poller\"",
+    "start:app": "next start",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,7 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "poller": "tsx scripts/poller.ts",
-    "start:all": "concurrently \"npm start\" \"npm run poller\""
+    "start:all": "npm start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
