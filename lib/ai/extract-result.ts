@@ -4,6 +4,7 @@ import type { SearchSnippet } from "@/lib/search/types";
 import { getTeam } from "@/lib/data/load";
 import { extractJsonObject } from "./parse-response";
 import { createLLMClient } from "./llm";
+import { parseScoreFromText } from "@/lib/results/score-agreement";
 
 const extractSchema = z.object({
   homeScore: z.number().int().min(-1),
@@ -121,6 +122,31 @@ ${snippetBlock}
 Return JSON only.`;
 }
 
+function snippetMentionsTeam(text: string, teamId: string, name: string): boolean {
+  const lower = text.toLowerCase();
+  const tokens = [teamId, name, ...name.split(/\s+/)].filter((t) => t.length >= 3);
+  return tokens.some((t) => lower.includes(t.toLowerCase()));
+}
+
+/** Regex fallback when LLM JSON shape or confidence fails. */
+export function tryParseScoreFromSnippets(
+  match: Match,
+  snippets: SearchSnippet[],
+): { homeScore: number; awayScore: number } | null {
+  const home = getTeam(match.homeTeamId);
+  const away = getTeam(match.awayTeamId);
+  if (!home || !away) return null;
+
+  for (const s of snippets) {
+    const text = `${s.title} ${s.content}`;
+    if (!snippetMentionsTeam(text, match.homeTeamId, home.name)) continue;
+    if (!snippetMentionsTeam(text, match.awayTeamId, away.name)) continue;
+    const parsed = parseScoreFromText(text);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 export async function extractMatchResult(
   match: Match,
   snippets: SearchSnippet[],
@@ -132,24 +158,28 @@ export async function extractMatchResult(
   const away = getTeam(match.awayTeamId);
   if (!home || !away) return null;
 
+  let parsed: z.infer<typeof extractSchema> | null = null;
+
   const client = createLLMClient();
   const userPrompt = buildResultExtractionPrompt(match, home.name, away.name, snippets);
-  let raw: string;
   try {
-    raw = await client.completeJSON(SYSTEM_PROMPT, userPrompt);
+    const raw = await client.completeJSON(SYSTEM_PROMPT, userPrompt);
+    parsed = normalizeExtractedResult(JSON.parse(extractJsonObject(raw)));
   } catch {
-    return null;
+    parsed = null;
   }
 
-  let parsed: z.infer<typeof extractSchema>;
-  try {
-    parsed = normalizeExtractedResult(JSON.parse(extractJsonObject(raw))) ?? null;
-  } catch {
-    return null;
+  if (!parsed || parsed.homeScore < 0 || parsed.awayScore < 0) {
+    const fromText = tryParseScoreFromSnippets(match, snippets);
+    if (!fromText) return null;
+    parsed = {
+      homeScore: fromText.homeScore,
+      awayScore: fromText.awayScore,
+      wentToExtraTime: false,
+      wentToPenalties: false,
+      winnerTeamId: null,
+    };
   }
-  if (!parsed) return null;
-
-  if (parsed.homeScore < 0 || parsed.awayScore < 0) return null;
 
   const isKnockout = match.stage !== "group";
   let winnerTeamId = parsed.winnerTeamId ?? null;

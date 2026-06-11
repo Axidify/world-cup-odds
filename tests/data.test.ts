@@ -49,10 +49,11 @@ describe("seed data", () => {
     expect(lastGroup < firstKo).toBe(true);
   });
 
-  it("group stage fits FIFA window (Jun 11–27)", () => {
-    const dates = getFixtures().map((m) => m.date).sort();
-    expect(dates[0] >= "2026-06-11").toBe(true);
-    expect(dates.at(-1)! <= "2026-06-28").toBe(true);
+  it("group stage fits FIFA window (Jun 11–28 UTC)", () => {
+    const dates = getFixtures().map((m) => new Date(m.date).getTime()).sort((a, b) => a - b);
+    const windowEnd = Date.UTC(2026, 5, 29); // Jun 29 00:00 UTC (late Jun 27 kickoffs)
+    expect(dates[0]).toBeGreaterThanOrEqual(Date.UTC(2026, 5, 11));
+    expect(dates.at(-1)!).toBeLessThan(windowEnd);
   });
 
   it("knockout rounds do not overlap", () => {

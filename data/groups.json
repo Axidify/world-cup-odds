@@ -4,7 +4,7 @@
   { "group": "C", "teamIds": ["bra", "mar", "hai", "sco"] },
   { "group": "D", "teamIds": ["usa", "par", "aus", "tur"] },
   { "group": "E", "teamIds": ["ger", "cuw", "civ", "ecu"] },
-  { "group": "F", "teamIds": ["ned", "jpn", "alb", "tun"] },
+  { "group": "F", "teamIds": ["ned", "jpn", "swe", "tun"] },
   { "group": "G", "teamIds": ["bel", "egy", "irn", "nzl"] },
   { "group": "H", "teamIds": ["esp", "cpv", "ksa", "uru"] },
   { "group": "I", "teamIds": ["fra", "sen", "irq", "nor"] },

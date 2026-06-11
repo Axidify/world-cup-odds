@@ -21,7 +21,7 @@
   { "id": "ecu", "name": "Ecuador", "flagCode": "ec", "fifaRank": 29, "confederation": "CONMEBOL" },
   { "id": "ned", "name": "Netherlands", "flagCode": "nl", "fifaRank": 7, "confederation": "UEFA" },
   { "id": "jpn", "name": "Japan", "flagCode": "jp", "fifaRank": 18, "confederation": "AFC" },
-  { "id": "alb", "name": "Albania", "flagCode": "al", "fifaRank": 66, "confederation": "UEFA" },
+  { "id": "swe", "name": "Sweden", "flagCode": "se", "fifaRank": 34, "confederation": "UEFA" },
   { "id": "tun", "name": "Tunisia", "flagCode": "tn", "fifaRank": 40, "confederation": "CAF" },
   { "id": "bel", "name": "Belgium", "flagCode": "be", "fifaRank": 15, "confederation": "UEFA" },
   { "id": "egy", "name": "Egypt", "flagCode": "eg", "fifaRank": 33, "confederation": "CAF" },
