@@ -6,12 +6,67 @@ import { extractJsonObject } from "./parse-response";
 import { createLLMClient } from "./llm";
 
 const extractSchema = z.object({
-  homeScore: z.coerce.number().int().min(-1),
-  awayScore: z.coerce.number().int().min(-1),
+  homeScore: z.number().int().min(-1),
+  awayScore: z.number().int().min(-1),
   wentToExtraTime: z.boolean().optional().default(false),
   wentToPenalties: z.boolean().optional().default(false),
   winnerTeamId: z.string().nullable().optional(),
 });
+
+function readScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === "string") {
+    const n = Number(value.trim());
+    if (Number.isFinite(n)) return Math.trunc(n);
+  }
+  return null;
+}
+
+/** Gemini often nests scores — normalize before Zod validation. */
+export function normalizeExtractedResult(raw: unknown): z.infer<typeof extractSchema> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const nestedResult =
+    o.result && typeof o.result === "object" ? (o.result as Record<string, unknown>) : null;
+  const nestedScore =
+    o.score && typeof o.score === "object" ? (o.score as Record<string, unknown>) : null;
+
+  const homeScore =
+    readScore(o.homeScore) ??
+    readScore(o.home_score) ??
+    readScore(nestedScore?.home) ??
+    readScore(nestedScore?.homeScore) ??
+    readScore(nestedScore?.home_score) ??
+    readScore(nestedResult?.home_score) ??
+    readScore(nestedResult?.homeScore) ??
+    -1;
+  const awayScore =
+    readScore(o.awayScore) ??
+    readScore(o.away_score) ??
+    readScore(nestedScore?.away) ??
+    readScore(nestedScore?.awayScore) ??
+    readScore(nestedScore?.away_score) ??
+    readScore(nestedResult?.away_score) ??
+    readScore(nestedResult?.awayScore) ??
+    -1;
+
+  const winnerRaw = o.winnerTeamId ?? o.winner_team_id ?? nestedResult?.winning_team;
+  const winnerTeamId =
+    typeof winnerRaw === "string" && winnerRaw.trim() ? winnerRaw.trim() : null;
+
+  try {
+    return extractSchema.parse({
+      homeScore,
+      awayScore,
+      wentToExtraTime: Boolean(o.wentToExtraTime ?? o.went_to_extra_time ?? nestedResult?.et),
+      wentToPenalties: Boolean(o.wentToPenalties ?? o.went_to_penalties ?? nestedResult?.pens),
+      winnerTeamId,
+    });
+  } catch {
+    return null;
+  }
+}
 
 export type ExtractedMatchResult = {
   matchId: string;
@@ -88,10 +143,11 @@ export async function extractMatchResult(
 
   let parsed: z.infer<typeof extractSchema>;
   try {
-    parsed = extractSchema.parse(JSON.parse(extractJsonObject(raw)));
+    parsed = normalizeExtractedResult(JSON.parse(extractJsonObject(raw))) ?? null;
   } catch {
     return null;
   }
+  if (!parsed) return null;
 
   if (parsed.homeScore < 0 || parsed.awayScore < 0) return null;
 
