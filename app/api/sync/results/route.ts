@@ -3,7 +3,7 @@ import { z } from "zod";
 import { applyAdminConfirmedResult } from "@/lib/results/on-confirm";
 import { getResult } from "@/lib/results/store";
 import { verifyAdminPin, isAdminConfigured } from "@/lib/utils/admin";
-import { getMatch } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 
 const bodySchema = z.object({
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid admin PIN" }, { status: 403 });
   }
 
-  const match = getMatch(parsed.data.matchId);
+  const match = getResolvedMatch(parsed.data.matchId);
   if (!match) {
     return NextResponse.json({ error: "Match not found" }, { status: 404 });
   }
@@ -55,6 +55,12 @@ export async function POST(request: Request) {
   });
 
   if (!ok) {
+    if (match.stage !== "group" && parsed.data.homeScore === parsed.data.awayScore) {
+      return NextResponse.json(
+        { error: "Knockout draw requires winnerTeamId (ET/pens winner)" },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "Failed to save result" }, { status: 500 });
   }
 

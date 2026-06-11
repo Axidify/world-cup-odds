@@ -1,4 +1,5 @@
-import { getAllMatches, getTeam, getTeamMap } from "@/lib/data/load";
+import { getTeam, getTeamMap } from "@/lib/data/load";
+import { getResolvedMatches } from "@/lib/data/resolved";
 import { extractTeamNews } from "@/lib/ai/summarize-news";
 import {
   getLatestFetchAt,
@@ -23,7 +24,7 @@ function buildNewsQuery(teamId: string): string {
 function nextKickoffForTeam(teamId: string): number | null {
   const now = Date.now();
   let nearest: number | null = null;
-  for (const m of getAllMatches()) {
+  for (const m of getResolvedMatches()) {
     if (m.homeTeamId !== teamId && m.awayTeamId !== teamId) continue;
     const kickoff = new Date(m.date).getTime();
     if (kickoff < now) continue;
@@ -50,7 +51,7 @@ export function getTeamsNeedingNews(): string[] {
   const now = Date.now();
   const teamIds = new Set<string>();
 
-  for (const m of getAllMatches()) {
+  for (const m of getResolvedMatches()) {
     if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
     const kickoff = new Date(m.date).getTime();
     if (kickoff < now || kickoff > now + UPCOMING_WINDOW_MS) continue;
@@ -111,6 +112,9 @@ export async function runNewsPollJob(): Promise<{
     else if (outcome === "skipped") skipped += 1;
     else failed += 1;
   }
+
+  const { recordPollerRun } = await import("@/lib/ops/poller-heartbeat");
+  recordPollerRun("news");
 
   return { polled: targets.length, synced, skipped, failed };
 }

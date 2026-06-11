@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 import type { Match } from "@/lib/types";
-import { getMatch, getTeamMap } from "@/lib/data/load";
+import { getTeamMap } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults } from "@/lib/db/schema";
 
 export type ResultRow = {
   matchId: string;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   et: boolean;
   pens: boolean;
   winnerTeamId: string | null;
@@ -30,8 +31,8 @@ export type PendingResultView = ResultRow & {
 function rowToResult(row: typeof actualResults.$inferSelect): ResultRow {
   return {
     matchId: row.matchId,
-    homeScore: row.homeScore ?? 0,
-    awayScore: row.awayScore ?? 0,
+    homeScore: row.homeScore,
+    awayScore: row.awayScore,
     et: row.et === 1,
     pens: row.pens === 1,
     winnerTeamId: row.winnerTeamId,
@@ -60,7 +61,7 @@ export function getPendingResults(): PendingResultView[] {
   const pending: PendingResultView[] = [];
 
   for (const row of rows) {
-    const match = getMatch(row.matchId);
+    const match = getResolvedMatch(row.matchId);
     if (!match || match.homeTeamId === "TBD" || match.awayTeamId === "TBD") continue;
     const home = teamMap.get(match.homeTeamId);
     const away = teamMap.get(match.awayTeamId);
@@ -132,6 +133,22 @@ export function upsertPendingResult(input: {
   return getResult(input.matchId)!;
 }
 
+/**
+ * A knockout result with level scores requires an explicit, valid winner
+ * (ET/pens) before it can be confirmed — never guess.
+ */
+export function isResultConfirmable(result: ResultRow): boolean {
+  if (result.homeScore == null || result.awayScore == null) return false;
+
+  const match = getResolvedMatch(result.matchId);
+  if (!match || match.stage === "group") return true;
+  if (result.homeScore !== result.awayScore) return true;
+  if (match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return false;
+  return (
+    result.winnerTeamId === match.homeTeamId || result.winnerTeamId === match.awayTeamId
+  );
+}
+
 export function confirmResult(
   matchId: string,
   confirmedBy: "auto" | "admin",
@@ -140,6 +157,7 @@ export function confirmResult(
   const existing = getResult(matchId);
   if (!existing) return null;
   if (existing.confirmed) return existing;
+  if (!isResultConfirmable(existing)) return null;
 
   const now = new Date().toISOString();
   db.update(actualResults)
@@ -168,7 +186,7 @@ export function upsertConfirmedResult(
 ): ResultRow {
   const db = getDb();
   const now = new Date().toISOString();
-  const match = getMatch(input.matchId);
+  const match = getResolvedMatch(input.matchId);
 
   db.insert(actualResults)
     .values({
@@ -217,5 +235,6 @@ function resolveWinner(
   }
   if (input.homeScore > input.awayScore) return match.homeTeamId;
   if (input.awayScore > input.homeScore) return match.awayTeamId;
-  return input.winnerTeamId ?? match.homeTeamId;
+  // Level knockout score with no valid explicit winner — leave unresolved.
+  return null;
 }

@@ -86,6 +86,14 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
               stale
             </span>
           )}
+          {prediction.newsAdjusted && prediction.newsImpact && (
+            <span
+              className="ml-2 rounded bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand"
+              title={`Squad news Elo impact — home ${prediction.newsImpact.homeEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.homeEloDelta}, away ${prediction.newsImpact.awayEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.awayEloDelta}`}
+            >
+              news-adjusted
+            </span>
+          )}
         </div>
         <Button variant="ghost" disabled={loading || bulkRunning} onClick={() => run(true)}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />

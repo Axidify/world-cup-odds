@@ -4,7 +4,7 @@ import { PendingResultsPanel } from "@/components/PendingResultsPanel";
 import { Button } from "@/components/ui/Button";
 import { formatMoney } from "@/lib/utils/currency";
 import { getPoolName } from "@/lib/betting/leaderboard";
-import { getMinStakeMyr } from "@/lib/betting/locks";
+import { getFixedStakeMyr } from "@/lib/betting/locks";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,8 @@ export default function OfficePage() {
           <p className="num text-xs font-semibold uppercase tracking-widest text-brand">Office Pool · MYR</p>
           <h1 className="mt-2 font-[family-name:var(--font-archivo)] text-3xl font-bold">{getPoolName()}</h1>
           <p className="mt-2 text-sm text-text-muted">
-            Real-money tracking in Malaysian Ringgit — settle offline among colleagues. Minimum stake{" "}
-            {formatMoney(getMinStakeMyr())}.
+            One market: World Cup winner. Fixed {formatMoney(getFixedStakeMyr())} stake per bet —
+            settle offline among colleagues.
           </p>
         </div>
         <Link href="/office/bets">

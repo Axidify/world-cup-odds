@@ -12,7 +12,7 @@ import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { loadPredictionStore, MissingPredictionError } from "@/lib/sim/prediction-store";
 import { saveSimulation } from "@/lib/sim/simulation-cache";
-import { getAllMatches } from "@/lib/data/load";
+import { getResolvedMatches } from "@/lib/data/resolved";
 
 export class TournamentSimulationError extends Error {
   constructor(
@@ -27,7 +27,7 @@ export class TournamentSimulationError extends Error {
 
 function mergeConfirmedResults(): Map<string, import("@/lib/types").PlayedMatchResult> {
   const raw = getConfirmedResults();
-  const byId = new Map(getAllMatches().map((m) => [m.id, m]));
+  const byId = new Map(getResolvedMatches().map((m) => [m.id, m]));
   const merged = new Map<string, import("@/lib/types").PlayedMatchResult>();
   for (const [matchId, row] of raw) {
     const fx = byId.get(matchId);

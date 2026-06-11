@@ -18,15 +18,18 @@ async function main() {
   }
 
   const intervalMin = Number(process.env.RESULTS_POLL_INTERVAL_MINUTES ?? 15);
-  const cronExpr = `*/${Math.max(1, Math.min(intervalMin, 59))} * * * *`;
+  const resultsIntervalMs = Math.max(1, intervalMin) * 60 * 1000;
 
   const { runResultsPollJob } = await import("@/lib/jobs/poll-results");
   const { runNewsPollJob } = await import("@/lib/jobs/poll-news");
+  const { getResultsPollPlan } = await import("@/lib/jobs/poll-schedule");
 
   const newsHours = Number(process.env.NEWS_POLL_INTERVAL_HOURS ?? 6);
   const newsCron = `0 */${Math.max(1, Math.min(newsHours, 23))} * * *`;
 
-  console.log(`[poller] Starting results poller (every ${intervalMin} min)`);
+  console.log(
+    `[poller] Results poller schedule-aware (every ${intervalMin} min when matches need scores)`,
+  );
   console.log(`[poller] Starting news poller (every ${newsHours} h)`);
 
   const runResults = async (backfill = false) => {
@@ -53,8 +56,36 @@ async function main() {
 
   await runResults(true);
   await runNews();
-  cron.schedule(cronExpr, () => void runResults(false));
+
+  const { runStartupPipeline } = await import("@/lib/pipeline/auto-pipeline");
+  const { getPipelineConfig } = await import("@/lib/pipeline/config");
+  const pipeline = getPipelineConfig();
+  if (pipeline.enabled) {
+    console.log(
+      `[poller] Auto-pipeline on (simulate=${pipeline.simulateOnResults}, analyze=${pipeline.analyzeMissing})`,
+    );
+    void runStartupPipeline().catch((err) => {
+      console.error("[poller] Startup pipeline failed:", err);
+    });
+  }
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  const scheduleResultsLoop = async () => {
+    for (;;) {
+      const plan = getResultsPollPlan(resultsIntervalMs);
+      if (plan.shouldPoll) {
+        await runResults(false);
+      } else {
+        const wake = new Date(plan.nextPollAt).toISOString();
+        console.log(`[poller] results idle — ${plan.reason}; next check ${wake}`);
+      }
+      await sleep(plan.delayMs);
+    }
+  };
+
   cron.schedule(newsCron, () => void runNews());
+  void scheduleResultsLoop();
   console.log("[poller] Scheduled. Press Ctrl+C to stop.");
 }
 

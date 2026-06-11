@@ -1,5 +1,5 @@
 import { eq, or } from "drizzle-orm";
-import { getMatch } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { predictions } from "@/lib/db/schema";
 import { settleBetsForConfirmedMatch } from "@/lib/betting/settle";
@@ -37,7 +37,7 @@ export function finalizeResultConfirmation(
   matchId: string,
   confirmedBy: "auto" | "admin",
 ): boolean {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   const confirmed = confirmResult(matchId, confirmedBy);
   if (!confirmed) return false;
 
@@ -48,6 +48,10 @@ export function finalizeResultConfirmation(
   if (match && match.homeTeamId !== "TBD" && match.awayTeamId !== "TBD") {
     markTeamsStale(match.homeTeamId, match.awayTeamId);
   }
+
+  void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {
+    scheduleAutoSimulation("result_confirmed");
+  });
 
   return true;
 }
@@ -61,8 +65,18 @@ export function applyAdminConfirmedResult(input: {
   winnerTeamId?: string | null;
   source?: string;
 }): boolean {
-  const match = getMatch(input.matchId);
+  const match = getResolvedMatch(input.matchId);
   if (!match) return false;
+
+  // Knockout ties need an explicit valid winner — refuse to confirm a guess.
+  if (
+    match.stage !== "group" &&
+    input.homeScore === input.awayScore &&
+    input.winnerTeamId !== match.homeTeamId &&
+    input.winnerTeamId !== match.awayTeamId
+  ) {
+    return false;
+  }
 
   upsertConfirmedResult(input, "admin");
   logPredictionAccuracy(input.matchId);
@@ -72,6 +86,10 @@ export function applyAdminConfirmedResult(input: {
   if (match.homeTeamId !== "TBD" && match.awayTeamId !== "TBD") {
     markTeamsStale(match.homeTeamId, match.awayTeamId);
   }
+
+  void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {
+    scheduleAutoSimulation("result_confirmed");
+  });
 
   return true;
 }

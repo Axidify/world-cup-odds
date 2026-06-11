@@ -4,9 +4,11 @@ import {
   cancelBulkAnalyze,
   getBulkJobState,
   isBulkJobRunning,
-  startBulkAnalyze,
+  resetBulkJobState,
 } from "@/lib/ai/bulk-job";
+import { triggerBulkAnalyzeInProcess } from "@/lib/ai/trigger-bulk-analyze";
 import { countBulkTargets } from "@/lib/ai/preanalyze";
+import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,16 @@ const bodySchema = z.object({
 
 export async function GET() {
   getDb();
-  const job = getBulkJobState();
+  let job = getBulkJobState();
+  const provider = resolveActiveProvider();
+  if (
+    provider &&
+    job.provider &&
+    job.provider !== provider &&
+    job.status !== "running"
+  ) {
+    job = resetBulkJobState();
+  }
   const targets = countBulkTargets(false);
   const active = isBulkJobRunning();
   return NextResponse.json({ job, targets, active });
@@ -44,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const job = await startBulkAnalyze({ refresh: parsed.data.refresh ?? false });
+    const job = await triggerBulkAnalyzeInProcess({ refresh: parsed.data.refresh ?? false });
     return NextResponse.json({ job, active: isBulkJobRunning() });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to start bulk analyze";

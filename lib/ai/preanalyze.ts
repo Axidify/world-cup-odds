@@ -3,6 +3,8 @@ import { isPredictionExpired } from "@/lib/ai/cache-ttl";
 import { getPredictionForPair } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getFixtures, getTeams } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
+import type { MissingPairing } from "@/lib/types";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
@@ -43,6 +45,27 @@ export function getTop24TeamIds(): string[] {
     .sort((a, b) => a.fifaRank - b.fifaRank)
     .slice(0, 24)
     .map((t) => t.id);
+}
+
+function gapPairLabel(g: MissingPairing): string {
+  return `${g.homeTeamId} vs ${g.awayTeamId} (${g.stage})`;
+}
+
+/** Knockout bracket gaps carry resolved teams but fixtures may still be TBD — use pair analysis. */
+export function workItemForGap(g: MissingPairing): BulkWorkItem {
+  if (g.matchId) {
+    const fx = getResolvedMatch(g.matchId);
+    if (fx && fx.homeTeamId !== "TBD" && fx.awayTeamId !== "TBD") {
+      return { kind: "match", matchId: g.matchId, label: gapPairLabel(g) };
+    }
+  }
+  return {
+    kind: "pair",
+    homeTeamId: g.homeTeamId,
+    awayTeamId: g.awayTeamId,
+    stage: g.stage,
+    label: gapPairLabel(g),
+  };
 }
 
 export function buildTop24Pairings(): Array<{ homeTeamId: string; awayTeamId: string }> {
@@ -106,35 +129,37 @@ export function buildBulkAnalyzeQueue(options: {
       if (seen.has(key)) continue;
       if (isCached(g.homeTeamId, g.awayTeamId, g.stage, provider, refresh)) continue;
       seen.add(key);
-      if (g.matchId) {
-        queue.push({
-          kind: "match",
-          matchId: g.matchId,
-          label: `${g.homeTeamId} vs ${g.awayTeamId} (${g.stage})`,
-        });
-      } else {
-        queue.push({
-          kind: "pair",
-          homeTeamId: g.homeTeamId,
-          awayTeamId: g.awayTeamId,
-          stage: g.stage,
-          label: `${g.homeTeamId} vs ${g.awayTeamId} (${g.stage})`,
-        });
-      }
+      queue.push(workItemForGap(g));
     }
   }
 
   return queue;
 }
 
-export function countBulkTargets(refresh = false): { total: number; cached: number } {
-  const groupCount = getFixtures().filter(
-    (m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD",
-  ).length;
+export function countBulkTargets(refresh = false): {
+  total: number;
+  cached: number;
+  remaining: number;
+} {
   const pairCount = buildTop24Pairings().length;
-  const baseline = groupCount + pairCount;
   const provider = resolveActiveProvider();
-  if (!provider) return { total: baseline, cached: 0 };
+  if (!provider) {
+    const groupCount = getFixtures().filter(
+      (m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD",
+    ).length;
+    const total = groupCount + pairCount;
+    return { total, cached: 0, remaining: total };
+  }
+
+  const confirmed = getConfirmedResults();
+  const groupCount = getFixtures().filter(
+    (m) =>
+      m.homeTeamId !== "TBD" &&
+      m.awayTeamId !== "TBD" &&
+      !confirmed.has(m.id),
+  ).length;
+  const total = groupCount + pairCount;
   const queue = buildBulkAnalyzeQueue({ refresh, includeGaps: false });
-  return { total: baseline, cached: Math.max(0, baseline - queue.length) };
+  const remaining = queue.length;
+  return { total, cached: Math.max(0, total - remaining), remaining };
 }

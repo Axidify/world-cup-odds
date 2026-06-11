@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { formatStageLabel } from "@/lib/utils/match-label";
+import { formatUtcDate } from "@/lib/utils/dates";
 
 type PendingRow = {
   matchId: string;
@@ -34,6 +36,8 @@ export function PendingResultsPanel() {
 
   useEffect(() => {
     void load();
+    const id = setInterval(() => void load(), 60_000);
+    return () => clearInterval(id);
   }, [load]);
 
   async function confirm(matchId: string) {
@@ -89,8 +93,9 @@ export function PendingResultsPanel() {
               <p className="text-sm font-semibold">
                 {row.homeName} {row.homeScore}–{row.awayScore} {row.awayName}
               </p>
-              <p className="num text-xs text-text-muted">
-                {row.matchId} · {row.stage} · {row.date.slice(0, 10)}
+              <p className="text-xs text-text-muted">
+                {formatStageLabel(row.stage)} · {formatUtcDate(row.date)}
+                {row.source ? ` · via ${row.source}` : ""}
               </p>
             </div>
             <Button

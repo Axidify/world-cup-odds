@@ -2,13 +2,15 @@ import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
 import { formatUtcDate } from "@/lib/utils/dates";
-import type { GroupAssignment, GroupStanding, Match, Team } from "@/lib/types";
+import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
 type Props = {
   group: GroupAssignment;
   teams: Team[];
   fixtures: Match[];
   standings?: GroupStanding[];
+  confirmedScores?: Map<string, PlayedMatchResult>;
+  showFixtures?: boolean;
 };
 
 function standingRowClass(position: number): string {
@@ -17,7 +19,14 @@ function standingRowClass(position: number): string {
   return "opacity-70";
 }
 
-export function GroupCard({ group, teams, fixtures, standings }: Props) {
+export function GroupCard({
+  group,
+  teams,
+  fixtures,
+  standings,
+  confirmedScores,
+  showFixtures = true,
+}: Props) {
   const teamMap = new Map(teams.map((t) => [t.id, t]));
   const groupFixtures = fixtures.filter((f) => f.group === group.group);
   const standingByTeam = new Map(standings?.map((s) => [s.teamId, s]));
@@ -79,24 +88,34 @@ export function GroupCard({ group, teams, fixtures, standings }: Props) {
           })}
         </tbody>
       </table>
+      {showFixtures && (
       <div className="mt-2 border-t border-border pt-2">
         {groupFixtures.map((m) => {
           const home = teamMap.get(m.homeTeamId as string);
           const away = teamMap.get(m.awayTeamId as string);
+          const result = confirmedScores?.get(m.id);
           return (
             <Link
               key={m.id}
               href={`/match/${m.id}`}
-              className="flex items-center justify-between py-2 text-xs hover:text-brand"
+              className="flex items-center justify-between gap-2 py-2 text-xs hover:text-brand"
             >
               <span>
                 {home?.id.toUpperCase()} vs {away?.id.toUpperCase()}
               </span>
-              <span className="num text-text-muted">{formatUtcDate(m.date)}</span>
+              {result ? (
+                <span className="num shrink-0 font-semibold text-win">
+                  {result.homeGoals}–{result.awayGoals}{" "}
+                  <span className="text-[10px] font-normal uppercase tracking-wide">FT</span>
+                </span>
+              ) : (
+                <span className="num shrink-0 text-text-muted">{formatUtcDate(m.date)}</span>
+              )}
             </Link>
           );
         })}
       </div>
+      )}
     </Card>
   );
 }

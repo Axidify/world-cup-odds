@@ -4,8 +4,9 @@ import {
   buildTop24Pairings,
   countBulkTargets,
   getTop24TeamIds,
+  workItemForGap,
 } from "@/lib/ai/preanalyze";
-import { getFixtures } from "@/lib/data/load";
+import { getFixtures, getMatch } from "@/lib/data/load";
 
 describe("preanalyze", () => {
   it("selects top 24 teams by FIFA rank", () => {
@@ -30,8 +31,42 @@ describe("preanalyze", () => {
   });
 
   it("reports zero cached when no LLM provider is configured", () => {
-    const { total, cached } = countBulkTargets();
+    const { total, cached, remaining } = countBulkTargets();
     expect(total).toBe(348);
     expect(cached).toBe(0);
+    expect(remaining).toBe(348);
+  });
+
+  it("uses pair analysis for knockout gaps when the fixture still has TBD teams", () => {
+    const groupFx = getFixtures().find(
+      (m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD",
+    )!;
+    expect(workItemForGap({
+      homeTeamId: groupFx.homeTeamId,
+      awayTeamId: groupFx.awayTeamId,
+      stage: "group",
+      matchId: groupFx.id,
+    })).toEqual({
+      kind: "match",
+      matchId: groupFx.id,
+      label: `${groupFx.homeTeamId} vs ${groupFx.awayTeamId} (group)`,
+    });
+
+    const koFx = getMatch("r32-1")!;
+    expect(koFx.homeTeamId).toBe("TBD");
+    expect(
+      workItemForGap({
+        homeTeamId: "kor",
+        awayTeamId: "qat",
+        stage: "r32",
+        matchId: koFx.id,
+      }),
+    ).toEqual({
+      kind: "pair",
+      homeTeamId: "kor",
+      awayTeamId: "qat",
+      stage: "r32",
+      label: "kor vs qat (r32)",
+    });
   });
 });

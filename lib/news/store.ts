@@ -9,6 +9,8 @@ export type TeamEventRow = {
   player: string | null;
   detail: string | null;
   source: string | null;
+  severity: string | null;
+  keyPlayer: boolean;
   fetchedAt: string;
 };
 
@@ -33,6 +35,8 @@ export function getTeamEvents(teamId: string): TeamEventRow[] {
       player: row.player,
       detail: row.detail,
       source: row.source,
+      severity: row.severity,
+      keyPlayer: row.keyPlayer === 1,
       fetchedAt: row.fetchedAt,
     }))
     .sort((a, b) => b.fetchedAt.localeCompare(a.fetchedAt));
@@ -58,6 +62,8 @@ export function replaceTeamEvents(
     player?: string | null;
     detail?: string | null;
     source?: string | null;
+    severity?: string | null;
+    keyPlayer?: boolean;
   }>,
   fetchedAt: string,
 ): TeamEventRow[] {
@@ -74,6 +80,8 @@ export function replaceTeamEvents(
         player: e.player ?? null,
         detail: e.detail ?? null,
         source: e.source ?? null,
+        severity: e.severity ?? null,
+        keyPlayer: e.keyPlayer ? 1 : 0,
         fetchedAt,
       })
       .run();

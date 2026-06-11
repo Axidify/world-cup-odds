@@ -17,6 +17,7 @@ export function createOpenAICompatibleClient(options: Options): LLMClient {
     baseURL: options.baseURL,
     defaultHeaders: options.defaultHeaders,
     timeout: options.timeoutMs ?? 120_000,
+    maxRetries: 0,
   });
 
   const baseForHealth = (options.baseURL ?? "https://api.openai.com/v1").replace(/\/$/, "");
@@ -24,13 +25,15 @@ export function createOpenAICompatibleClient(options: Options): LLMClient {
   return {
     config: options.config,
     async completeJSON(system, user) {
+      // vLLM + Qwen often hang or queue badly with response_format json_object.
+      const useJsonFormat = options.config.provider !== "vllm";
       const response = await client.chat.completions.create({
         model: options.config.model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        response_format: { type: "json_object" },
+        ...(useJsonFormat ? { response_format: { type: "json_object" as const } } : {}),
         max_tokens: options.maxTokens ?? 512,
         temperature: 0.3,
       });

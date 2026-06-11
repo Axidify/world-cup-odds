@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AccuracySummary } from "@/lib/calibration/metrics";
 import { Card } from "@/components/ui/Card";
 
@@ -8,12 +8,21 @@ export function AccuracyDashboard() {
   const [data, setData] = useState<AccuracySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/accuracy")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setError("Failed to load accuracy metrics"));
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/accuracy");
+      setData(await res.json());
+      setError(null);
+    } catch {
+      setError("Failed to load accuracy metrics");
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+    const id = setInterval(() => void load(), 60_000);
+    return () => clearInterval(id);
+  }, [load]);
 
   if (error) {
     return <p className="text-sm text-loss">{error}</p>;

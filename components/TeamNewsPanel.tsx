@@ -11,11 +11,14 @@ type TeamNewsBlock = {
   elo: number | null;
   summary: string | null;
   fetchedAt: string | null;
+  impact: { eloDelta: number; reasons: string[] } | null;
   events: Array<{
     type: string;
     player: string | null;
     detail: string | null;
     source: string | null;
+    severity?: string | null;
+    keyPlayer?: boolean;
   }>;
 };
 
@@ -94,9 +97,22 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
           <div key={team!.teamId} className="rounded-lg bg-surface-2 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-sm font-semibold">{team!.teamName}</p>
-              {team!.elo != null && (
-                <p className="num text-xs text-text-muted">Elo {Math.round(team!.elo)}</p>
-              )}
+              <div className="flex items-baseline gap-2">
+                {team!.impact != null && team!.impact.eloDelta !== 0 && (
+                  <span
+                    className={`num rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      team!.impact.eloDelta < 0 ? "bg-loss/10 text-loss" : "bg-win/10 text-win"
+                    }`}
+                    title={team!.impact.reasons.join("\n")}
+                  >
+                    news {team!.impact.eloDelta > 0 ? "+" : ""}
+                    {team!.impact.eloDelta} Elo
+                  </span>
+                )}
+                {team!.elo != null && (
+                  <p className="num text-xs text-text-muted">Elo {Math.round(team!.elo)}</p>
+                )}
+              </div>
             </div>
             <p className="mt-2 text-sm text-text-muted">
               {team!.summary ?? "No squad news synced yet — poller runs every 6h for upcoming matches."}
@@ -106,6 +122,7 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
                 {team!.events.map((e, i) => (
                   <li key={`${e.type}-${i}`} className="text-text-muted">
                     <span className="font-semibold uppercase text-text">{e.type}</span>
+                    {e.severity ? ` (${e.severity}${e.keyPlayer ? ", key player" : ""})` : ""}
                     {e.player ? ` · ${e.player}` : ""}
                     {e.detail ? ` — ${e.detail}` : ""}
                     {e.source && (

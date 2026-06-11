@@ -65,6 +65,8 @@ For local vLLM on an H100, see **[docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.
 
 **Poller** (separate process): `npm run poller` — syncs match results (every 15 min) and squad news (every 6 h) via Tavily/Serper. Results auto-confirm when 2+ snippets agree. Requires `TAVILY_API_KEY` (or `SERPER_API_KEY`). Production: `npm run start:all`.
 
+**Auto-pipeline** (poller, on by default): when results confirm, re-runs simulation automatically (debounced). Dashboard shows “Auto-updating odds and bracket…”. Env: `AUTO_PIPELINE_ENABLED`, `AUTO_SIMULATE_ON_RESULTS`, `AUTO_PIPELINE_ON_START`, `AUTO_ANALYZE_MISSING` (optional LLM gap-fill).
+
 ## Scripts
 
 | Command | Purpose |
@@ -85,8 +87,8 @@ For local vLLM on an H100, see **[docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.
 - **Phase 5A:** Results pipeline, poller, accuracy dashboard
 - **Phase 5B:** Team news polling, Elo tracking, prompt memory in analysis
 - **Phase 5C:** Optional statistical calibration (`CALIBRATION_ENABLED`)
-- **Phase 6 (current):** Office betting pool — MYR stakes, AI odds lines, auto-settlement, leaderboard
+- **Phase 6 (current):** Office betting pool — champion-only, fixed RM 100 stakes, AI odds lines, auto-settlement, leaderboard
 
-Office betting uses an office-trust model (name picker, no login). Set `ADMIN_PIN` for voids and result confirm. Bets lock at kickoff; champion bets lock at `TOURNAMENT_LOCK_AT` (defaults to first kickoff).
+Office betting uses an office-trust model (name picker, no login). The pool takes a single market — World Cup winner — at a fixed stake (`POOL_FIXED_STAKE_MYR`, default RM 100). Set `ADMIN_PIN` for voids and result confirm. Bets lock at `TOURNAMENT_LOCK_AT` (defaults to first kickoff) and settle when the final result is confirmed.
 
 Design reference: `World Cup Odds - v0 Mockup.html`

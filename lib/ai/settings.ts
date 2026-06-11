@@ -44,6 +44,9 @@ export function setActiveProvider(provider: LLMProvider): void {
     throw new Error(`Provider "${provider}" is not configured`);
   }
   const db = getDb();
+  const existing = db.select().from(appSettings).where(eq(appSettings.key, SETTINGS_KEY)).get();
+  const previous = existing?.value as LLMProvider | undefined;
+
   const now = new Date().toISOString();
   db.insert(appSettings)
     .values({ key: SETTINGS_KEY, value: provider, updatedAt: now })
@@ -52,4 +55,10 @@ export function setActiveProvider(provider: LLMProvider): void {
       set: { value: provider, updatedAt: now },
     })
     .run();
+
+  if (previous && previous !== provider) {
+    void import("@/lib/ai/bulk-job").then(({ resetBulkJobState }) => {
+      resetBulkJobState();
+    });
+  }
 }

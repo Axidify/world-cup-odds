@@ -40,8 +40,9 @@ export function isMatchBettingLocked(match: Match, now = new Date()): boolean {
   return now.getTime() >= new Date(match.date).getTime();
 }
 
-export function getMinStakeMyr(): number {
-  const raw = Number(process.env.POOL_MIN_STAKE_MYR ?? 1);
-  if (!Number.isFinite(raw) || raw <= 0) return 1;
+/** Office pool runs on a fixed champion-bet stake (default RM 100). */
+export function getFixedStakeMyr(): number {
+  const raw = Number(process.env.POOL_FIXED_STAKE_MYR ?? 100);
+  if (!Number.isFinite(raw) || raw <= 0) return 100;
   return raw;
 }

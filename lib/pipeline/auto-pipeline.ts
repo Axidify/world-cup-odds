@@ -1,0 +1,176 @@
+import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
+import { triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
+import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
+import { isProviderReady, resolveActiveProvider } from "@/lib/ai/settings";
+import { collectMissingPairings } from "@/lib/sim/gap-analysis";
+import { loadPredictionStore } from "@/lib/sim/prediction-store";
+import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/run-tournament";
+import { getSimulationStaleState, getLatestSimulation } from "@/lib/sim/simulation-cache";
+import { tryAcquireTournamentLock, releaseTournamentLock } from "@/lib/sim/tournament-lock";
+import { getPipelineConfig } from "@/lib/pipeline/config";
+import { getPipelineState, writePipelineState } from "@/lib/pipeline/pipeline-state";
+
+const DEBOUNCE_MS = 5_000;
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingTrigger: string | null = null;
+let running: Promise<void> | null = null;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForBulkJob(timeoutMs = 3_600_000): Promise<void> {
+  const started = Date.now();
+  while (isBulkJobRunning() || getBulkJobState().status === "running") {
+    if (Date.now() - started > timeoutMs) {
+      throw new Error("Timed out waiting for bulk analyze");
+    }
+    await sleep(2_000);
+  }
+}
+
+async function ensurePredictionsIfConfigured(): Promise<boolean> {
+  const config = getPipelineConfig();
+  if (!config.analyzeMissing) return false;
+
+  const provider = resolveActiveProvider();
+  if (!provider) return false;
+
+  const queue = buildBulkAnalyzeQueue({ refresh: false, includeGaps: true });
+  if (queue.length === 0) return true;
+
+  if (!isBulkJobRunning()) {
+    writePipelineState({ status: "running", step: "analyze", trigger: "auto" });
+    await triggerBulkAnalyze({ refresh: false });
+  }
+  await waitForBulkJob();
+  return getBulkJobState().failed === 0;
+}
+
+export async function runAutoSimulation(trigger: string): Promise<void> {
+  const config = getPipelineConfig();
+  if (!config.enabled) return;
+
+  if (!isProviderReady()) {
+    writePipelineState({
+      status: "skipped",
+      trigger,
+      step: null,
+      finishedAt: new Date().toISOString(),
+      error: "No LLM provider configured",
+    });
+    return;
+  }
+
+  if (isBulkJobRunning()) {
+    scheduleAutoSimulation(trigger);
+    return;
+  }
+
+  if (!tryAcquireTournamentLock()) {
+    scheduleAutoSimulation(trigger);
+    return;
+  }
+
+  writePipelineState({
+    status: "running",
+    trigger,
+    step: "simulate",
+    startedAt: new Date().toISOString(),
+    error: null,
+  });
+
+  try {
+    const provider = resolveActiveProvider()!;
+    const store = loadPredictionStore(provider);
+    const missing = collectMissingPairings(store, provider);
+    if (missing.length > 0) {
+      const analyzed = await ensurePredictionsIfConfigured();
+      if (!analyzed) {
+        writePipelineState({
+          status: "skipped",
+          trigger,
+          step: null,
+          finishedAt: new Date().toISOString(),
+          error: `Missing ${missing.length} prediction(s) — enable AUTO_ANALYZE_MISSING or analyze manually`,
+        });
+        return;
+      }
+    }
+
+    runTournamentSimulation();
+    writePipelineState({
+      status: "completed",
+      trigger,
+      step: null,
+      finishedAt: new Date().toISOString(),
+      error: null,
+    });
+  } catch (err) {
+    const msg =
+      err instanceof TournamentSimulationError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Auto simulation failed";
+    writePipelineState({
+      status: "failed",
+      trigger,
+      step: null,
+      finishedAt: new Date().toISOString(),
+      error: msg,
+    });
+  } finally {
+    releaseTournamentLock();
+  }
+}
+
+export function scheduleAutoSimulation(trigger: string): void {
+  const config = getPipelineConfig();
+  if (!config.enabled || !config.simulateOnResults) return;
+
+  pendingTrigger = trigger;
+  writePipelineState({ status: "scheduled", trigger, error: null });
+
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    const t = pendingTrigger ?? trigger;
+    pendingTrigger = null;
+    void enqueuePipelineRun(t);
+  }, DEBOUNCE_MS);
+}
+
+async function enqueuePipelineRun(trigger: string): Promise<void> {
+  if (running) {
+    running = running.then(() => enqueuePipelineRun(trigger));
+    return;
+  }
+  running = runAutoSimulation(trigger).finally(() => {
+    running = null;
+  });
+  await running;
+}
+
+/** Poller startup: analyze gaps (optional) and simulate if needed. */
+export async function runStartupPipeline(): Promise<void> {
+  const config = getPipelineConfig();
+  if (!config.enabled || !config.onStart) return;
+
+  const sim = getLatestSimulation();
+  const stale = getSimulationStaleState();
+
+  if (config.analyzeMissing) {
+    await ensurePredictionsIfConfigured();
+  }
+
+  if (!sim || stale.stale) {
+    await enqueuePipelineRun("startup");
+  }
+}
+
+export function isPipelineActive(): boolean {
+  const state = getPipelineState();
+  return state.status === "running" || state.status === "scheduled" || running !== null;
+}

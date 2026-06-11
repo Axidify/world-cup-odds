@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { placeBet } from "@/lib/betting/place-bet";
 import { getBet, listBets } from "@/lib/betting/store";
-import { getMatch, getTeam } from "@/lib/data/load";
+import { getTeam, getTeamMap } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
+import { formatMatchLabel } from "@/lib/utils/match-label";
 import { getDb } from "@/lib/db";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 
@@ -35,13 +37,16 @@ export async function GET(request: Request) {
     limit: Number(searchParams.get("limit") ?? 200),
   });
 
+  const teamMap = getTeamMap();
   const enriched = bets.map((bet) => {
     let label = bet.selection;
+    let matchLabel: string | null = null;
     if (bet.betType === "champion") {
       label = getTeam(bet.selection)?.name ?? bet.selection;
     } else if (bet.matchId) {
-      const match = getMatch(bet.matchId);
+      const match = getResolvedMatch(bet.matchId);
       if (match) {
+        matchLabel = formatMatchLabel(match, teamMap);
         const home = getTeam(match.homeTeamId);
         const away = getTeam(match.awayTeamId);
         if (bet.selection === "home") label = home?.name ?? "Home";
@@ -49,7 +54,7 @@ export async function GET(request: Request) {
         else if (bet.selection === "draw") label = "Draw";
       }
     }
-    return { ...bet, selectionLabel: label };
+    return { ...bet, selectionLabel: label, matchLabel };
   });
 
   return NextResponse.json({ bets: enriched });

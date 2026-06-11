@@ -2,14 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Dev Server",
-      "type": "npm",
-      "script": "dev",
+      "label": "Dev (port 3000)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PORT": "3000"
+        }
+      },
       "problemMatcher": {
         "owner": "typescript",
-        "pattern": {
-          "regexp": "^$"
-        },
+        "pattern": { "regexp": "^$" },
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".",
@@ -28,11 +32,37 @@
       }
     },
     {
-      "label": "Run Production Server",
+      "label": "Build",
       "type": "npm",
-      "script": "start",
+      "script": "build",
+      "problemMatcher": ["$tsc"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Start App + Poller (port 3001)",
+      "type": "shell",
+      "command": "npm run start:all",
       "dependsOn": ["Build"],
-      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PORT": "3001",
+          "APP_URL": "http://localhost:3001"
+        }
+      },
+      "problemMatcher": {
+        "owner": "typescript",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "(Ready in|Scheduled\\. Press)"
+        }
+      },
       "isBackground": true,
       "group": "build",
       "presentation": {
@@ -41,11 +71,37 @@
       }
     },
     {
-      "label": "Build",
-      "type": "npm",
-      "script": "build",
-      "problemMatcher": ["$tsc"],
-      "group": "build"
+      "label": "Poller only",
+      "type": "shell",
+      "command": "npm run poller",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PORT": "3001",
+          "APP_URL": "http://localhost:3001"
+        }
+      },
+      "problemMatcher": {
+        "owner": "typescript",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Scheduled\\. Press"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     },
+    {
+      "label": "Production: Build + Start All",
+      "dependsOn": ["Start App + Poller (port 3001)"],
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "group": "build"
+    }
   ]
 }

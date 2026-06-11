@@ -102,7 +102,9 @@ export async function extractMatchResult(
     if (winnerTeamId !== match.homeTeamId && winnerTeamId !== match.awayTeamId) {
       if (parsed.homeScore > parsed.awayScore) winnerTeamId = match.homeTeamId;
       else if (parsed.awayScore > parsed.homeScore) winnerTeamId = match.awayTeamId;
-      else winnerTeamId = match.homeTeamId;
+      // Level score with no extractable winner: keep null so the result
+      // stays pending until an admin resolves who advanced.
+      else winnerTeamId = null;
     }
   } else {
     winnerTeamId = null;

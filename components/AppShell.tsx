@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, Sun, Moon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ProviderStatus } from "@/components/ProviderStatus";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const nav = [
   { href: "/", label: "Dashboard" },
@@ -54,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-bg text-text">
       <header className="sticky top-0 z-40 flex h-[60px] items-center gap-4 border-b border-border bg-bg/80 px-4 backdrop-blur-md md:px-6">
         <Link href="/" className="flex items-center gap-2 font-[family-name:var(--font-archivo)] text-sm font-extrabold tracking-tight md:text-base">
@@ -152,12 +154,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           onClick={() => setMenuOpen(true)}
           className={`flex flex-1 flex-col items-center justify-center py-3 text-[10px] font-semibold min-h-[52px] sm:text-[11px] ${
-            isActive("/accuracy") ? "text-brand" : "text-text-muted"
+            nav.some((item) => !mobileTabs.includes(item) && isActive(item.href))
+              ? "text-brand"
+              : "text-text-muted"
           }`}
         >
           More
         </button>
       </nav>
     </div>
+    </ToastProvider>
   );
 }

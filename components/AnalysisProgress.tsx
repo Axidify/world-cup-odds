@@ -38,7 +38,12 @@ export function AnalysisProgress({ job, onCancel }: Props) {
           {done} / {job.total} ({pct}%)
         </span>
         {job.failed > 0 && <span className="text-loss">{job.failed} failed</span>}
-        {job.model && <span>{job.model}</span>}
+        {job.model && (
+          <span>
+            {job.provider ? `${job.provider} · ` : ""}
+            {job.model}
+          </span>
+        )}
       </div>
       {job.current && running && (
         <p className="flex items-center gap-2 text-xs text-text-muted">

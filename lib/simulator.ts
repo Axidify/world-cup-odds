@@ -114,7 +114,13 @@ function pickKnockoutWinner(
   rng: (() => number) | null,
 ): string {
   const conf = confirmed.get(matchId);
-  if (conf?.winnerTeamId) return conf.winnerTeamId;
+  if (conf) {
+    if (conf.winnerTeamId) return conf.winnerTeamId;
+    // Decisive confirmed score without explicit winner — derive it rather
+    // than falling through to AI predictions.
+    if (conf.homeGoals > conf.awayGoals) return homeTeamId;
+    if (conf.awayGoals > conf.homeGoals) return awayTeamId;
+  }
 
   const pred = store.get(homeTeamId, awayTeamId, stage, matchId);
   return rng
@@ -195,8 +201,13 @@ function runKnockout(
     }
   }
 
-  const final = path.find((p) => p.stage === "final") ?? path[path.length - 1];
-  return { championTeamId: final?.winnerTeamId ?? "", path };
+  const finalFixture = knockout.find((m) => m.stage === "final");
+  const championTeamId =
+    (finalFixture ? winners.get(finalFixture.id) : undefined) ??
+    path.find((p) => p.stage === "final")?.winnerTeamId ??
+    path[path.length - 1]?.winnerTeamId ??
+    "";
+  return { championTeamId, path };
 }
 
 export function runModalTournament(

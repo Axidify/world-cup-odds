@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isProviderReady } from "@/lib/ai/settings";
-import { getMatch, getTeam } from "@/lib/data/load";
+import { getTeam } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { pollTeamNews } from "@/lib/jobs/poll-news";
 import { getTeamNewsSummary } from "@/lib/news/store";
 import { isSearchConfigured } from "@/lib/search/provider";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     }
     teamIds.push(parsed.data.teamId);
   } else if (parsed.data.matchId) {
-    const match = getMatch(parsed.data.matchId);
+    const match = getResolvedMatch(parsed.data.matchId);
     if (!match) {
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }

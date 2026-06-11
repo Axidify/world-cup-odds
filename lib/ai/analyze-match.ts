@@ -1,4 +1,6 @@
-import { getMatch, getTeam } from "@/lib/data/load";
+import { getTeam } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
+import { applyNewsImpactToView } from "@/lib/news/impact";
 import type { MatchPredictionView } from "@/lib/types";
 import { createLLMClient } from "./llm";
 import { isProviderReady } from "./settings";
@@ -19,7 +21,7 @@ export async function analyzeMatch(
   matchId: string,
   options: { refresh?: boolean } = {},
 ): Promise<MatchPredictionView> {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   if (!match) throw new AnalyzeMatchError("Match not found", 404);
 
   if (match.homeTeamId === "TBD" || match.awayTeamId === "TBD") {
@@ -48,7 +50,7 @@ export async function analyzeMatch(
   if (!options.refresh) {
     const cached = getPredictionForPair(home.id, away.id, match.stage, client.config.provider);
     if (cached && cached.stale !== 1) {
-      return toMatchView(cached, home.id, away.id, true);
+      return applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id);
     }
   }
 
@@ -86,5 +88,5 @@ export async function analyzeMatch(
     ...parsed,
   });
 
-  return toMatchView(saved, home.id, away.id, false);
+  return applyNewsImpactToView(toMatchView(saved, home.id, away.id, false), home.id, away.id);
 }

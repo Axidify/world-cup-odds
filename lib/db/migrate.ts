@@ -58,6 +58,8 @@ export function runMigrations() {
       player TEXT,
       detail TEXT,
       source TEXT,
+      severity TEXT,
+      key_player INTEGER DEFAULT 0,
       fetched_at TEXT NOT NULL
     );
 
@@ -130,5 +132,15 @@ export function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets(bettor_id);
   `);
 
+  ensureColumn(db, "team_events", "severity", "severity TEXT");
+  ensureColumn(db, "team_events", "key_player", "key_player INTEGER DEFAULT 0");
+
   db.close();
+}
+
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
 }

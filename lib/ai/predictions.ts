@@ -172,7 +172,14 @@ export function savePrediction(
   return record;
 }
 
-export function countPredictions(): number {
+export function countPredictions(options?: {
+  provider?: LLMProvider | null;
+  nonStale?: boolean;
+}): number {
   const db = getDb();
-  return db.select().from(predictions).all().length;
+  const provider = options?.provider ?? resolveActiveProvider();
+  let rows = db.select().from(predictions).all();
+  if (provider) rows = rows.filter((r) => r.provider === provider);
+  if (options?.nonStale) rows = rows.filter((r) => r.stale !== 1);
+  return rows.length;
 }

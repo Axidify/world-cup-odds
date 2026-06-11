@@ -1,14 +1,19 @@
 import { deriveActualOutcome } from "@/lib/calibration/metrics";
 import type { Match } from "@/lib/types";
-import type { ResultRow } from "@/lib/results/store";
 import { isKnockoutStage } from "./locks";
 
 export type BetSelection = "home" | "draw" | "away" | string;
 
+export type SettleableResult = {
+  homeScore: number;
+  awayScore: number;
+  winnerTeamId: string | null;
+};
+
 export function matchBetWins(
   match: Match,
   selection: BetSelection,
-  result: Pick<ResultRow, "homeScore" | "awayScore" | "winnerTeamId">,
+  result: SettleableResult,
 ): boolean {
   if (isKnockoutStage(match.stage)) {
     const winner =
@@ -25,7 +30,7 @@ export function matchBetWins(
   }
 
   const actual = deriveActualOutcome(match, result);
-  return selection === actual;
+  return actual != null && selection === actual;
 }
 
 export function championBetWins(selection: string, championTeamId: string): boolean {

@@ -1,12 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { Match, Prediction } from "@/lib/types";
-import { getMatch } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
 import { listProviderInfos } from "@/lib/ai/config";
 import { getPredictionForPair } from "@/lib/ai/predictions";
 import type { LLMProvider } from "@/lib/types";
-import type { ResultRow } from "@/lib/results/store";
 
 export type ActualOutcome = "home" | "draw" | "away";
 
@@ -38,16 +37,17 @@ export type AccuracySummary = {
   }>;
 };
 
+/** Returns null when a knockout winner cannot be determined (level score, no valid winnerTeamId). */
 export function deriveActualOutcome(
   match: Match,
-  result: Pick<ResultRow, "homeScore" | "awayScore" | "winnerTeamId">,
-): ActualOutcome {
+  result: { homeScore: number; awayScore: number; winnerTeamId: string | null },
+): ActualOutcome | null {
   if (match.stage !== "group") {
     if (result.winnerTeamId === match.homeTeamId) return "home";
     if (result.winnerTeamId === match.awayTeamId) return "away";
     if (result.homeScore > result.awayScore) return "home";
     if (result.awayScore > result.homeScore) return "away";
-    return "home";
+    return null;
   }
   if (result.homeScore > result.awayScore) return "home";
   if (result.homeScore < result.awayScore) return "away";
@@ -142,7 +142,7 @@ function parseLogRow(row: typeof predictionLog.$inferSelect): PredictionLogEntry
   const predicted = JSON.parse(row.predicted) as { home: number; draw: number; away: number };
   const actual = row.actual as ActualOutcome;
   const probs = storedPredictedToProbs(predicted);
-  const match = getMatch(row.matchId);
+  const match = getResolvedMatch(row.matchId);
   const allowDraw = match?.stage === "group";
   return {
     id: row.id,
@@ -158,7 +158,7 @@ function parseLogRow(row: typeof predictionLog.$inferSelect): PredictionLogEntry
 }
 
 export function logPredictionAccuracy(matchId: string): PredictionLogEntry | null {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   if (!match || match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return null;
 
   const db = getDb();
@@ -185,6 +185,7 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
     awayScore: resultRow.awayScore,
     winnerTeamId: resultRow.winnerTeamId,
   });
+  if (!actual) return existing ? parseLogRow(existing) : null;
   const brier = computeBrier(probs, actual);
   const logLoss = computeLogLoss(probs, actual);
   const predictedJson = JSON.stringify({
@@ -243,13 +244,13 @@ export function getAccuracySummary(): AccuracySummary {
 
   const byStage: AccuracySummary["byStage"] = {};
   for (const e of entries) {
-    const match = getMatch(e.matchId);
+    const match = getResolvedMatch(e.matchId);
     const stage = match?.stage ?? "unknown";
     if (!byStage[stage]) byStage[stage] = { count: 0, avgBrier: null, directionAccuracy: null };
     byStage[stage].count += 1;
   }
   for (const stage of Object.keys(byStage)) {
-    const stageEntries = entries.filter((e) => (getMatch(e.matchId)?.stage ?? "unknown") === stage);
+    const stageEntries = entries.filter((e) => (getResolvedMatch(e.matchId)?.stage ?? "unknown") === stage);
     byStage[stage].avgBrier = stageEntries.reduce((s, e) => s + e.brier, 0) / stageEntries.length;
     byStage[stage].directionAccuracy =
       Math.round(
@@ -265,7 +266,7 @@ export function getAccuracySummary(): AccuracySummary {
   }));
 
   for (const e of entries) {
-    const match = getMatch(e.matchId);
+    const match = getResolvedMatch(e.matchId);
     if (!match) continue;
     const fav = pickFavoriteOutcome(e.predicted, match.stage);
     const favProb = e.predicted[fav] / 100;
@@ -288,7 +289,7 @@ export function getAccuracySummary(): AccuracySummary {
     .sort((a, b) => b.brier - a.brier)
     .slice(0, 10)
     .map((e) => {
-      const match = getMatch(e.matchId);
+      const match = getResolvedMatch(e.matchId);
       const fav = pickFavoriteOutcome(e.predicted, match?.stage);
       return {
         matchId: e.matchId,

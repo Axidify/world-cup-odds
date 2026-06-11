@@ -1,8 +1,9 @@
-import { getMatch } from "@/lib/data/load";
+import { getResolvedMatch, getResolvedMatches } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { bets } from "@/lib/db/schema";
 import { getResult } from "@/lib/results/store";
-import { championBetWins, matchBetWins } from "./outcome";
+import { isKnockoutStage } from "./locks";
+import { championBetWins, matchBetWins, type SettleableResult } from "./outcome";
 import {
   getBet,
   listBetsForMatch,
@@ -30,10 +31,27 @@ function applySettlement(bet: BetRow, won: boolean): void {
 }
 
 export function settleMatchBets(matchId: string): { settled: number; reconciled: number } {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   const result = getResult(matchId);
   if (!match || !result || !result.confirmed) return { settled: 0, reconciled: 0 };
   if (result.homeScore == null || result.awayScore == null) {
+    return { settled: 0, reconciled: 0 };
+  }
+
+  const settleable: SettleableResult = {
+    homeScore: result.homeScore,
+    awayScore: result.awayScore,
+    winnerTeamId: result.winnerTeamId,
+  };
+
+  // Never settle a level knockout score without a valid winner — bets stay
+  // open instead of all being marked lost.
+  if (
+    isKnockoutStage(match.stage) &&
+    settleable.homeScore === settleable.awayScore &&
+    settleable.winnerTeamId !== match.homeTeamId &&
+    settleable.winnerTeamId !== match.awayTeamId
+  ) {
     return { settled: 0, reconciled: 0 };
   }
 
@@ -42,7 +60,7 @@ export function settleMatchBets(matchId: string): { settled: number; reconciled:
 
   const openBets = listOpenBetsForMatch(matchId);
   for (const bet of openBets) {
-    const won = matchBetWins(match, bet.selection, result);
+    const won = matchBetWins(match, bet.selection, settleable);
     applySettlement(bet, won);
     settled += 1;
   }
@@ -50,7 +68,7 @@ export function settleMatchBets(matchId: string): { settled: number; reconciled:
   const existing = listBetsForMatch(matchId).filter((b) => b.status === "won" || b.status === "lost");
   for (const bet of existing) {
     if (openBets.some((o) => o.id === bet.id)) continue;
-    const won = matchBetWins(match, bet.selection, result);
+    const won = matchBetWins(match, bet.selection, settleable);
     const expectedStatus = won ? "won" : "lost";
     const expectedPayout = won ? potentialPayout(bet.stakeMyr, bet.decimalOdds) : 0;
     if (bet.status !== expectedStatus || bet.payoutMyr !== expectedPayout) {
@@ -63,13 +81,23 @@ export function settleMatchBets(matchId: string): { settled: number; reconciled:
 }
 
 export function settleChampionBets(): { settled: number } {
-  const finalMatch = getMatch("final-1");
+  const finalMatch = getResolvedMatches().find((m) => m.stage === "final");
   if (!finalMatch) return { settled: 0 };
 
-  const result = getResult("final-1");
-  if (!result || !result.confirmed || !result.winnerTeamId) return { settled: 0 };
+  const result = getResult(finalMatch.id);
+  if (!result || !result.confirmed) return { settled: 0 };
+  if (result.homeScore == null || result.awayScore == null) return { settled: 0 };
 
-  const championId = result.winnerTeamId;
+  // Prefer the explicit winner; fall back to a decisive score.
+  const championId =
+    result.winnerTeamId ??
+    (result.homeScore > result.awayScore && finalMatch.homeTeamId !== "TBD"
+      ? finalMatch.homeTeamId
+      : result.awayScore > result.homeScore && finalMatch.awayTeamId !== "TBD"
+        ? finalMatch.awayTeamId
+        : null);
+  if (!championId) return { settled: 0 };
+
   let settled = 0;
 
   for (const bet of listOpenChampionBets()) {
@@ -83,14 +111,16 @@ export function settleChampionBets(): { settled: number } {
 
 export function settleBetsForConfirmedMatch(matchId: string): void {
   settleMatchBets(matchId);
-  if (matchId === "final-1") {
+  const finalMatch = getResolvedMatches().find((m) => m.stage === "final");
+  if (finalMatch && matchId === finalMatch.id) {
     settleChampionBets();
   }
 }
 
 export function voidBet(betId: string): boolean {
   const bet = getBet(betId);
-  if (!bet || bet.status === "void") return false;
+  // Only open bets can be voided — voiding a settled bet would corrupt the ledger.
+  if (!bet || bet.status !== "open") return false;
 
   const now = new Date().toISOString();
   updateBetSettlement(betId, "void", bet.stakeMyr, now);

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 
 type Props = {
   hasSimulation: boolean;
@@ -10,6 +12,8 @@ type Props = {
 };
 
 export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missingCount, setMissingCount] = useState<number | null>(null);
@@ -45,7 +49,8 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
         }
         throw new Error(data.error ?? "Simulation failed");
       }
-      window.location.reload();
+      toast(hasSimulation ? "Simulation updated" : "Simulation complete");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simulation failed");
     } finally {

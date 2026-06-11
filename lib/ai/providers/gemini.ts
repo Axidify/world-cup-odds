@@ -6,6 +6,7 @@ export function createGeminiClient(): LLMClient {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
   const model = getModelForProvider("gemini");
+  const maxOutputTokens = Number(process.env.GEMINI_MAX_TOKENS ?? 2048);
   const client = new GoogleGenAI({ apiKey });
 
   return {
@@ -18,7 +19,9 @@ export function createGeminiClient(): LLMClient {
           systemInstruction: system,
           responseMimeType: "application/json",
           temperature: 0.3,
-          maxOutputTokens: 512,
+          maxOutputTokens,
+          // Gemini 3 "thinking" can consume the whole output budget and truncate JSON.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       const text = response.text;

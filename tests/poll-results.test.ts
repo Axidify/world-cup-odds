@@ -33,7 +33,7 @@ describe("getMatchesNeedingResults", () => {
     for (const m of backfillOnly) {
       const kickoff = new Date(m.date).getTime();
       expect(kickoff).toBeLessThanOrEqual(Date.now());
-      expect(kickoff + 2 * 60 * 60 * 1000).toBeGreaterThan(Date.now());
+      expect(kickoff + 2 * 60 * 60 * 1000).toBeGreaterThan(Date.now()); // RESULT_POLL_START_AFTER_MS
     }
   });
 });

@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { Match } from "@/lib/types";
-import { getMatch, getTeam, getTeams } from "@/lib/data/load";
+import { getTeam, getTeams } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults, calibrationState, eloRatings } from "@/lib/db/schema";
-import type { ResultRow } from "@/lib/results/store";
 
 const GROUP_K = 32;
 const KNOCKOUT_K = 40;
@@ -73,7 +73,9 @@ function actualHomePoints(
   if (winnerTeamId === match.awayTeamId) return 0;
   if (homeScore > awayScore) return 1;
   if (homeScore < awayScore) return 0;
-  return 1;
+  // Knockout decided on ET/pens with unknown winner: treat as a draw
+  // for rating purposes rather than crediting the home side.
+  return 0.5;
 }
 
 export function computeEloDelta(
@@ -134,7 +136,7 @@ function seedRatings(): Map<string, number> {
 
 function applyMatchToRatings(
   match: Match,
-  result: Pick<ResultRow, "homeScore" | "awayScore" | "winnerTeamId">,
+  result: { homeScore: number; awayScore: number; winnerTeamId: string | null },
   ratings: Map<string, number>,
 ): StoredEloAdjustment {
   const eloHome = ratings.get(match.homeTeamId)!;
@@ -162,7 +164,7 @@ export function recomputeEloFromConfirmedResults(): void {
   const rows = db.select().from(actualResults).where(eq(actualResults.confirmed, 1)).all();
   const dated = rows
     .map((row) => {
-      const match = getMatch(row.matchId);
+      const match = getResolvedMatch(row.matchId);
       if (!match || match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return null;
       if (row.homeScore == null || row.awayScore == null) return null;
       return { row, match };
@@ -187,7 +189,7 @@ export function recomputeEloFromConfirmedResults(): void {
 }
 
 export function updateEloForMatch(matchId: string): boolean {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   const db = getDb();
   const row = db.select().from(actualResults).where(eq(actualResults.matchId, matchId)).get();
   if (!match || !row || row.confirmed !== 1) return false;

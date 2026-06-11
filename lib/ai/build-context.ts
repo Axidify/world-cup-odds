@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { ActualOutcome } from "@/lib/calibration/metrics";
 import type { Team } from "@/lib/types";
-import { getMatch, getTeam } from "@/lib/data/load";
+import { getTeam } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
 import { getEloRating } from "@/lib/calibration/elo";
@@ -12,7 +13,7 @@ const RECENT_RESULTS_LIMIT = 3;
 const ERROR_MEMORY_LIMIT = 4;
 
 function formatRecentResult(matchId: string): string | null {
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   const db = getDb();
   const row = db.select().from(actualResults).where(eq(actualResults.matchId, matchId)).get();
   if (!match || !row || row.confirmed !== 1) return null;
@@ -31,7 +32,7 @@ function getRecentResultsForTeam(teamId: string): string[] {
   const lines: Array<{ date: string; line: string }> = [];
 
   for (const row of confirmed) {
-    const match = getMatch(row.matchId);
+    const match = getResolvedMatch(row.matchId);
     if (!match || match.homeTeamId === "TBD" || match.awayTeamId === "TBD") continue;
     if (match.homeTeamId !== teamId && match.awayTeamId !== teamId) continue;
     const line = formatRecentResult(row.matchId);
@@ -52,7 +53,7 @@ function getPredictionErrorNotes(homeId: string, awayId: string): string[] {
 
   for (const row of logs) {
     if (seen.has(row.matchId)) continue;
-    const match = getMatch(row.matchId);
+    const match = getResolvedMatch(row.matchId);
     if (!match || (match.homeTeamId !== homeId && match.awayTeamId !== awayId)) continue;
 
     let predicted: { home: number; draw: number; away: number };

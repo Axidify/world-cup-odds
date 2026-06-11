@@ -3,11 +3,13 @@ import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
 import { MatchAnalysis } from "@/components/MatchAnalysis";
-import { BetSlip } from "@/components/BetSlip";
 import { TeamNewsPanel } from "@/components/TeamNewsPanel";
 import { getEloRating } from "@/lib/calibration/elo";
 import { getPredictionForPair, toMatchView } from "@/lib/ai/predictions";
-import { getBracketTemplate, getMatch, getTeam } from "@/lib/data/load";
+import { applyNewsImpactToView } from "@/lib/news/impact";
+import { getBracketTemplate, getTeam } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
+import { getResult } from "@/lib/results/store";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 import { formatBracketSlot } from "@/lib/utils/slots";
 
@@ -33,7 +35,7 @@ export default async function MatchPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const match = getMatch(id);
+  const match = getResolvedMatch(id);
   if (!match) notFound();
 
   const home =
@@ -47,9 +49,13 @@ export default async function MatchPage({
     home && away
       ? (() => {
           const cached = getPredictionForPair(home.id, away.id, match.stage);
-          return cached ? toMatchView(cached, home.id, away.id, true) : null;
+          return cached
+            ? applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id)
+            : null;
         })()
       : null;
+
+  const result = getResult(match.id);
 
   return (
     <div className="space-y-6">
@@ -58,6 +64,17 @@ export default async function MatchPage({
       </Link>
       <p className="num text-xs font-semibold uppercase tracking-widest text-brand">Match Detail</p>
       <h1 className="font-[family-name:var(--font-archivo)] text-3xl font-bold">{title}</h1>
+
+      {result?.confirmed && home && away && (
+        <Card className="border-brand/50 bg-brand-tint/20 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand">Final result</p>
+          <p className="mt-1 text-lg font-bold">
+            {home.name} {result.homeScore}–{result.awayScore} {away.name}
+            {result.et ? " (aet)" : ""}
+            {result.pens ? " (pens)" : ""}
+          </p>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card className="p-6">
@@ -114,7 +131,6 @@ export default async function MatchPage({
 
         <div className="space-y-4">
           {home && away && <TeamNewsPanel matchId={match.id} />}
-          <BetSlip mode="match" matchId={match.id} />
         </div>
       </div>
     </div>

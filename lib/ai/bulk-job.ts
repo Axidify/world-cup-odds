@@ -52,10 +52,11 @@ function reconcileOrphanedJob(): void {
   if (state.status !== "running" || runningPromise) return;
   writeState({
     ...state,
-    status: "failed",
+    status: "cancelled",
     current: null,
     finishedAt: new Date().toISOString(),
-    error: "Job interrupted (server restarted)",
+    error:
+      "Bulk analyze stopped when the dev server restarted. Click Analyze all to continue — cached matches are skipped.",
   });
 }
 
@@ -92,8 +93,18 @@ export function getBulkJobState(): BulkJobState {
 }
 
 export function isBulkJobRunning(): boolean {
-  if (runningPromise) return true;
-  return readState().status === "running";
+  const state = readStateRaw();
+  if (state.status !== "running") return false;
+  return Boolean(runningPromise) || state.status === "running";
+}
+
+/** Clear persisted bulk job UI state (e.g. after switching LLM provider). */
+export function resetBulkJobState(): BulkJobState {
+  cancelRequested = true;
+  runId += 1;
+  runningPromise = null;
+  writeState({ ...IDLE });
+  return { ...IDLE };
 }
 
 export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Promise<BulkJobState> {
@@ -141,6 +152,7 @@ export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Pro
 
 export function cancelBulkAnalyze(): BulkJobState {
   cancelRequested = true;
+  runId += 1;
   const state = readStateRaw();
   if (state.status === "running") {
     writeState({
@@ -161,6 +173,7 @@ async function runBulkQueue(
   const concurrency = getLlmConcurrency();
   let completed = 0;
   let failed = 0;
+  let lastError: string | null = null;
 
   const isActive = () => !cancelRequested && myRunId === runId;
 
@@ -169,22 +182,33 @@ async function runBulkQueue(
     writeState({ ...readStateRaw(), ...patch });
   };
 
+  const runItem = async (item: BulkWorkItem) => {
+    if (item.kind === "match") {
+      await analyzeMatch(item.matchId, { refresh: state.refresh });
+    } else {
+      await analyzePair(item.homeTeamId, item.awayTeamId, item.stage, {
+        refresh: state.refresh,
+      });
+    }
+  };
+
   const processItem = async (item: BulkWorkItem) => {
     if (!isActive()) return;
-    try {
-      if (item.kind === "match") {
-        await analyzeMatch(item.matchId, { refresh: state.refresh });
-      } else {
-        await analyzePair(item.homeTeamId, item.awayTeamId, item.stage, {
-          refresh: state.refresh,
-        });
+    let ok = false;
+    for (let attempt = 0; attempt < 3 && !ok; attempt++) {
+      if (!isActive()) return;
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1500));
+      try {
+        await runItem(item);
+        ok = true;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Analyze failed";
+        /* retry transient LLM / parse failures */
       }
-      if (!isActive()) return;
-      completed += 1;
-    } catch {
-      if (!isActive()) return;
-      failed += 1;
     }
+    if (!isActive()) return;
+    if (ok) completed += 1;
+    else failed += 1;
     update({ completed, failed, skipped: 0 });
   };
 
@@ -222,6 +246,7 @@ async function runBulkQueue(
 
     if (!isActive()) return;
 
+    const total = readStateRaw().total;
     writeState({
       ...readStateRaw(),
       status: failed > 0 && completed === 0 ? "failed" : "completed",
@@ -229,7 +254,12 @@ async function runBulkQueue(
       failed,
       current: null,
       finishedAt: new Date().toISOString(),
-      error: failed > 0 ? `${failed} item(s) failed` : null,
+      error:
+        failed > 0
+          ? completed > 0
+            ? `${completed}/${total} analyzed · ${failed} failed${lastError ? ` (e.g. ${lastError})` : ""}`
+            : `${failed} item(s) failed${lastError ? `: ${lastError}` : ""}`
+          : null,
     });
   } catch (err) {
     if (isActive()) {

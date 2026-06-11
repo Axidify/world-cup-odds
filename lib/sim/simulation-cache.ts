@@ -3,6 +3,7 @@ import type { ChampionOddsMap, PredictedPath, SimulationResult } from "@/lib/typ
 import { getDb } from "@/lib/db";
 import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
+import { countConfirmedSince, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
 
 export function getLatestSimulation(): SimulationResult | null {
   const db = getDb();
@@ -59,14 +60,65 @@ function hasStalePredictions(provider: string): boolean {
   return (row?.n ?? 0) > 0;
 }
 
-/** True when predictions for the active provider are newer than the last simulation run. */
+export type SimulationStaleState = {
+  stale: boolean;
+  providerMismatch: boolean;
+  stalePredictionsExist: boolean;
+  predictionsNewerThanRun: boolean;
+  resultsConfirmedSinceRun: number;
+};
+
+export function getSimulationStaleState(): SimulationStaleState {
+  const sim = getLatestSimulation();
+  if (!sim) {
+    return {
+      stale: false,
+      providerMismatch: false,
+      stalePredictionsExist: false,
+      predictionsNewerThanRun: false,
+      resultsConfirmedSinceRun: 0,
+    };
+  }
+
+  const provider = resolveActiveProvider();
+  const providerMismatch = !provider || sim.provider !== provider;
+  const stalePredictionsExist = provider ? hasStalePredictions(provider) : false;
+  const latestPred = provider ? getLatestPredictionAt(provider) : null;
+  const predictionsNewerThanRun = Boolean(latestPred && latestPred > sim.runAt);
+  const resultsConfirmedSinceRun = countConfirmedSince(sim.runAt);
+
+  const stale =
+    providerMismatch ||
+    stalePredictionsExist ||
+    predictionsNewerThanRun ||
+    resultsConfirmedSinceRun > 0;
+
+  return {
+    stale,
+    providerMismatch,
+    stalePredictionsExist,
+    predictionsNewerThanRun,
+    resultsConfirmedSinceRun,
+  };
+}
+
+/** True when simulation output no longer reflects current predictions or confirmed results. */
 export function isSimulationStale(): boolean {
+  return getSimulationStaleState().stale;
+}
+
+export function needsSimulationRerun(): boolean {
+  const state = getSimulationStaleState();
+  return (
+    state.resultsConfirmedSinceRun > 0 ||
+    state.predictionsNewerThanRun ||
+    state.providerMismatch
+  );
+}
+
+export function hasUnconfirmedResultsSinceRun(): boolean {
   const sim = getLatestSimulation();
   if (!sim) return false;
-  const provider = resolveActiveProvider();
-  if (!provider || sim.provider !== provider) return true;
-  if (hasStalePredictions(provider)) return true;
-  const latestPred = getLatestPredictionAt(provider);
-  if (!latestPred) return false;
-  return latestPred > sim.runAt;
+  const latest = getLatestConfirmedAt();
+  return Boolean(latest && latest > sim.runAt);
 }

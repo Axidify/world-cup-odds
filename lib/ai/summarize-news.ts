@@ -9,6 +9,8 @@ const eventSchema = z.object({
   player: z.string().nullable().optional(),
   detail: z.string().nullable().optional(),
   source: z.string().nullable().optional(),
+  severity: z.enum(["minor", "moderate", "major"]).optional().default("moderate"),
+  keyPlayer: z.boolean().optional().default(false),
 });
 
 const extractSchema = z.object({
@@ -24,6 +26,8 @@ export type ExtractedTeamNews = {
     player: string | null;
     detail: string | null;
     source: string | null;
+    severity: "minor" | "moderate" | "major";
+    keyPlayer: boolean;
   }>;
   summary: string;
 };
@@ -39,7 +43,9 @@ Required JSON shape:
       "type": "injury" | "suspension" | "return" | "card" | "other",
       "player": string | null,
       "detail": string | null,
-      "source": string | null
+      "source": string | null,
+      "severity": "minor" | "moderate" | "major",
+      "keyPlayer": boolean
     }
   ],
   "summary": string
@@ -48,6 +54,8 @@ Required JSON shape:
 Rules:
 - teamId must match the team id in the user message.
 - Only include events clearly supported by the snippets (injuries, suspensions, returns, card accumulation).
+- severity reflects expected impact on the team: "major" = ruled out / long-term, "moderate" = doubtful or multi-match absence, "minor" = knock or single-match doubt.
+- keyPlayer is true when the player is a starter, captain, top scorer, or otherwise central to the team.
 - summary is 1-2 sentences for the coaching staff preview.
 - If no relevant news, return events: [] and summary: "No significant squad news in recent sources."`;
 
@@ -103,6 +111,8 @@ export async function extractTeamNews(
       player: e.player ?? null,
       detail: e.detail ?? null,
       source: e.source ?? snippets[0]?.url ?? null,
+      severity: e.severity,
+      keyPlayer: e.keyPlayer,
     })),
     summary: parsed.summary.trim() || "No significant squad news in recent sources.",
   };

@@ -1,8 +1,9 @@
 import { ChampionBetButton } from "@/components/ChampionBetButton";
 import { Flag } from "@/components/Flag";
 import { SimulationPanel } from "@/components/SimulationPanel";
+import { SimulationStaleAlert } from "@/components/SimulationStaleAlert";
 import { Card } from "@/components/ui/Card";
-import { getLatestSimulation, isSimulationStale } from "@/lib/sim/simulation-cache";
+import { getLatestSimulation } from "@/lib/sim/simulation-cache";
 import { getTeams } from "@/lib/data/load";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,6 @@ function impliedOdds(pct: number): string {
 export default function ChampionPage() {
   const teams = [...getTeams()].sort((a, b) => a.fifaRank - b.fifaRank);
   const simulation = getLatestSimulation();
-  const stale = isSimulationStale();
   const odds = simulation?.championOdds ?? null;
 
   const ranked = [...teams]
@@ -33,11 +33,7 @@ export default function ChampionPage() {
           : " — run simulation after AI predictions are cached"}
       </p>
 
-      {stale && simulation && (
-        <p className="mt-2 text-xs font-semibold text-loss">
-          Predictions updated since last simulation — re-run for fresh champion odds.
-        </p>
-      )}
+      <SimulationStaleAlert hasSimulation={Boolean(simulation)} className="mt-2" />
       <div className="mt-4">
         <SimulationPanel hasSimulation={Boolean(simulation)} lastRunAt={simulation?.runAt ?? null} />
       </div>
@@ -80,8 +76,8 @@ export default function ChampionPage() {
 
       {simulation && (
         <p className="mt-4 text-xs text-text-muted">
-          Seeded Monte Carlo ({simulation.iterations} iters). Modal predicted champion may differ — see
-          bracket page.
+          Seeded Monte Carlo ({simulation.iterations.toLocaleString()} iters). The most likely knockout
+          path (bracket page) can differ from these headline percentages.
         </p>
       )}
     </div>

@@ -141,4 +141,7 @@ export type MatchPredictionView = {
   generatedAt: string;
   stale: boolean;
   fromCache: boolean;
+  /** Set when probabilities were shifted by the deterministic news-impact model. */
+  newsAdjusted?: boolean;
+  newsImpact?: { homeEloDelta: number; awayEloDelta: number };
 };

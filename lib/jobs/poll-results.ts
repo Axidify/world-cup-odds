@@ -1,16 +1,18 @@
 import type { Match } from "@/lib/types";
 import { extractMatchResult } from "@/lib/ai/extract-result";
-import { getAllMatches, getTeamMap } from "@/lib/data/load";
+import { getTeamMap } from "@/lib/data/load";
+import { getResolvedMatches } from "@/lib/data/resolved";
 import { searchWeb } from "@/lib/search/provider";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
 import { snippetsAgreeOnScore } from "@/lib/results/score-agreement";
 import { getResult, upsertPendingResult } from "@/lib/results/store";
-const KICKOFF_BUFFER_MS = 2 * 60 * 60 * 1000;
+/** Wait until ~full time before searching for a final score. */
+export const RESULT_POLL_START_AFTER_MS = 2 * 60 * 60 * 1000;
 
 export function getMatchesNeedingResults(options: { backfill?: boolean } = {}): Match[] {
   const now = Date.now();
 
-  return getAllMatches().filter((m) => {
+  return getResolvedMatches().filter((m) => {
     if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") return false;
 
     const kickoff = new Date(m.date).getTime();
@@ -20,7 +22,7 @@ export function getMatchesNeedingResults(options: { backfill?: boolean } = {}): 
     if (existing?.confirmed) return false;
 
     if (options.backfill) return true;
-    return kickoff + KICKOFF_BUFFER_MS <= now;
+    return kickoff + RESULT_POLL_START_AFTER_MS <= now;
   });
 }
 
@@ -32,7 +34,7 @@ function buildSearchQuery(match: Match): string {
 }
 
 export async function pollMatchResult(matchId: string): Promise<"synced" | "confirmed" | "skipped" | "failed"> {
-  const matches = getAllMatches();
+  const matches = getResolvedMatches();
   const match = matches.find((m) => m.id === matchId);
   if (!match) return "skipped";
 
@@ -93,6 +95,14 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
     if (outcome === "confirmed") confirmed += 1;
     else if (outcome === "synced") synced += 1;
     else if (outcome === "failed") failed += 1;
+  }
+
+  const { recordPollerRun } = await import("@/lib/ops/poller-heartbeat");
+  recordPollerRun("results");
+
+  if (confirmed > 0) {
+    const { scheduleAutoSimulation } = await import("@/lib/pipeline/auto-pipeline");
+    scheduleAutoSimulation("poll_results");
   }
 
   return { polled: targets.length, confirmed, synced, failed };

@@ -23,12 +23,22 @@ type BetRow = {
   bettorId: string;
   betType: string;
   matchId: string | null;
+  matchLabel: string | null;
   selectionLabel: string;
   stakeMyr: number;
   decimalOdds: number;
   status: string;
   payoutMyr: number | null;
   placedAt: string;
+};
+
+type SettlementRow = {
+  id: string;
+  bettorId: string;
+  selection: string;
+  status: string;
+  payoutMyr: number | null;
+  settledAt: string | null;
 };
 
 type PoolData = {
@@ -41,6 +51,7 @@ type PoolData = {
     openExposure: number;
   };
   leaderboard: LeaderboardRow[];
+  recentSettlements: SettlementRow[];
 };
 
 export function OfficePoolPanel() {
@@ -62,6 +73,7 @@ export function OfficePoolPanel() {
       setData({
         summary: office.summary,
         leaderboard: office.leaderboard ?? [],
+        recentSettlements: office.recentSettlements ?? [],
       });
       setBets(betsData.bets ?? []);
     } catch {
@@ -73,6 +85,8 @@ export function OfficePoolPanel() {
 
   useEffect(() => {
     void load();
+    const id = setInterval(() => void load(), 60_000);
+    return () => clearInterval(id);
   }, [load]);
 
   async function voidBet(id: string) {
@@ -127,6 +141,23 @@ export function OfficePoolPanel() {
           </Card>
         ))}
       </div>
+
+      {data.recentSettlements.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold">Recent settlements</h2>
+          <div className="flex flex-wrap gap-2">
+            {data.recentSettlements.slice(0, 6).map((s) => (
+              <Card key={s.id} className="px-3 py-2 text-xs">
+                <span className="font-semibold capitalize">{s.status}</span>
+                <span className="text-text-muted"> · {s.selection}</span>
+                {s.payoutMyr != null && (
+                  <span className="num ml-1 text-money">{formatMoney(s.payoutMyr)}</span>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-bold">Leaderboard</h2>
@@ -217,9 +248,16 @@ export function OfficePoolPanel() {
                   <tr key={bet.id} className="border-t border-border">
                     <td className="px-4 py-3">{nameById.get(bet.bettorId) ?? bet.bettorId}</td>
                     <td className="px-4 py-3 text-text-muted">
-                      {bet.betType === "champion" ? "Champion: " : ""}
-                      {bet.selectionLabel}
-                      {bet.matchId ? ` · ${bet.matchId}` : ""}
+                      {bet.betType === "champion" ? (
+                        <>Champion: {bet.selectionLabel}</>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-text">{bet.selectionLabel}</span>
+                          {bet.matchLabel && (
+                            <span className="mt-0.5 block text-xs">{bet.matchLabel}</span>
+                          )}
+                        </>
+                      )}
                     </td>
                     <td className="num px-4 py-3 text-right">{formatMoney(bet.stakeMyr)}</td>
                     <td className="num px-4 py-3 text-right">{bet.decimalOdds.toFixed(2)}</td>

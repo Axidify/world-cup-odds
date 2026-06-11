@@ -6,6 +6,16 @@ import { buildCacheKey, sortTeamPair } from "@/lib/ai/cache-key";
 import { isPredictionExpired } from "@/lib/ai/cache-ttl";
 import { getModelForProvider } from "@/lib/ai/config";
 import { KNOCKOUT_PRECACHE_STAGE } from "@/lib/ai/preanalyze";
+import { getEloMap } from "@/lib/calibration/elo";
+import {
+  adjustProbabilities,
+  getPairNewsImpact,
+  isNewsImpactEnabled,
+} from "@/lib/news/impact";
+import {
+  buildRankFallbackPrediction,
+  isKnockoutFallbackStage,
+} from "@/lib/sim/rank-fallback-prediction";
 
 const KNOCKOUT_ROUND_STAGES = new Set(["r32", "r16", "qf", "sf", "final", "third_place"]);
 
@@ -61,9 +71,37 @@ export function loadPredictionStore(provider: LLMProvider): PredictionStore {
   }
 
   const pendingMissing: MissingPairing[] = [];
+  const eloByTeam = getEloMap();
+  const newsAdjusted = new Map<string, Prediction>();
 
   function lookupKey(home: string, away: string, stage: string) {
     return buildCacheKey(home, away, stage, provider, model);
+  }
+
+  // Predictions are stored teamA-oriented, so apply news deltas the same way.
+  function withNewsImpact(pred: Prediction): Prediction {
+    if (!isNewsImpactEnabled()) return pred;
+    const hit = newsAdjusted.get(pred.cacheKey);
+    if (hit) return hit;
+
+    const { home, away } = getPairNewsImpact(pred.teamA, pred.teamB);
+    const result = adjustProbabilities(
+      pred.homeWinPct,
+      pred.drawPct,
+      pred.awayWinPct,
+      home.eloDelta,
+      away.eloDelta,
+    );
+    const out = result.adjusted
+      ? {
+          ...pred,
+          homeWinPct: result.homeWinPct,
+          drawPct: result.drawPct,
+          awayWinPct: result.awayWinPct,
+        }
+      : pred;
+    newsAdjusted.set(pred.cacheKey, out);
+    return out;
   }
 
   function lookup(home: string, away: string, stage: string): Prediction | undefined {
@@ -71,7 +109,12 @@ export function loadPredictionStore(provider: LLMProvider): PredictionStore {
     if (KNOCKOUT_ROUND_STAGES.has(stage)) stages.push(KNOCKOUT_PRECACHE_STAGE);
     for (const s of stages) {
       const pred = byKey.get(lookupKey(home, away, s));
-      if (pred) return pred;
+      if (pred) return withNewsImpact(pred);
+    }
+    if (isKnockoutFallbackStage(stage)) {
+      return withNewsImpact(
+        buildRankFallbackPrediction(home, away, stage, provider, model, eloByTeam),
+      );
     }
     return undefined;
   }

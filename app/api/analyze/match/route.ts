@@ -3,8 +3,9 @@ import { z } from "zod";
 import { analyzeMatch, AnalyzeMatchError } from "@/lib/ai/analyze-match";
 import { isBulkJobRunning } from "@/lib/ai/bulk-job";
 import { getPredictionForPair, toMatchView } from "@/lib/ai/predictions";
+import { applyNewsImpactToView } from "@/lib/news/impact";
 import { resolveActiveProvider } from "@/lib/ai/settings";
-import { getMatch } from "@/lib/data/load";
+import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "matchId required" }, { status: 400 });
   }
 
-  const match = getMatch(matchId);
+  const match = getResolvedMatch(matchId);
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
   if (match.homeTeamId === "TBD" || match.awayTeamId === "TBD") {
     return NextResponse.json({ prediction: null });
@@ -41,7 +42,11 @@ export async function GET(request: Request) {
   if (!cached) return NextResponse.json({ prediction: null });
 
   return NextResponse.json({
-    prediction: toMatchView(cached, match.homeTeamId, match.awayTeamId, true),
+    prediction: applyNewsImpactToView(
+      toMatchView(cached, match.homeTeamId, match.awayTeamId, true),
+      match.homeTeamId,
+      match.awayTeamId,
+    ),
   });
 }
 

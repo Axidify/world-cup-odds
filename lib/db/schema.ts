@@ -49,6 +49,8 @@ export const teamEvents = sqliteTable("team_events", {
   player: text("player"),
   detail: text("detail"),
   source: text("source"),
+  severity: text("severity"),
+  keyPlayer: integer("key_player").default(0),
   fetchedAt: text("fetched_at").notNull(),
 });
 

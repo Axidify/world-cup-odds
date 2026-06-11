@@ -83,9 +83,9 @@ describe("calibration metrics", () => {
     ).toBe("away");
   });
 
-  it("defaults knockout ties to home when winner is unknown", () => {
+  it("returns null for knockout ties when winner is unknown", () => {
     const ko: Match = { ...groupMatch, id: "r32-2", stage: "r32" };
-    expect(deriveActualOutcome(ko, { homeScore: 1, awayScore: 1, winnerTeamId: null })).toBe("home");
+    expect(deriveActualOutcome(ko, { homeScore: 1, awayScore: 1, winnerTeamId: null })).toBeNull();
   });
 
   it("picks knockout favorite without draw", () => {
