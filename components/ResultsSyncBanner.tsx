@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 
 type StatusResponse = {
+  resultsProvider?: "football-data" | "search";
   matchActivity?: {
     liveCount: number;
     awaitingCount: number;
@@ -77,7 +78,9 @@ export function ResultsSyncBanner() {
                   {" — "}
                   {m.lifecycle === "live"
                     ? `live · score check ~${formatUtcDateTime(m.resultsCheckAt)} UTC`
-                    : "searching for final score"}
+                    : status?.resultsProvider === "football-data"
+                      ? "awaiting football-data.org (FINISHED only)"
+                      : "searching for final score"}
                 </li>
               ))}
             </ul>

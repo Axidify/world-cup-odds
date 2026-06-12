@@ -7,9 +7,13 @@ import {
   type MatchLifecycle,
 } from "@/lib/match/lifecycle";
 
+type ScoreLine = { homeGoals: number; awayGoals: number };
+
 type Props = {
   kickoffIso: string;
-  confirmed?: { homeGoals: number; awayGoals: number } | null;
+  confirmed?: ScoreLine | null;
+  /** Modal simulation score for unplayed group fixtures (projected view). */
+  projected?: ScoreLine | null;
   compact?: boolean;
 };
 
@@ -20,7 +24,7 @@ const BADGE_CLASS: Record<MatchLifecycle, string> = {
   confirmed: "text-win font-semibold",
 };
 
-export function MatchStatusBadge({ kickoffIso, confirmed, compact = false }: Props) {
+export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = false }: Props) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -35,6 +39,15 @@ export function MatchStatusBadge({ kickoffIso, confirmed, compact = false }: Pro
       <span className={`num shrink-0 ${BADGE_CLASS.confirmed}`}>
         {confirmed.homeGoals}–{confirmed.awayGoals}{" "}
         <span className="text-[10px] font-normal uppercase tracking-wide">FT</span>
+      </span>
+    );
+  }
+
+  if (projected && lifecycle !== "live") {
+    return (
+      <span className="num shrink-0 font-semibold text-brand">
+        {projected.homeGoals}–{projected.awayGoals}{" "}
+        <span className="text-[10px] font-normal uppercase tracking-wide text-text-muted">proj</span>
       </span>
     );
   }

@@ -27,6 +27,13 @@ export async function pollResultsFromFootballData(
   }
 
   const finishedByMatchId = indexFinishedMatches(apiMatches, targets);
+  const finishedInApi = apiMatches.filter((m) => m.status === "FINISHED").length;
+
+  if (targets.length > 0 && finishedByMatchId.size === 0) {
+    console.warn(
+      `[poller] football-data: ${targets.length} target(s), ${finishedInApi} FINISHED in API, 0 linked to fixtures`,
+    );
+  }
 
   for (const match of targets) {
     const parsed = finishedByMatchId.get(match.id);

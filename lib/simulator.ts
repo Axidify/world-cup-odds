@@ -220,6 +220,7 @@ export function runModalTournament(
   const { championTeamId, path } = runKnockout(store, ctx, confirmed, null, true);
   return {
     groupStandings: ctx.standingsByGroup,
+    groupResults,
     knockout: path,
     championTeamId,
   };

@@ -15,6 +15,7 @@ type Props = {
   fixtures: Match[];
   officialStandings: Record<string, GroupStanding[]>;
   projectedStandings?: Record<string, GroupStanding[]>;
+  projectedScores?: Record<string, PlayedMatchResult>;
   confirmedScores: Record<string, PlayedMatchResult>;
   hasConfirmedGroupResults: boolean;
   simulationRunAt: string | null;
@@ -29,6 +30,7 @@ export function GroupsView({
   fixtures,
   officialStandings,
   projectedStandings,
+  projectedScores = {},
   confirmedScores,
   hasConfirmedGroupResults,
   simulationRunAt,
@@ -43,6 +45,10 @@ export function GroupsView({
   const confirmedMap = useMemo(
     () => new Map(Object.entries(confirmedScores)),
     [confirmedScores],
+  );
+  const projectedMap = useMemo(
+    () => new Map(Object.entries(projectedScores)),
+    [projectedScores],
   );
 
   const standingsByGroup = view === "official" ? officialStandings : projectedStandings;
@@ -101,10 +107,10 @@ export function GroupsView({
           )
         ) : projectedStandings ? (
           <p>
-            <strong className="font-semibold text-text">Projected</strong> tables come from your last
-            simulation — real scores for finished matches plus AI&apos;s most likely outcomes for the
-            rest. Re-run simulation after new results to refresh this view (or enable auto-pipeline on
-            the poller).
+            <strong className="font-semibold text-text">Projected</strong> tables and fixture scores
+            come from your last simulation — confirmed FT results plus the most likely AI scoreline
+            for unplayed group matches (<span className="num">proj</span>). Re-run simulation after
+            new results to refresh.
           </p>
         ) : (
           <p>
@@ -138,6 +144,8 @@ export function GroupsView({
             fixtures={fixtures}
             standings={standingsByGroup?.[g.group]}
             confirmedScores={confirmedMap}
+            projectedScores={projectedMap}
+            showProjectedScores={view === "projected" && hasSimulation}
             showFixtures
           />
         ))}

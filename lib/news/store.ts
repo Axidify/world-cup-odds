@@ -112,14 +112,26 @@ export function setTeamNewsSummary(teamId: string, summary: string, fetchedAt: s
     .run();
 }
 
+/** Stable fingerprint of squad events — ignores LLM summary text. */
 export function teamNewsFingerprint(
-  events: Array<{ type: string; player: string | null; detail: string | null }>,
-  summary: string,
+  events: Array<{
+    type: string;
+    player: string | null;
+    detail: string | null;
+    severity?: string | null;
+    keyPlayer?: boolean;
+  }>,
 ): string {
-  return JSON.stringify({
-    summary,
-    events: events.map((e) => ({ type: e.type, player: e.player, detail: e.detail })),
-  });
+  const normalized = events
+    .map((e) => ({
+      type: e.type,
+      player: e.player,
+      detail: e.detail,
+      severity: e.severity ?? null,
+      keyPlayer: Boolean(e.keyPlayer),
+    }))
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return JSON.stringify(normalized);
 }
 
 export function getTeamNewsSummary(teamId: string): TeamNewsSummary {

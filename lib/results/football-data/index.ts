@@ -2,8 +2,10 @@ export {
   checkFootballDataHealth,
   fetchWorldCupMatches,
   getFootballDataSeason,
+  getFootballDataStatus,
   isFootballDataConfigured,
 } from "@/lib/results/football-data/client";
+export type { FootballDataStatus } from "@/lib/results/football-data/client";
 export { pollResultsFromFootballData } from "@/lib/results/football-data/poll";
 export {
   indexFinishedMatches,

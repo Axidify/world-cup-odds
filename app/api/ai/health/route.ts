@@ -4,7 +4,7 @@ import { listProviderInfos, PROVIDER_LABELS, getModelForProvider } from "@/lib/a
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { resolveResultsProvider } from "@/lib/jobs/poll-results";
 import {
-  checkFootballDataHealth,
+  getFootballDataStatus,
   isFootballDataConfigured,
 } from "@/lib/results/football-data";
 import {
@@ -28,10 +28,10 @@ export async function GET() {
   const searchOnline = searchConfigured ? isSearchReady() : false;
   const resultsProvider = resolveResultsProvider();
   const footballDataConfigured = isFootballDataConfigured();
-  const footballDataOnline =
+  const footballData =
     footballDataConfigured && resultsProvider === "football-data"
-      ? await checkFootballDataHealth()
-      : false;
+      ? await getFootballDataStatus()
+      : null;
 
   return NextResponse.json({
     active: active
@@ -51,7 +51,15 @@ export async function GET() {
     results: {
       provider: resultsProvider,
       configured: footballDataConfigured || searchConfigured,
-      online: resultsProvider === "football-data" ? footballDataOnline : searchOnline,
+      online: resultsProvider === "football-data" ? Boolean(footballData?.ok) : searchOnline,
+      footballData: footballData
+        ? {
+            season: footballData.season,
+            matchCount: footballData.matchCount,
+            finishedCount: footballData.finishedCount,
+            error: footballData.error,
+          }
+        : undefined,
     },
     db: true,
   });

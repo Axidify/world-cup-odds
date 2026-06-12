@@ -8,6 +8,7 @@ import {
   setTeamNewsSummary,
   teamNewsFingerprint,
 } from "@/lib/news/store";
+import { isNewsImpactEnabled } from "@/lib/news/impact";
 import { markTeamStale } from "@/lib/results/on-confirm";
 import { searchWeb } from "@/lib/search/provider";
 
@@ -77,18 +78,16 @@ export async function pollTeamNews(
     if (!extracted) return "failed";
 
     const before = getTeamNewsSummary(teamId);
-    const nextFingerprint = teamNewsFingerprint(extracted.events, extracted.summary);
-    const prevFingerprint = teamNewsFingerprint(
-      before.events,
-      before.summary ?? "",
-    );
+    const nextFingerprint = teamNewsFingerprint(extracted.events);
+    const prevFingerprint = teamNewsFingerprint(before.events);
     const changed = nextFingerprint !== prevFingerprint;
 
     const fetchedAt = new Date().toISOString();
     replaceTeamEvents(teamId, extracted.events, fetchedAt);
     setTeamNewsSummary(teamId, extracted.summary, fetchedAt);
 
-    if (changed) markTeamStale(teamId);
+    // News impact adjusts cached probabilities on read — no LLM re-run needed.
+    if (changed && !isNewsImpactEnabled()) markTeamStale(teamId);
     return "synced";
   } catch {
     return "failed";

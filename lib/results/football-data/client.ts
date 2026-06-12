@@ -14,6 +14,19 @@ function baseUrl(): string {
   return (process.env.FOOTBALL_DATA_BASE_URL?.trim() || DEFAULT_BASE).replace(/\/$/, "");
 }
 
+function fetchTimeoutMs(): number {
+  const raw = Number(process.env.FOOTBALL_DATA_TIMEOUT_MS ?? 30_000);
+  return Number.isFinite(raw) && raw > 0 ? raw : 30_000;
+}
+
+export type FootballDataStatus = {
+  ok: boolean;
+  season: string;
+  matchCount: number;
+  finishedCount: number;
+  error?: string;
+};
+
 export async function fetchWorldCupMatches(): Promise<FootballDataMatch[]> {
   const token = process.env.FOOTBALL_DATA_API_TOKEN?.trim();
   if (!token) {
@@ -29,6 +42,7 @@ export async function fetchWorldCupMatches(): Promise<FootballDataMatch[]> {
       Accept: "application/json",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(fetchTimeoutMs()),
   });
 
   if (!res.ok) {
@@ -40,12 +54,33 @@ export async function fetchWorldCupMatches(): Promise<FootballDataMatch[]> {
   return json.matches ?? [];
 }
 
-export async function checkFootballDataHealth(): Promise<boolean> {
-  if (!isFootballDataConfigured()) return false;
+export async function getFootballDataStatus(): Promise<FootballDataStatus> {
+  const season = getFootballDataSeason();
+  if (!isFootballDataConfigured()) {
+    return { ok: false, season, matchCount: 0, finishedCount: 0, error: "not configured" };
+  }
+
   try {
     const matches = await fetchWorldCupMatches();
-    return Array.isArray(matches);
-  } catch {
-    return false;
+    const finishedCount = matches.filter((m) => m.status === "FINISHED").length;
+    return {
+      ok: matches.length > 0,
+      season,
+      matchCount: matches.length,
+      finishedCount,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      season,
+      matchCount: 0,
+      finishedCount: 0,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
+}
+
+export async function checkFootballDataHealth(): Promise<boolean> {
+  const status = await getFootballDataStatus();
+  return status.ok;
 }

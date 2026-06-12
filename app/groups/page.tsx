@@ -6,6 +6,7 @@ import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulati
 import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
 
 import { buildOfficialStandingsByGroup } from "@/lib/standings/official-standings";
+import { getProjectedGroupScores } from "@/lib/sim/projected-scores";
 
 import { getGroups, getTeams, getFixtures } from "@/lib/data/load";
 
@@ -30,6 +31,9 @@ export default function GroupsPage() {
   const confirmed = getConfirmedResults();
 
   const confirmedScores = Object.fromEntries(confirmed);
+  const projectedScores = Object.fromEntries(
+    getProjectedGroupScores(confirmed, simulation?.predictedPath),
+  );
 
   const hasConfirmedGroupResults = fixtures.some((f) => confirmed.has(f.id));
 
@@ -48,6 +52,8 @@ export default function GroupsPage() {
       officialStandings={buildOfficialStandingsByGroup(confirmed)}
 
       projectedStandings={simulation?.predictedPath.groupStandings}
+
+      projectedScores={projectedScores}
 
       confirmedScores={confirmedScores}
 

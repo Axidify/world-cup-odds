@@ -14,6 +14,7 @@ import { getPipelineConfig } from "@/lib/pipeline/config";
 import { isPipelineActive } from "@/lib/pipeline/auto-pipeline";
 import { getPipelineState } from "@/lib/pipeline/pipeline-state";
 import { getDb } from "@/lib/db";
+import { resolveResultsProvider } from "@/lib/jobs/poll-results";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    resultsProvider: resolveResultsProvider(),
     simulation: simulation
       ? { runAt: simulation.runAt, provider: simulation.provider, model: simulation.model }
       : null,

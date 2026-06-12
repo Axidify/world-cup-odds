@@ -105,6 +105,8 @@ export type KnockoutPathMatch = {
 
 export type PredictedPath = {
   groupStandings: Record<string, GroupStanding[]>;
+  /** Modal group-stage scorelines backing projected standings. */
+  groupResults?: PlayedMatchResult[];
   knockout: KnockoutPathMatch[];
   championTeamId: string;
 };
