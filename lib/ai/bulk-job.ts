@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { analyzeMatch } from "@/lib/ai/analyze-match";
 import { analyzePair } from "@/lib/ai/analyze-pair";
 import { getModelForProvider } from "@/lib/ai/config";
-import { buildBulkAnalyzeQueue, type BulkWorkItem } from "@/lib/ai/preanalyze";
+import { buildBulkAnalyzeQueue, countBulkTargets, type BulkWorkItem } from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
@@ -16,6 +16,10 @@ export type BulkJobState = {
   completed: number;
   skipped: number;
   failed: number;
+  /** Baseline catalog size (group + top-24 pairings) for overall progress context. */
+  catalogTotal: number;
+  /** Core pairings already cached when this run started. */
+  cachedAtStart: number;
   current: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -33,6 +37,8 @@ const IDLE: BulkJobState = {
   completed: 0,
   skipped: 0,
   failed: 0,
+  catalogTotal: 0,
+  cachedAtStart: 0,
   current: null,
   startedAt: null,
   finishedAt: null,
@@ -122,7 +128,30 @@ export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Pro
     throw new Error("No LLM provider is configured");
   }
 
-  const queue = buildBulkAnalyzeQueue({ refresh: options.refresh ?? false, includeGaps: false });
+  const refresh = options.refresh ?? false;
+  const targets = countBulkTargets(refresh);
+  const queue = buildBulkAnalyzeQueue({ refresh, includeGaps: true });
+
+  if (queue.length === 0) {
+    const done: BulkJobState = {
+      status: "completed",
+      total: 0,
+      completed: 0,
+      skipped: targets.cached,
+      failed: 0,
+      catalogTotal: targets.total,
+      cachedAtStart: targets.cached,
+      current: null,
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      error: null,
+      provider,
+      model: getModelForProvider(provider),
+      refresh,
+    };
+    writeState(done);
+    return done;
+  }
 
   const initial: BulkJobState = {
     status: "running",
@@ -130,13 +159,15 @@ export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Pro
     completed: 0,
     skipped: 0,
     failed: 0,
+    catalogTotal: targets.total,
+    cachedAtStart: targets.cached,
     current: queue[0]?.label ?? null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
     error: null,
     provider,
     model: getModelForProvider(provider),
-    refresh: options.refresh ?? false,
+    refresh,
   };
   writeState(initial);
 
@@ -223,26 +254,6 @@ async function runBulkQueue(
       },
       () => !isActive(),
     );
-
-    if (!isActive()) return;
-
-    const gapQueue = buildBulkAnalyzeQueue({ refresh: state.refresh, includeGaps: true }).filter(
-      (item) => !queue.some((q) => q.label === item.label),
-    );
-
-    if (gapQueue.length > 0 && isActive()) {
-      update({ total: state.total + gapQueue.length });
-      await runPool(
-        gapQueue,
-        concurrency,
-        async (item) => {
-          if (!isActive()) return;
-          update({ current: `Gap: ${item.label}` });
-          await processItem(item);
-        },
-        () => !isActive(),
-      );
-    }
 
     if (!isActive()) return;
 

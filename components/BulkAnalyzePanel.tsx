@@ -8,7 +8,12 @@ import type { BulkJobState } from "@/lib/ai/bulk-job";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { Button } from "@/components/ui/Button";
 
-type Targets = { total: number; cached: number; remaining?: number };
+type Targets = {
+  total: number;
+  cached: number;
+  remaining?: number;
+  baselineMissing?: number;
+};
 
 export function BulkAnalyzePanel() {
   const router = useRouter();
@@ -42,7 +47,11 @@ export function BulkAnalyzePanel() {
       const next = await poll();
       if (next && next.status === "completed") {
         clearInterval(id);
-        toast("Match analysis complete");
+        toast(
+          next.total === 0
+            ? "All predictions are up to date"
+            : `Analyzed ${next.completed} matchup${next.completed === 1 ? "" : "s"}`,
+        );
         router.refresh();
       }
     }, 2000);
@@ -61,6 +70,9 @@ export function BulkAnalyzePanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
       setJob(data.job);
+      if (data.job?.status === "completed" && data.job.total === 0) {
+        toast("All predictions are up to date");
+      }
       void poll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start");
@@ -74,14 +86,19 @@ export function BulkAnalyzePanel() {
     await poll();
   }
 
-  const pending = targets ? (targets.remaining ?? targets.total - targets.cached) : null;
+  const pending = targets?.remaining ?? null;
+  const gapOnly =
+    pending != null &&
+    targets != null &&
+    pending > 0 &&
+    (targets.baselineMissing ?? pending) === 0;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
-          disabled={loading || running}
+          disabled={loading || running || pending === 0}
           onClick={() => start(false)}
         >
           {loading ? (
@@ -89,7 +106,9 @@ export function BulkAnalyzePanel() {
           ) : (
             <Play size={16} />
           )}
-          Analyze all matches
+          {pending != null && pending > 0
+            ? `Analyze missing (${pending})`
+            : "All analyzed"}
         </Button>
         <Button variant="secondary" disabled={loading || running} onClick={() => start(true)}>
           <RefreshCw size={16} />
@@ -97,13 +116,18 @@ export function BulkAnalyzePanel() {
         </Button>
       </div>
       <p className="text-xs text-text-muted">
-        <strong className="font-semibold text-text">Analyze all</strong> fills missing predictions only.{" "}
-        <strong className="font-semibold text-text">Re-analyze all</strong> forces a fresh LLM pass on every match.
+        <strong className="font-semibold text-text">Analyze missing</strong> runs only uncached
+        predictions (group matches, top-24 pairings, and bracket-path gaps).{" "}
+        <strong className="font-semibold text-text">Re-analyze all</strong> forces a fresh LLM pass.
       </p>
-      {pending != null && !running && (
+      {targets && !running && (
         <p className="text-xs text-text-muted">
-          {targets!.cached} / {targets!.total} pairings analyzed
-          {pending > 0 ? ` · ${pending} need analysis` : " · up to date"}
+          {targets.cached} / {targets.total} core pairings cached
+          {pending === 0
+            ? " · up to date"
+            : gapOnly
+              ? ` · ${pending} bracket-specific pairing${pending === 1 ? "" : "s"} need analysis`
+              : ` · ${pending} to analyze this run`}
         </p>
       )}
       {error && <p className="text-xs text-loss">{error}</p>}

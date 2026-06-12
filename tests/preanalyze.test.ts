@@ -7,6 +7,7 @@ import {
   workItemForGap,
 } from "@/lib/ai/preanalyze";
 import { getFixtures, getMatch } from "@/lib/data/load";
+import { getConfirmedResults } from "@/lib/sim/actual-results";
 
 describe("preanalyze", () => {
   it("selects top 24 teams by FIFA rank", () => {
@@ -31,10 +32,19 @@ describe("preanalyze", () => {
   });
 
   it("reports zero cached when no LLM provider is configured", () => {
-    const { total, cached, remaining } = countBulkTargets();
-    expect(total).toBe(348);
+    const confirmed = getConfirmedResults();
+    const groupCount = getFixtures().filter(
+      (m) =>
+        m.homeTeamId !== "TBD" &&
+        m.awayTeamId !== "TBD" &&
+        !confirmed.has(m.id),
+    ).length;
+    const expected = groupCount + buildTop24Pairings().length;
+    const { total, cached, remaining, baselineMissing } = countBulkTargets();
+    expect(total).toBe(expected);
     expect(cached).toBe(0);
-    expect(remaining).toBe(348);
+    expect(remaining).toBe(expected);
+    expect(baselineMissing).toBe(expected);
   });
 
   it("uses pair analysis for knockout gaps when the fixture still has TBD teams", () => {

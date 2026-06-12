@@ -140,17 +140,11 @@ export function countBulkTargets(refresh = false): {
   total: number;
   cached: number;
   remaining: number;
+  /** Uncached group fixtures + top-24 knockout pairings (excludes bracket-path gaps). */
+  baselineMissing: number;
 } {
   const pairCount = buildTop24Pairings().length;
   const provider = resolveActiveProvider();
-  if (!provider) {
-    const groupCount = getFixtures().filter(
-      (m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD",
-    ).length;
-    const total = groupCount + pairCount;
-    return { total, cached: 0, remaining: total };
-  }
-
   const confirmed = getConfirmedResults();
   const groupCount = getFixtures().filter(
     (m) =>
@@ -159,7 +153,13 @@ export function countBulkTargets(refresh = false): {
       !confirmed.has(m.id),
   ).length;
   const total = groupCount + pairCount;
-  const queue = buildBulkAnalyzeQueue({ refresh, includeGaps: false });
-  const remaining = queue.length;
-  return { total, cached: Math.max(0, total - remaining), remaining };
+
+  if (!provider) {
+    return { total, cached: 0, remaining: total, baselineMissing: total };
+  }
+
+  const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
+  const remaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
+  const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
+  return { total, cached, remaining, baselineMissing };
 }
