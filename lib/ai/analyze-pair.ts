@@ -1,4 +1,5 @@
 import { getTeam } from "@/lib/data/load";
+import { applyNewsImpactToView } from "@/lib/news/impact";
 import type { MatchPredictionView } from "@/lib/types";
 import { createLLMClient } from "./llm";
 import { isProviderReady } from "./settings";
@@ -35,7 +36,7 @@ export async function analyzePair(
   if (!options.refresh) {
     const cached = getPredictionForPair(home.id, away.id, stage, client.config.provider);
     if (cached && cached.stale !== 1) {
-      return toMatchView(cached, home.id, away.id, true);
+      return applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id);
     }
   }
 
@@ -73,5 +74,5 @@ export async function analyzePair(
     ...parsed,
   });
 
-  return toMatchView(saved, home.id, away.id, false);
+  return applyNewsImpactToView(toMatchView(saved, home.id, away.id, false), home.id, away.id);
 }

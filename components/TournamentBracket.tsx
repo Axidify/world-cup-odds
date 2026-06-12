@@ -8,7 +8,7 @@ import { GroupStagePanel } from "@/components/tournament/GroupStagePanel";
 import { KnockoutBracketTree } from "@/components/tournament/KnockoutBracketTree";
 import type { OfficialBracketMatch } from "@/lib/bracket/official-knockout";
 import { buildBracketMatchDisplay } from "@/lib/bracket/match-display";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatUtcDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
 import type {
   GroupAssignment,
   GroupStanding,
@@ -135,6 +135,9 @@ export function TournamentBracket({
             </span>
           </>
         ) : null}
+      </p>
+      <p className="mt-1 text-xs text-text-muted" suppressHydrationWarning>
+        Match times in your timezone ({getLocalTimezoneName()}). Highlighted: live, later today, or tomorrow.
       </p>
 
       <div className="mt-4">

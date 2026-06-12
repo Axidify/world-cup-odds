@@ -1,17 +1,35 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kickoff-highlight";
+import { getMatchLifecycle } from "@/lib/match/lifecycle";
+import { formatLocalDate } from "@/lib/utils/dates";
 import type { Match, Team } from "@/lib/types";
 
 export function MatchCard({ match, teams }: { match: Match; teams: Team[] }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const map = new Map(teams.map((t) => [t.id, t]));
   const home = match.homeTeamId === "TBD" ? null : map.get(match.homeTeamId);
   const away = match.awayTeamId === "TBD" ? null : map.get(match.awayTeamId);
 
+  const lifecycle = getMatchLifecycle(match.date, false, now);
+  const highlight = getKickoffHighlight(match.date, lifecycle, now);
+
   return (
     <Link href={`/match/${match.id}`}>
-      <Card className="flex items-center justify-between gap-3 p-4 transition-colors hover:border-brand">
+      <Card
+        className={`flex items-center justify-between gap-3 p-4 transition-colors hover:border-brand ${kickoffHighlightCardClass(highlight)}`}
+        suppressHydrationWarning
+      >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {home ? <Flag code={home.flagCode} alt={home.name} size="sm" /> : <span className="text-text-muted">TBD</span>}
           <span className="truncate text-sm font-semibold">{home?.name ?? "TBD"}</span>
@@ -21,7 +39,7 @@ export function MatchCard({ match, teams }: { match: Match; teams: Team[] }) {
         </div>
         <div className="text-right text-xs text-text-muted">
           <div className="uppercase">{match.stage}</div>
-          <div className="num">{formatUtcDate(match.date)}</div>
+          <div className="num">{formatLocalDate(match.date)}</div>
         </div>
       </Card>
     </Link>

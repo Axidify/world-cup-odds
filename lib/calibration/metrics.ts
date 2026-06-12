@@ -5,15 +5,23 @@ import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
 import { listProviderInfos } from "@/lib/ai/config";
 import { getPredictionForPair } from "@/lib/ai/predictions";
+import { fixtureProbabilitiesWithNews } from "@/lib/news/impact";
 import type { LLMProvider } from "@/lib/types";
 
 export type ActualOutcome = "home" | "draw" | "away";
+
+export type StoredPredicted = {
+  home: number;
+  draw: number;
+  away: number;
+  baseline?: { home: number; draw: number; away: number };
+};
 
 export type PredictionLogEntry = {
   id: string;
   matchId: string;
   cacheKey: string | null;
-  predicted: { home: number; draw: number; away: number };
+  predicted: StoredPredicted;
   actual: ActualOutcome;
   brier: number;
   logLoss: number;
@@ -21,11 +29,21 @@ export type PredictionLogEntry = {
   createdAt: string;
 };
 
+export type NewsAccuracyComparison = {
+  countWithBaseline: number;
+  avgBaselineBrier: number | null;
+  avgNewsBrier: number | null;
+  /** Positive when news-adjusted Brier is lower (better) than baseline. */
+  brierImprovement: number | null;
+  newsAdjustedCount: number;
+};
+
 export type AccuracySummary = {
   count: number;
   avgBrier: number | null;
   avgLogLoss: number | null;
   directionAccuracy: number | null;
+  newsImpact: NewsAccuracyComparison | null;
   byStage: Record<string, { count: number; avgBrier: number | null; directionAccuracy: number | null }>;
   calibrationBins: Array<{ bin: string; predicted: number; actual: number; count: number }>;
   worstMisses: Array<{
@@ -111,11 +129,64 @@ export function isDirectionCorrect(
   return rankOutcomes(probs, options.allowDraw !== false)[0][0] === actual;
 }
 
-export function storedPredictedToProbs(predicted: { home: number; draw: number; away: number }) {
+export function storedPredictedToProbs(predicted: StoredPredicted) {
   return {
     home: predicted.home / 100,
     draw: predicted.draw / 100,
     away: predicted.away / 100,
+  };
+}
+
+function pctFromProbs(probs: { home: number; draw: number; away: number }): StoredPredicted {
+  return {
+    home: Math.round(probs.home * 1000) / 10,
+    draw: Math.round(probs.draw * 1000) / 10,
+    away: Math.round(probs.away * 1000) / 10,
+  };
+}
+
+function parseStoredPredicted(raw: string): StoredPredicted {
+  const parsed = JSON.parse(raw) as StoredPredicted;
+  return {
+    home: parsed.home,
+    draw: parsed.draw,
+    away: parsed.away,
+    baseline: parsed.baseline,
+  };
+}
+
+function computeNewsAccuracyComparison(entries: PredictionLogEntry[]): NewsAccuracyComparison | null {
+  const withBaseline = entries.filter((e) => e.predicted.baseline != null);
+  if (withBaseline.length === 0) return null;
+
+  let baselineBrierSum = 0;
+  let newsBrierSum = 0;
+  let newsAdjustedCount = 0;
+
+  for (const e of withBaseline) {
+    const baseline = e.predicted.baseline!;
+    const baselineProbs = storedPredictedToProbs(baseline);
+    const newsProbs = storedPredictedToProbs(e.predicted);
+    baselineBrierSum += computeBrier(baselineProbs, e.actual);
+    newsBrierSum += computeBrier(newsProbs, e.actual);
+    if (
+      baseline.home !== e.predicted.home ||
+      baseline.draw !== e.predicted.draw ||
+      baseline.away !== e.predicted.away
+    ) {
+      newsAdjustedCount += 1;
+    }
+  }
+
+  const avgBaselineBrier = baselineBrierSum / withBaseline.length;
+  const avgNewsBrier = newsBrierSum / withBaseline.length;
+
+  return {
+    countWithBaseline: withBaseline.length,
+    avgBaselineBrier: Math.round(avgBaselineBrier * 1000) / 1000,
+    avgNewsBrier: Math.round(avgNewsBrier * 1000) / 1000,
+    brierImprovement: Math.round((avgBaselineBrier - avgNewsBrier) * 1000) / 1000,
+    newsAdjustedCount,
   };
 }
 
@@ -139,7 +210,7 @@ function findPredictionForLogging(match: Match): Prediction | null {
 }
 
 function parseLogRow(row: typeof predictionLog.$inferSelect): PredictionLogEntry {
-  const predicted = JSON.parse(row.predicted) as { home: number; draw: number; away: number };
+  const predicted = parseStoredPredicted(row.predicted);
   const actual = row.actual as ActualOutcome;
   const probs = storedPredictedToProbs(predicted);
   const match = getResolvedMatch(row.matchId);
@@ -179,7 +250,17 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
   const prediction = findPredictionForLogging(match);
   if (!prediction) return existing ? parseLogRow(existing) : null;
 
-  const probs = orientProbabilities(prediction, match.homeTeamId);
+  const baselineProbs = orientProbabilities(prediction, match.homeTeamId);
+  const adjusted = fixtureProbabilitiesWithNews(
+    prediction,
+    match.homeTeamId,
+    match.awayTeamId,
+  );
+  const probs = {
+    home: adjusted.home,
+    draw: adjusted.draw,
+    away: adjusted.away,
+  };
   const actual = deriveActualOutcome(match, {
     homeScore: resultRow.homeScore,
     awayScore: resultRow.awayScore,
@@ -189,9 +270,8 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
   const brier = computeBrier(probs, actual);
   const logLoss = computeLogLoss(probs, actual);
   const predictedJson = JSON.stringify({
-    home: Math.round(probs.home * 1000) / 10,
-    draw: Math.round(probs.draw * 1000) / 10,
-    away: Math.round(probs.away * 1000) / 10,
+    ...pctFromProbs(probs),
+    baseline: pctFromProbs(baselineProbs),
   });
 
   if (existing) {
@@ -232,6 +312,7 @@ export function getAccuracySummary(): AccuracySummary {
       avgBrier: null,
       avgLogLoss: null,
       directionAccuracy: null,
+      newsImpact: null,
       byStage: {},
       calibrationBins: [],
       worstMisses: [],
@@ -305,6 +386,7 @@ export function getAccuracySummary(): AccuracySummary {
     avgBrier: Math.round(avgBrier * 1000) / 1000,
     avgLogLoss: Math.round(avgLogLoss * 1000) / 1000,
     directionAccuracy: Math.round((directionHits / entries.length) * 1000) / 10,
+    newsImpact: computeNewsAccuracyComparison(entries),
     byStage,
     calibrationBins,
     worstMisses,

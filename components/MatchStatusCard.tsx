@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kickoff-highlight";
 import {
   formatLifecycleHint,
-  formatLifecycleLabel,
+  formatLifecycleLabelLocal,
   getMatchLifecycle,
 } from "@/lib/match/lifecycle";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatLocalDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
 
 type StatusResponse = {
   resultsPoll?: { intervalMinutes: number; nextPollAt: string; shouldPoll: boolean };
@@ -59,6 +60,7 @@ export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayNa
 
   const isConfirmed = Boolean(confirmed);
   const lifecycle = getMatchLifecycle(kickoffIso, isConfirmed, now);
+  const highlight = getKickoffHighlight(kickoffIso, lifecycle, now);
   const intervalMinutes = poll?.intervalMinutes ?? 15;
 
   if (lifecycle === "confirmed" && confirmed && homeName && awayName) {
@@ -79,21 +81,23 @@ export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayNa
       ? "border-loss/40 bg-loss/5"
       : lifecycle === "awaiting_result"
         ? "border-money/40 bg-money-tint/30"
-        : "border-border bg-surface-2/50";
+        : kickoffHighlightCardClass(highlight) || "border-border bg-surface-2/50";
 
   return (
     <Card className={`p-4 ${borderClass}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Match status</p>
         <p className={`text-sm font-semibold ${lifecycle === "live" ? "text-loss" : "text-text"}`}>
-          {formatLifecycleLabel(lifecycle, kickoffIso, now)}
+          {formatLifecycleLabelLocal(lifecycle, kickoffIso, now)}
         </p>
       </div>
       <p className="mt-2 text-sm text-text-muted">{formatLifecycleHint(lifecycle, intervalMinutes)}</p>
       <dl className="mt-3 space-y-1 text-xs text-text-muted">
         <div className="flex justify-between gap-4">
           <dt>Kickoff</dt>
-          <dd className="num text-text">{formatUtcDateTime(kickoffIso)} UTC</dd>
+          <dd className="num text-text" suppressHydrationWarning>
+            {formatLocalDateTime(kickoffIso)} ({getLocalTimezoneName()})
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Venue</dt>

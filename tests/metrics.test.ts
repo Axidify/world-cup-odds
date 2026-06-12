@@ -3,6 +3,7 @@ import {
   computeBrier,
   computeLogLoss,
   deriveActualOutcome,
+  getAccuracySummary,
   isDirectionCorrect,
   orientProbabilities,
   pickFavoriteOutcome,
@@ -91,5 +92,15 @@ describe("calibration metrics", () => {
   it("picks knockout favorite without draw", () => {
     expect(pickFavoriteOutcome({ home: 45, draw: 30, away: 25 }, "r32")).toBe("home");
     expect(pickFavoriteOutcome({ home: 25, draw: 40, away: 35 }, "group")).toBe("draw");
+  });
+
+  it("reports news impact comparison when baseline is stored", () => {
+    const summary = getAccuracySummary();
+    expect(summary).toHaveProperty("newsImpact");
+    if (summary.newsImpact) {
+      expect(summary.newsImpact.countWithBaseline).toBeGreaterThan(0);
+      expect(summary.newsImpact.avgBaselineBrier).not.toBeNull();
+      expect(summary.newsImpact.avgNewsBrier).not.toBeNull();
+    }
   });
 });

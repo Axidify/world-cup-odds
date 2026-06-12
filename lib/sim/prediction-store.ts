@@ -7,11 +7,7 @@ import { isPredictionExpired } from "@/lib/ai/cache-ttl";
 import { getModelForProvider } from "@/lib/ai/config";
 import { KNOCKOUT_PRECACHE_STAGE } from "@/lib/ai/preanalyze";
 import { getEloMap } from "@/lib/calibration/elo";
-import {
-  adjustProbabilities,
-  getPairNewsImpact,
-  isNewsImpactEnabled,
-} from "@/lib/news/impact";
+import { applyNewsImpactToStoredPrediction } from "@/lib/news/impact";
 import {
   buildRankFallbackPrediction,
   isKnockoutFallbackStage,
@@ -80,26 +76,10 @@ export function loadPredictionStore(provider: LLMProvider): PredictionStore {
 
   // Predictions are stored teamA-oriented, so apply news deltas the same way.
   function withNewsImpact(pred: Prediction): Prediction {
-    if (!isNewsImpactEnabled()) return pred;
     const hit = newsAdjusted.get(pred.cacheKey);
     if (hit) return hit;
 
-    const { home, away } = getPairNewsImpact(pred.teamA, pred.teamB);
-    const result = adjustProbabilities(
-      pred.homeWinPct,
-      pred.drawPct,
-      pred.awayWinPct,
-      home.eloDelta,
-      away.eloDelta,
-    );
-    const out = result.adjusted
-      ? {
-          ...pred,
-          homeWinPct: result.homeWinPct,
-          drawPct: result.drawPct,
-          awayWinPct: result.awayWinPct,
-        }
-      : pred;
+    const out = applyNewsImpactToStoredPrediction(pred);
     newsAdjusted.set(pred.cacheKey, out);
     return out;
   }

@@ -16,6 +16,14 @@ const UPCOMING_WINDOW_MS = 48 * 60 * 60 * 1000;
 const NEWS_TTL_MS = 6 * 60 * 60 * 1000;
 const MATCHDAY_TTL_MS = 2 * 60 * 60 * 1000;
 
+/** Reject LLM extractions that would wipe existing squad events with an empty list. */
+export function shouldRejectEmptyNewsExtraction(
+  previousEvents: Array<unknown>,
+  nextEvents: Array<unknown>,
+): boolean {
+  return previousEvents.length > 0 && nextEvents.length === 0;
+}
+
 function buildNewsQuery(teamId: string): string {
   const team = getTeamMap().get(teamId);
   const name = team?.name ?? teamId;
@@ -78,6 +86,10 @@ export async function pollTeamNews(
     if (!extracted) return "failed";
 
     const before = getTeamNewsSummary(teamId);
+    if (shouldRejectEmptyNewsExtraction(before.events, extracted.events)) {
+      return "skipped";
+    }
+
     const nextFingerprint = teamNewsFingerprint(extracted.events);
     const prevFingerprint = teamNewsFingerprint(before.events);
     const changed = nextFingerprint !== prevFingerprint;

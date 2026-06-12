@@ -1,6 +1,8 @@
 import type { Match, Team } from "@/lib/types";
 import { buildLearningContext } from "./build-context";
 
+// Squad news is excluded from the LLM prompt — probabilities are adjusted on read via lib/news/impact.
+
 export const MATCH_ANALYSIS_SYSTEM_PROMPT = `You are a football analyst for the 2026 FIFA World Cup.
 Respond with ONLY valid JSON — no markdown, no code fences, no commentary outside the JSON object.
 

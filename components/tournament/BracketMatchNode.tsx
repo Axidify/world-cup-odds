@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Flag } from "@/components/Flag";
 import { MatchStatusBadge } from "@/components/MatchStatusBadge";
 import type { BracketMatchDisplay } from "@/lib/bracket/match-display";
+import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kickoff-highlight";
+import { getMatchLifecycle } from "@/lib/match/lifecycle";
 import { MATCH_CARD_HEIGHT } from "@/lib/bracket/tree-layout";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { formatLocalDate } from "@/lib/utils/dates";
 
 type Props = {
   match: BracketMatchDisplay;
@@ -37,8 +42,18 @@ function TeamRow({
 }
 
 export function BracketMatchNode({ match, columnWidth }: Props) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const hasScore = Boolean(match.score);
   const showLeftDate = hasScore || match.projected;
+  const lifecycle = getMatchLifecycle(match.date, hasScore, now);
+  const highlight = getKickoffHighlight(match.date, lifecycle, now);
+  const highlightClass = !match.projected ? kickoffHighlightCardClass(highlight) : "";
 
   return (
     <Link
@@ -49,11 +64,16 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
       <div
         className={`flex flex-col justify-center gap-1 rounded-lg border bg-surface-1 px-2.5 py-1.5 transition-colors group-hover:border-brand ${
           match.home && match.away ? "border-border" : "border-dashed border-border/70"
-        } ${match.projected ? "border-brand/30" : ""}`}
+        } ${match.projected ? "border-brand/30" : ""} ${highlightClass}`}
         style={{ height: MATCH_CARD_HEIGHT }}
+        suppressHydrationWarning
       >
         <div className="flex items-center justify-between gap-1 text-[9px] font-semibold uppercase tracking-wide text-text-muted">
-          {showLeftDate ? <span>{formatUtcDate(match.date)}</span> : <span />}
+          {showLeftDate ? (
+            <span suppressHydrationWarning>{formatLocalDate(match.date)}</span>
+          ) : (
+            <span />
+          )}
           {hasScore ? (
             <span className="text-win">FT</span>
           ) : match.projected ? (

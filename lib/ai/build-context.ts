@@ -7,8 +7,6 @@ import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
 import { getEloRating } from "@/lib/calibration/elo";
 import { pickFavoriteOutcome, storedPredictedToProbs } from "@/lib/calibration/metrics";
-import { getTeamEvents, getTeamNewsSummaryText } from "@/lib/news/store";
-
 const RECENT_RESULTS_LIMIT = 3;
 const ERROR_MEMORY_LIMIT = 4;
 
@@ -88,26 +86,6 @@ function getPredictionErrorNotes(homeId: string, awayId: string): string[] {
     .map((n) => n.note);
 }
 
-function formatTeamNews(team: Team): string[] {
-  const summary = getTeamNewsSummaryText(team.id);
-  const events = getTeamEvents(team.id);
-  const lines: string[] = [];
-
-  if (summary) {
-    lines.push(`${team.name} summary: ${summary}`);
-  } else if (events.length === 0) {
-    lines.push(`${team.name}: no recent squad news on file.`);
-  }
-
-  for (const e of events.slice(0, 5)) {
-    const who = e.player ? `${e.player}: ` : "";
-    const src = e.source ? ` (${e.source})` : "";
-    lines.push(`${team.name} — ${e.type}: ${who}${e.detail ?? "see source"}${src}`);
-  }
-
-  return lines;
-}
-
 export function buildLearningContext(home: Team, away: Team): string {
   const lines: string[] = ["LEARNING CONTEXT:"];
 
@@ -130,10 +108,6 @@ export function buildLearningContext(home: Team, away: Team): string {
     lines.push("- Past prediction notes:");
     for (const e of errors) lines.push(`  - ${e}`);
   }
-
-  lines.push("- Team news:");
-  for (const n of formatTeamNews(home)) lines.push(`  - ${n}`);
-  for (const n of formatTeamNews(away)) lines.push(`  - ${n}`);
 
   return lines.join("\n");
 }

@@ -12,10 +12,11 @@ describe("buildLearningContext", () => {
     expect(ctx).toContain("South Africa Elo:");
   });
 
-  it("includes team news section", () => {
+  it("excludes squad news — applied via deterministic overlay instead", () => {
     const home = getTeam("bra")!;
     const away = getTeam("mar")!;
     const ctx = buildLearningContext(home, away);
-    expect(ctx).toContain("Team news:");
+    expect(ctx).not.toContain("Team news:");
+    expect(ctx).not.toContain("squad news");
   });
 });

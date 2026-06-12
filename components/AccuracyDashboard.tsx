@@ -42,6 +42,35 @@ export function AccuracyDashboard() {
 
   return (
     <div className="space-y-6">
+      {data.newsImpact && data.newsImpact.countWithBaseline > 0 && (
+        <Card className="p-5">
+          <h2 className="text-sm font-bold">News impact on accuracy</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Compares baseline AI predictions to news-adjusted odds shown in the app (
+            {data.newsImpact.newsAdjustedCount} of {data.newsImpact.countWithBaseline} matches had squad news
+            shifts).
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
+            <div>
+              <div className="text-xs text-text-muted">Baseline Brier</div>
+              <div className="num font-bold">{data.newsImpact.avgBaselineBrier?.toFixed(3) ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-text-muted">News-adjusted Brier</div>
+              <div className="num font-bold">{data.newsImpact.avgNewsBrier?.toFixed(3) ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-text-muted">Improvement (lower is better)</div>
+              <div className="num font-bold">
+                {data.newsImpact.brierImprovement != null
+                  ? `${data.newsImpact.brierImprovement >= 0 ? "+" : ""}${data.newsImpact.brierImprovement.toFixed(3)}`
+                  : "—"}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Matches scored", value: String(data.count) },

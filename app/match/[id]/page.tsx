@@ -11,7 +11,7 @@ import { applyNewsImpactToView } from "@/lib/news/impact";
 import { getBracketTemplate, getTeam } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getResult } from "@/lib/results/store";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { LocalKickoffLine } from "@/components/LocalKickoffLine";
 import { formatBracketSlot } from "@/lib/utils/slots";
 
 function matchTitle(
@@ -119,9 +119,11 @@ export default async function MatchPage({
               )}
             </div>
           </div>
-          <p className="mt-4 text-center text-xs text-text-muted">
-            {formatUtcDateTime(match.date)} UTC · {match.venue}
-          </p>
+          <LocalKickoffLine
+            kickoffIso={match.date}
+            venue={match.venue}
+            className="mt-4 text-center text-xs text-text-muted"
+          />
           <div className="mt-6">
             {home && away ? (
               <MatchAnalysis

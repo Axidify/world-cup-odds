@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { Flag } from "@/components/Flag";
+import { GroupFixtureRow } from "@/components/GroupFixtureRow";
 import { Card } from "@/components/ui/Card";
-import { MatchStatusBadge } from "@/components/MatchStatusBadge";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
 type Props = {
@@ -100,25 +99,15 @@ export function GroupCard({
           const result = confirmedScores?.get(m.id);
           const projected = showProjectedScores ? projectedScores?.get(m.id) : undefined;
           return (
-            <Link
+            <GroupFixtureRow
               key={m.id}
-              href={`/match/${m.id}`}
-              className="flex items-center justify-between gap-2 py-2 text-xs hover:text-brand"
-            >
-              <span>
-                {home?.id.toUpperCase()} vs {away?.id.toUpperCase()}
-              </span>
-              <MatchStatusBadge
-                kickoffIso={m.date}
-                confirmed={result ? { homeGoals: result.homeGoals, awayGoals: result.awayGoals } : null}
-                projected={
-                  !result && projected
-                    ? { homeGoals: projected.homeGoals, awayGoals: projected.awayGoals }
-                    : null
-                }
-                compact
-              />
-            </Link>
+              matchId={m.id}
+              homeLabel={home?.id.toUpperCase() ?? "TBD"}
+              awayLabel={away?.id.toUpperCase() ?? "TBD"}
+              kickoffIso={m.date}
+              confirmed={result}
+              projected={projected}
+            />
           );
         })}
       </div>

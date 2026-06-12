@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { GroupCard } from "@/components/GroupCard";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatUtcDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
 type ViewMode = "official" | "projected";
@@ -66,6 +66,9 @@ export function GroupsView({
         {view === "official" && hasConfirmedGroupResults
           ? ` · ${confirmedGroupMatches} confirmed result${confirmedGroupMatches === 1 ? "" : "s"}`
           : ""}
+      </p>
+      <p className="mt-1 text-xs text-text-muted" suppressHydrationWarning>
+        Fixture times in your timezone ({getLocalTimezoneName()}). Highlighted: live, later today, or tomorrow.
       </p>
 
       <div className="mt-4">

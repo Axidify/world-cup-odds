@@ -1,5 +1,5 @@
 import { RESULT_POLL_START_AFTER_MS } from "@/lib/match/poll-timing";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatLocalDateTime, formatUtcDateTime } from "@/lib/utils/dates";
 
 export type MatchLifecycle = "upcoming" | "live" | "awaiting_result" | "confirmed";
 
@@ -42,6 +42,24 @@ export function formatLifecycleLabel(
       return "Full time";
     case "upcoming":
       return `Kickoff ${formatUtcDateTime(kickoffIso)} UTC`;
+    case "live":
+      return `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
+    case "awaiting_result":
+      return "Awaiting final score";
+  }
+}
+
+export function formatLifecycleLabelLocal(
+  lifecycle: MatchLifecycle,
+  kickoffIso: string,
+  now = Date.now(),
+  timeZone?: string,
+): string {
+  switch (lifecycle) {
+    case "confirmed":
+      return "Full time";
+    case "upcoming":
+      return `Kickoff ${formatLocalDateTime(kickoffIso, timeZone)}`;
     case "live":
       return `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
     case "awaiting_result":

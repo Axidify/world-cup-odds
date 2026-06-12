@@ -1,4 +1,4 @@
-import type { MatchPredictionView } from "@/lib/types";
+import type { MatchPredictionView, Prediction } from "@/lib/types";
 import { getTeamEvents, type TeamEventRow } from "@/lib/news/store";
 
 /**
@@ -131,6 +131,73 @@ export function getPairNewsImpact(homeTeamId: string, awayTeamId: string): PairN
   return {
     home: getTeamNewsImpact(homeTeamId),
     away: getTeamNewsImpact(awayTeamId),
+  };
+}
+
+/** Fixture-oriented win percentages (0–100) with optional news overlay. */
+export function fixturePercentagesWithNews(
+  prediction: Prediction,
+  homeTeamId: string,
+  awayTeamId: string,
+): {
+  homeWinPct: number;
+  drawPct: number;
+  awayWinPct: number;
+  newsAdjusted: boolean;
+} {
+  const homeIsTeamA = prediction.teamA === homeTeamId;
+  let homeWinPct = homeIsTeamA ? prediction.homeWinPct : prediction.awayWinPct;
+  const drawPct = prediction.drawPct;
+  let awayWinPct = homeIsTeamA ? prediction.awayWinPct : prediction.homeWinPct;
+
+  if (!isNewsImpactEnabled()) {
+    return { homeWinPct, drawPct, awayWinPct, newsAdjusted: false };
+  }
+
+  const { home, away } = getPairNewsImpact(homeTeamId, awayTeamId);
+  const result = adjustProbabilities(homeWinPct, drawPct, awayWinPct, home.eloDelta, away.eloDelta);
+  return {
+    homeWinPct: result.homeWinPct,
+    drawPct: result.drawPct,
+    awayWinPct: result.awayWinPct,
+    newsAdjusted: result.adjusted,
+  };
+}
+
+/** Fixture-oriented probabilities (0–1) with optional news overlay. */
+export function fixtureProbabilitiesWithNews(
+  prediction: Prediction,
+  homeTeamId: string,
+  awayTeamId: string,
+): { home: number; draw: number; away: number; newsAdjusted: boolean } {
+  const pct = fixturePercentagesWithNews(prediction, homeTeamId, awayTeamId);
+  return {
+    home: pct.homeWinPct / 100,
+    draw: pct.drawPct / 100,
+    away: pct.awayWinPct / 100,
+    newsAdjusted: pct.newsAdjusted,
+  };
+}
+
+/** Apply news overlay to a teamA-oriented stored prediction. */
+export function applyNewsImpactToStoredPrediction(prediction: Prediction): Prediction {
+  if (!isNewsImpactEnabled()) return prediction;
+
+  const { home, away } = getPairNewsImpact(prediction.teamA, prediction.teamB);
+  const result = adjustProbabilities(
+    prediction.homeWinPct,
+    prediction.drawPct,
+    prediction.awayWinPct,
+    home.eloDelta,
+    away.eloDelta,
+  );
+  if (!result.adjusted) return prediction;
+
+  return {
+    ...prediction,
+    homeWinPct: result.homeWinPct,
+    drawPct: result.drawPct,
+    awayWinPct: result.awayWinPct,
   };
 }
 

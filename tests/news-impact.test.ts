@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { adjustProbabilities, computeImpactFromEvents } from "@/lib/news/impact";
+import type { Prediction } from "@/lib/types";
+import {
+  adjustProbabilities,
+  applyNewsImpactToStoredPrediction,
+  computeImpactFromEvents,
+  fixtureProbabilitiesWithNews,
+} from "@/lib/news/impact";
 
 describe("news impact scoring", () => {
   it("returns zero impact with no events", () => {
@@ -74,5 +80,69 @@ describe("probability adjustment", () => {
     const b = adjustProbabilities(30, 30, 40, 0, -40);
     expect(a.homeWinPct).toBeCloseTo(b.awayWinPct, 1);
     expect(a.awayWinPct).toBeCloseTo(b.homeWinPct, 1);
+  });
+});
+
+describe("fixtureProbabilitiesWithNews", () => {
+  const base: Prediction = {
+    cacheKey: "test",
+    teamA: "bra",
+    teamB: "arg",
+    stage: "group",
+    isNeutral: 1,
+    provider: "vllm",
+    model: "test",
+    homeWinPct: 50,
+    drawPct: 25,
+    awayWinPct: 25,
+    predictedScore: "1-1",
+    keyFactors: [],
+    analysis: null,
+    isCalibrated: 0,
+    stale: 0,
+    generatedAt: "2026-06-01T00:00:00.000Z",
+  };
+
+  it("orients teamA storage to fixture home before adjusting", () => {
+    const probs = fixtureProbabilitiesWithNews(base, "bra", "arg");
+    expect(probs.home).toBeCloseTo(0.5);
+    expect(probs.draw).toBeCloseTo(0.25);
+    expect(probs.away).toBeCloseTo(0.25);
+  });
+
+  it("swaps home/away when fixture home is teamB", () => {
+    const probs = fixtureProbabilitiesWithNews(base, "arg", "bra");
+    expect(probs.home).toBeCloseTo(0.25);
+    expect(probs.away).toBeCloseTo(0.5);
+  });
+});
+
+describe("applyNewsImpactToStoredPrediction", () => {
+  it("is a no-op when news impact is disabled", () => {
+    const pred: Prediction = {
+      cacheKey: "test",
+      teamA: "mex",
+      teamB: "rsa",
+      stage: "group",
+      isNeutral: 1,
+      provider: "vllm",
+      model: "test",
+      homeWinPct: 50,
+      drawPct: 25,
+      awayWinPct: 25,
+      predictedScore: "1-0",
+      keyFactors: [],
+      analysis: null,
+      isCalibrated: 0,
+      stale: 0,
+      generatedAt: "2026-06-01T00:00:00.000Z",
+    };
+    const prev = process.env.NEWS_IMPACT_ENABLED;
+    process.env.NEWS_IMPACT_ENABLED = "false";
+    try {
+      expect(applyNewsImpactToStoredPrediction(pred)).toBe(pred);
+    } finally {
+      process.env.NEWS_IMPACT_ENABLED = prev;
+    }
   });
 });

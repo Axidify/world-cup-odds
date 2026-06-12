@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import {
-  formatLifecycleLabel,
+  getKickoffHighlight,
+  kickoffHighlightLabel,
+} from "@/lib/match/kickoff-highlight";
+import {
+  formatLifecycleLabelLocal,
   getMatchLifecycle,
   type MatchLifecycle,
 } from "@/lib/match/lifecycle";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { formatUpcomingKickoffCompact } from "@/lib/utils/dates";
 
 type ScoreLine = { homeGoals: number; awayGoals: number };
 
@@ -53,7 +57,8 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = f
     );
   }
 
-  const label = formatLifecycleLabel(lifecycle, kickoffIso, now);
+  const highlight = getKickoffHighlight(kickoffIso, lifecycle, now);
+  const label = formatLifecycleLabelLocal(lifecycle, kickoffIso, now);
 
   if (lifecycle === "live") {
     return (
@@ -72,10 +77,19 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = f
       lifecycle === "awaiting_result"
         ? "Syncing…"
         : lifecycle === "upcoming"
-          ? formatUtcDate(kickoffIso)
+          ? formatUpcomingKickoffCompact(
+              kickoffIso,
+              highlight === "later_today" || highlight === "tomorrow" ? highlight : null,
+            )
           : label;
+    const dayLabel = kickoffHighlightLabel(highlight);
+    const emphasizeDay = lifecycle === "upcoming" && dayLabel;
     return (
-      <span className={`num shrink-0 text-xs ${BADGE_CLASS[lifecycle]}`}>{compactLabel}</span>
+      <span
+        className={`num shrink-0 text-xs ${emphasizeDay ? "font-semibold text-brand" : BADGE_CLASS[lifecycle]}`}
+      >
+        {compactLabel}
+      </span>
     );
   }
 
