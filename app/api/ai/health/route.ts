@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { checkProviderHealth } from "@/lib/ai/llm";
 import { listProviderInfos, PROVIDER_LABELS, getModelForProvider } from "@/lib/ai/config";
 import { resolveActiveProvider } from "@/lib/ai/settings";
+import { resolveResultsProvider } from "@/lib/jobs/poll-results";
+import {
+  checkFootballDataHealth,
+  isFootballDataConfigured,
+} from "@/lib/results/football-data";
 import {
   isSearchConfigured,
   isSearchReady,
@@ -21,6 +26,12 @@ export async function GET() {
 
   const searchConfigured = isSearchConfigured();
   const searchOnline = searchConfigured ? isSearchReady() : false;
+  const resultsProvider = resolveResultsProvider();
+  const footballDataConfigured = isFootballDataConfigured();
+  const footballDataOnline =
+    footballDataConfigured && resultsProvider === "football-data"
+      ? await checkFootballDataHealth()
+      : false;
 
   return NextResponse.json({
     active: active
@@ -36,6 +47,11 @@ export async function GET() {
       provider: resolveSearchProvider(),
       configured: searchConfigured,
       online: searchOnline,
+    },
+    results: {
+      provider: resultsProvider,
+      configured: footballDataConfigured || searchConfigured,
+      online: resultsProvider === "football-data" ? footballDataOnline : searchOnline,
     },
     db: true,
   });

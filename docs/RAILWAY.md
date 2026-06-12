@@ -34,7 +34,8 @@ Set these in the service **Variables** tab (use **Raw Editor** for bulk paste).
 | `LLM_PROVIDER` | `openrouter`, `gemini`, `openai`, or `anthropic` (not `vllm` unless you expose a GPU endpoint) |
 | `OPENROUTER_API_KEY` | If using OpenRouter |
 | `GEMINI_API_KEY` | If using Gemini |
-| `TAVILY_API_KEY` | Results + news polling |
+| `FOOTBALL_DATA_API_TOKEN` | **Recommended** — official results via [football-data.org](https://www.football-data.org/client/register) (free). Confirms only `FINISHED` matches. |
+| `TAVILY_API_KEY` | News polling; results fallback only if `FOOTBALL_DATA_API_TOKEN` is unset |
 | `ADMIN_PIN` | PIN for admin actions (void bets, confirm results) |
 
 Railway sets `PORT` automatically — do not hard-code it.
@@ -45,6 +46,8 @@ Railway sets `PORT` automatically — do not hard-code it.
 APP_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 DATABASE_PATH=/data/worldcup.db
 LLM_PROVIDER=openrouter
+FOOTBALL_DATA_API_TOKEN=
+FOOTBALL_DATA_SEASON=2026
 SEARCH_PROVIDER=tavily
 AUTO_PIPELINE_ENABLED=1
 AUTO_SIMULATE_ON_RESULTS=1

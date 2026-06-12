@@ -172,6 +172,24 @@ export function confirmResult(
   return getResult(matchId);
 }
 
+/** Revert a confirmed result to pending (admin fix for bad auto-confirms). */
+export function unconfirmResult(matchId: string): boolean {
+  const db = getDb();
+  const existing = getResult(matchId);
+  if (!existing?.confirmed) return false;
+
+  db.update(actualResults)
+    .set({
+      confirmed: 0,
+      confirmedAt: null,
+      confirmedBy: null,
+    })
+    .where(eq(actualResults.matchId, matchId))
+    .run();
+
+  return true;
+}
+
 export function upsertConfirmedResult(
   input: {
     matchId: string;

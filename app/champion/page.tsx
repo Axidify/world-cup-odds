@@ -1,9 +1,9 @@
 import { ChampionBetButton } from "@/components/ChampionBetButton";
+import { ChampionOddsUpdate } from "@/components/ChampionOddsUpdate";
 import { Flag } from "@/components/Flag";
 import { SimulationPanel } from "@/components/SimulationPanel";
-import { SimulationStaleAlert } from "@/components/SimulationStaleAlert";
 import { Card } from "@/components/ui/Card";
-import { getLatestSimulation } from "@/lib/sim/simulation-cache";
+import { getChampionUpdateContext } from "@/lib/sim/champion-update";
 import { getTeams } from "@/lib/data/load";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +15,17 @@ function impliedOdds(pct: number): string {
 
 export default function ChampionPage() {
   const teams = [...getTeams()].sort((a, b) => a.fifaRank - b.fifaRank);
-  const simulation = getLatestSimulation();
-  const odds = simulation?.championOdds ?? null;
+  const update = getChampionUpdateContext();
+  const odds = update.afterOdds ?? update.beforeOdds;
+  const showComparison = update.status === "updated" && update.beforeOdds != null;
 
   const ranked = [...teams]
-    .map((t) => ({ team: t, pct: odds?.[t.id] ?? 0 }))
+    .map((t) => {
+      const pct = odds?.[t.id] ?? 0;
+      const prior = update.beforeOdds?.[t.id] ?? 0;
+      const delta = showComparison ? pct - prior : 0;
+      return { team: t, pct, prior, delta };
+    })
     .sort((a, b) => b.pct - a.pct);
 
   return (
@@ -28,14 +34,18 @@ export default function ChampionPage() {
       <h1 className="mt-2 font-[family-name:var(--font-archivo)] text-3xl font-bold">All 48 teams</h1>
       <p className="mt-2 text-sm text-text-muted">
         Monte Carlo champion probabilities
-        {simulation
-          ? ` · ${simulation.iterations.toLocaleString()} iterations · ${simulation.model}`
+        {update.after
+          ? ` · ${update.after.iterations.toLocaleString()} iterations · ${update.after.model}`
           : " — run simulation after AI predictions are cached"}
       </p>
 
-      <SimulationStaleAlert hasSimulation={Boolean(simulation)} className="mt-2" />
+      <ChampionOddsUpdate context={update} />
+
       <div className="mt-4">
-        <SimulationPanel hasSimulation={Boolean(simulation)} lastRunAt={simulation?.runAt ?? null} />
+        <SimulationPanel
+          hasSimulation={Boolean(update.after ?? update.before)}
+          lastRunAt={update.after?.runAt ?? update.before?.runAt ?? null}
+        />
       </div>
 
       <Card className="mt-8 overflow-hidden">
@@ -45,13 +55,21 @@ export default function ChampionPage() {
               <th className="px-4 py-3 font-semibold">#</th>
               <th className="px-4 py-3 font-semibold">Team</th>
               <th className="px-4 py-3 text-right font-semibold">FIFA</th>
-              <th className="px-4 py-3 text-right font-semibold">Champion %</th>
+              {showComparison && (
+                <th className="px-4 py-3 text-right font-semibold">Prior %</th>
+              )}
+              <th className="px-4 py-3 text-right font-semibold">
+                {showComparison ? "Current %" : "Champion %"}
+              </th>
+              {showComparison && (
+                <th className="px-4 py-3 text-right font-semibold">Change</th>
+              )}
               <th className="px-4 py-3 text-right font-semibold">Decimal</th>
               <th className="px-4 py-3 text-right font-semibold">Bet</th>
             </tr>
           </thead>
           <tbody>
-            {ranked.map(({ team, pct }, i) => (
+            {ranked.map(({ team, pct, prior, delta }, i) => (
               <tr key={team.id} className="border-t border-border">
                 <td className="num px-4 py-3 text-text-muted">{i + 1}</td>
                 <td className="px-4 py-3">
@@ -61,9 +79,23 @@ export default function ChampionPage() {
                   </span>
                 </td>
                 <td className="num px-4 py-3 text-right text-text-muted">#{team.fifaRank}</td>
+                {showComparison && (
+                  <td className="num px-4 py-3 text-right text-text-muted">
+                    {odds ? `${prior.toFixed(2)}%` : "—"}
+                  </td>
+                )}
                 <td className="num px-4 py-3 text-right font-semibold">
                   {odds ? `${pct.toFixed(2)}%` : "—"}
                 </td>
+                {showComparison && (
+                  <td
+                    className={`num px-4 py-3 text-right font-semibold ${
+                      delta > 0 ? "text-win" : delta < 0 ? "text-loss" : "text-text-muted"
+                    }`}
+                  >
+                    {odds ? `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%` : "—"}
+                  </td>
+                )}
                 <td className="num px-4 py-3 text-right text-money">{odds ? impliedOdds(pct) : "—"}</td>
                 <td className="px-4 py-3 text-right">
                   {odds ? <ChampionBetButton teamId={team.id} teamName={team.name} /> : "—"}
@@ -74,9 +106,9 @@ export default function ChampionPage() {
         </table>
       </Card>
 
-      {simulation && (
+      {update.after && (
         <p className="mt-4 text-xs text-text-muted">
-          Seeded Monte Carlo ({simulation.iterations.toLocaleString()} iters). The most likely knockout
+          Seeded Monte Carlo ({update.after.iterations.toLocaleString()} iters). The most likely knockout
           path (bracket page) can differ from these headline percentages.
         </p>
       )}

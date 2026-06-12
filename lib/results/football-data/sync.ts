@@ -1,0 +1,89 @@
+import type { Match } from "@/lib/types";
+import type { FootballDataMatch } from "@/lib/results/football-data/types";
+import type { ParsedFootballDataResult } from "@/lib/results/football-data/types";
+import { resolveTeamIdFromApi } from "@/lib/results/football-data/team-tla";
+
+const KICKOFF_TOLERANCE_MS = 18 * 60 * 60 * 1000;
+
+function readScoreSide(scores: Record<string, number | null> | null | undefined, side: "home" | "away"): number | null {
+  if (!scores) return null;
+  const keys = side === "home" ? ["home", "homeTeam"] : ["away", "awayTeam"];
+  for (const key of keys) {
+    const value = scores[key];
+    if (typeof value === "number" && value >= 0) return value;
+  }
+  return null;
+}
+
+export function kickoffsAlign(localIso: string, apiUtc: string): boolean {
+  const diff = Math.abs(new Date(localIso).getTime() - new Date(apiUtc).getTime());
+  return diff <= KICKOFF_TOLERANCE_MS;
+}
+
+export function linksApiMatchToLocal(api: FootballDataMatch, local: Match): boolean {
+  if (local.homeTeamId === "TBD" || local.awayTeamId === "TBD") return false;
+  const homeId = resolveTeamIdFromApi(api.homeTeam);
+  const awayId = resolveTeamIdFromApi(api.awayTeam);
+  if (!homeId || !awayId) return false;
+  if (homeId !== local.homeTeamId || awayId !== local.awayTeamId) return false;
+  return kickoffsAlign(local.date, api.utcDate);
+}
+
+export function parseFinishedApiMatch(
+  api: FootballDataMatch,
+  local: Match,
+): ParsedFootballDataResult | null {
+  if (api.status !== "FINISHED") return null;
+
+  const homeScore = readScoreSide(api.score?.fullTime ?? null, "home");
+  const awayScore = readScoreSide(api.score?.fullTime ?? null, "away");
+  if (homeScore == null || awayScore == null) return null;
+
+  const pens =
+    readScoreSide(api.score?.penalties ?? null, "home") != null ||
+    readScoreSide(api.score?.penalties ?? null, "away") != null;
+  const et =
+    pens ||
+    api.score?.duration === "EXTRA_TIME" ||
+    readScoreSide(api.score?.extraTime ?? null, "home") != null;
+
+  let winnerTeamId: string | null = null;
+  if (local.stage !== "group") {
+    if (api.score?.winner === "HOME_TEAM") winnerTeamId = local.homeTeamId;
+    else if (api.score?.winner === "AWAY_TEAM") winnerTeamId = local.awayTeamId;
+    else if (homeScore > awayScore) winnerTeamId = local.homeTeamId;
+    else if (awayScore > homeScore) winnerTeamId = local.awayTeamId;
+  }
+
+  return {
+    apiMatchId: api.id,
+    homeScore,
+    awayScore,
+    et,
+    pens,
+    winnerTeamId,
+    source: JSON.stringify({
+      provider: "football-data.org",
+      apiMatchId: api.id,
+      status: api.status,
+      syncedAt: new Date().toISOString(),
+    }),
+  };
+}
+
+export function indexFinishedMatches(
+  apiMatches: FootballDataMatch[],
+  localMatches: Match[],
+): Map<string, ParsedFootballDataResult> {
+  const out = new Map<string, ParsedFootballDataResult>();
+  const finished = apiMatches.filter((m) => m.status === "FINISHED");
+
+  for (const local of localMatches) {
+    const api = finished.find((candidate) => linksApiMatchToLocal(candidate, local));
+    if (!api) continue;
+    const parsed = parseFinishedApiMatch(api, local);
+    if (parsed) out.set(local.id, parsed);
+  }
+
+  return out;
+}

@@ -7,9 +7,16 @@ async function main() {
   const { getDb } = await import("@/lib/db");
   getDb();
 
+  const { isFootballDataConfigured } = await import("@/lib/results/football-data");
   const { isSearchConfigured } = await import("@/lib/search/provider");
-  if (!isSearchConfigured()) {
-    console.warn("[poller] No search API configured — results/news jobs will no-op until TAVILY_API_KEY is set.");
+  if (isFootballDataConfigured()) {
+    console.log("[poller] Official results via football-data.org (FINISHED matches only)");
+  } else if (!isSearchConfigured()) {
+    console.warn(
+      "[poller] No results source — set FOOTBALL_DATA_API_TOKEN (recommended) or TAVILY_API_KEY.",
+    );
+  } else {
+    console.warn("[poller] Results via web search fallback — set FOOTBALL_DATA_API_TOKEN for reliable scores.");
   }
 
   const { isProviderReady } = await import("@/lib/ai/settings");
@@ -54,7 +61,7 @@ async function main() {
     }
   };
 
-  await runResults(true);
+  await runResults(isFootballDataConfigured());
   await runNews();
 
   const { runStartupPipeline } = await import("@/lib/pipeline/auto-pipeline");

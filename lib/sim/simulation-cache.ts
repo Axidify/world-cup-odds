@@ -5,6 +5,17 @@ import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { countConfirmedSince, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
 
+function rowToSimulation(row: typeof simulationCache.$inferSelect): SimulationResult {
+  return {
+    championOdds: JSON.parse(row.championOdds) as ChampionOddsMap,
+    predictedPath: JSON.parse(row.predictedPath) as PredictedPath,
+    iterations: row.iterations,
+    provider: row.provider,
+    model: row.model,
+    runAt: row.runAt,
+  };
+}
+
 export function getLatestSimulation(): SimulationResult | null {
   const db = getDb();
   const row = db
@@ -14,14 +25,20 @@ export function getLatestSimulation(): SimulationResult | null {
     .limit(1)
     .get();
   if (!row) return null;
-  return {
-    championOdds: JSON.parse(row.championOdds) as ChampionOddsMap,
-    predictedPath: JSON.parse(row.predictedPath) as PredictedPath,
-    iterations: row.iterations,
-    provider: row.provider,
-    model: row.model,
-    runAt: row.runAt,
-  };
+  return rowToSimulation(row);
+}
+
+/** Prior simulation run — used for before/after champion odds on updates. */
+export function getPreviousSimulation(): SimulationResult | null {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(simulationCache)
+    .orderBy(desc(simulationCache.runAt))
+    .limit(2)
+    .all();
+  if (rows.length < 2) return null;
+  return rowToSimulation(rows[1]);
 }
 
 export function saveSimulation(result: SimulationResult): void {
