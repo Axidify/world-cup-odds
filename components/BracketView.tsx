@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Flag } from "@/components/Flag";
+import { MatchStatusBadge } from "@/components/MatchStatusBadge";
+import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { Card } from "@/components/ui/Card";
 import type { OfficialBracketMatch } from "@/lib/bracket/official-knockout";
-import { formatUtcDate, formatUtcDateTime } from "@/lib/utils/dates";
+import { formatUtcDateTime } from "@/lib/utils/dates";
 import { formatBracketSlot } from "@/lib/utils/slots";
 import { formatStageLabel } from "@/lib/utils/match-label";
 import type { KnockoutPathMatch, Match, MatchStage, PlayedMatchResult, Team } from "@/lib/types";
@@ -97,6 +99,10 @@ export function BracketView({
         {champion ? ` · ${view === "official" ? "champion" : "projected champion"}: ${champion.name}` : ""}
         {view === "projected" && !champion ? " · run simulation to resolve teams" : ""}
       </p>
+
+      <div className="mt-4">
+        <ResultsSyncBanner />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {(["official", "projected"] as const).map((mode) => (
@@ -216,15 +222,15 @@ export function BracketView({
                           <span className="text-[10px] font-semibold uppercase text-text-muted">
                             {formatStageLabel(m.stage, m.group)}
                           </span>
-                          {result ? (
-                            <span className="num text-[10px] font-semibold text-win">
-                              {result.homeGoals}–{result.awayGoals} FT
-                            </span>
-                          ) : (
-                            <span className="num text-[10px] text-text-muted">
-                              {formatUtcDate(m.date)}
-                            </span>
-                          )}
+                          <MatchStatusBadge
+                            kickoffIso={m.date}
+                            confirmed={
+                              result
+                                ? { homeGoals: result.homeGoals, awayGoals: result.awayGoals }
+                                : null
+                            }
+                            compact
+                          />
                         </div>
                         {resolved && home && away ? (
                           <div className="mt-2 space-y-1 text-sm">

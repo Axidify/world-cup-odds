@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { MatchStatusBadge } from "@/components/MatchStatusBadge";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
 type Props = {
@@ -103,14 +103,11 @@ export function GroupCard({
               <span>
                 {home?.id.toUpperCase()} vs {away?.id.toUpperCase()}
               </span>
-              {result ? (
-                <span className="num shrink-0 font-semibold text-win">
-                  {result.homeGoals}–{result.awayGoals}{" "}
-                  <span className="text-[10px] font-normal uppercase tracking-wide">FT</span>
-                </span>
-              ) : (
-                <span className="num shrink-0 text-text-muted">{formatUtcDate(m.date)}</span>
-              )}
+              <MatchStatusBadge
+                kickoffIso={m.date}
+                confirmed={result ? { homeGoals: result.homeGoals, awayGoals: result.awayGoals } : null}
+                compact
+              />
             </Link>
           );
         })}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
 import { MatchAnalysis } from "@/components/MatchAnalysis";
+import { MatchStatusCard } from "@/components/MatchStatusCard";
 import { TeamNewsPanel } from "@/components/TeamNewsPanel";
 import { getEloRating } from "@/lib/calibration/elo";
 import { getPredictionForPair, toMatchView } from "@/lib/ai/predictions";
@@ -65,16 +66,24 @@ export default async function MatchPage({
       <p className="num text-xs font-semibold uppercase tracking-widest text-brand">Match Detail</p>
       <h1 className="font-[family-name:var(--font-archivo)] text-3xl font-bold">{title}</h1>
 
-      {result?.confirmed && home && away && (
-        <Card className="border-brand/50 bg-brand-tint/20 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand">Final result</p>
-          <p className="mt-1 text-lg font-bold">
-            {home.name} {result.homeScore}–{result.awayScore} {away.name}
-            {result.et ? " (aet)" : ""}
-            {result.pens ? " (pens)" : ""}
-          </p>
-        </Card>
-      )}
+      <MatchStatusCard
+        kickoffIso={match.date}
+        venue={match.venue}
+        homeName={home?.name}
+        awayName={away?.name}
+        confirmed={
+          result?.confirmed &&
+          result.homeScore != null &&
+          result.awayScore != null
+            ? {
+                homeScore: result.homeScore,
+                awayScore: result.awayScore,
+                et: result.et,
+                pens: result.pens,
+              }
+            : null
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card className="p-6">

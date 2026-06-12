@@ -1,6 +1,7 @@
 import { getResolvedMatches } from "@/lib/data/resolved";
 import { getResult } from "@/lib/results/store";
-import { getMatchesNeedingResults, RESULT_POLL_START_AFTER_MS } from "@/lib/jobs/poll-results";
+import { getMatchesNeedingResults } from "@/lib/jobs/poll-results";
+import { RESULT_POLL_START_AFTER_MS } from "@/lib/match/poll-timing";
 
 const MIN_IDLE_DELAY_MS = 60_000;
 const NO_SCHEDULE_DELAY_MS = 24 * 60 * 60 * 1000;

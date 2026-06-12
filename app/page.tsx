@@ -4,6 +4,7 @@ import { Countdown } from "@/components/Countdown";
 import { ChampionOddsBars } from "@/components/ChampionOddsBars";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { SimulationStaleAlert } from "@/components/SimulationStaleAlert";
+import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { TournamentStatusBanner } from "@/components/TournamentStatusBanner";
 import { countPredictions } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
@@ -30,6 +31,7 @@ export default function DashboardPage() {
         Tournament Command
       </p>
 
+      <ResultsSyncBanner />
       <TournamentStatusBanner />
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">

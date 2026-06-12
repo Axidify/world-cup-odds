@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { GroupCard } from "@/components/GroupCard";
+import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
@@ -60,6 +61,10 @@ export function GroupsView({
           ? ` · ${confirmedGroupMatches} confirmed result${confirmedGroupMatches === 1 ? "" : "s"}`
           : ""}
       </p>
+
+      <div className="mt-4">
+        <ResultsSyncBanner />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {(["official", "projected"] as const).map((mode) => (

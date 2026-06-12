@@ -4,9 +4,10 @@ import { getTeamMap } from "@/lib/data/load";
 import { getResolvedMatches } from "@/lib/data/resolved";
 import { searchWeb } from "@/lib/search/provider";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
+import { RESULT_POLL_START_AFTER_MS } from "@/lib/match/poll-timing";
 import { getResult, upsertPendingResult } from "@/lib/results/store";
-/** Wait until ~full time before searching for a final score. */
-export const RESULT_POLL_START_AFTER_MS = 2 * 60 * 60 * 1000;
+
+export { RESULT_POLL_START_AFTER_MS };
 
 export function getMatchesNeedingResults(options: { backfill?: boolean } = {}): Match[] {
   const now = Date.now();
