@@ -96,7 +96,7 @@ export function AccuracyDashboard() {
       {data.worstMisses.length > 0 && (
         <Card className="p-5">
           <h2 className="text-sm font-bold">Worst misses</h2>
-          <div className="mt-3 overflow-x-auto">
+          <div className="scrollbar-themed mt-3 overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="text-text-muted">

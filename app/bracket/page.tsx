@@ -1,11 +1,13 @@
-import { BracketView } from "@/components/BracketView";
+import { TournamentBracket } from "@/components/TournamentBracket";
 import { buildOfficialKnockoutPath } from "@/lib/bracket/official-knockout";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
 import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
+import { buildOfficialStandingsByGroup } from "@/lib/standings/official-standings";
 import {
   getBracketTemplate,
   getFixtures,
+  getGroups,
   getKnockoutFixtures,
   getTeams,
 } from "@/lib/data/load";
@@ -26,9 +28,12 @@ export default function BracketPage() {
     groupFixtures.some((f) => confirmed.has(f.id)) || official.hasConfirmedKnockoutResults;
 
   return (
-    <BracketView
+    <TournamentBracket
+      groups={getGroups()}
       knockout={knockout}
       bracketSlots={bracketSlots}
+      officialStandings={buildOfficialStandingsByGroup(confirmed)}
+      projectedStandings={simulation?.predictedPath.groupStandings}
       officialPath={official.knockout}
       projectedPath={simulation?.predictedPath.knockout}
       confirmedScores={confirmedScores}

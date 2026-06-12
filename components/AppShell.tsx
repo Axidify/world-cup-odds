@@ -134,7 +134,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      <main className="mx-auto max-w-[1280px] px-4 py-8 pb-24 md:px-6 lg:pb-8">
+      <main
+        className={`mx-auto px-4 py-8 pb-24 md:px-8 lg:pb-8 ${
+          pathname === "/bracket" ? "max-w-[min(100vw-2rem,1920px)]" : "max-w-[1280px]"
+        }`}
+      >
         {children}
       </main>
 

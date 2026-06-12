@@ -16,6 +16,9 @@
   --win: oklch(0.74 0.15 150);
   --draw: oklch(0.78 0.06 90);
   --loss: oklch(0.66 0.19 25);
+  --scrollbar-track: oklch(0.26 0.012 250 / 0.55);
+  --scrollbar-thumb: oklch(0.74 0.14 var(--h) / 0.45);
+  --scrollbar-thumb-hover: oklch(0.74 0.14 var(--h) / 0.75);
 }
 
 [data-theme="light"] {
@@ -30,6 +33,9 @@
   --brand-tint: oklch(0.58 0.13 var(--h) / 0.12);
   --money: oklch(0.62 0.13 70);
   --money-tint: oklch(0.62 0.13 70 / 0.12);
+  --scrollbar-track: oklch(0.88 0.01 250 / 0.7);
+  --scrollbar-thumb: oklch(0.58 0.13 var(--h) / 0.4);
+  --scrollbar-thumb-hover: oklch(0.58 0.13 var(--h) / 0.65);
 }
 
 @theme inline {
@@ -62,6 +68,38 @@ body {
 .num {
   font-family: var(--font-plex-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+.scrollbar-themed {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.scrollbar-themed::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-themed::-webkit-scrollbar-track {
+  margin: 4px;
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+.scrollbar-themed::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.scrollbar-themed::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.scrollbar-themed::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,6 +6,7 @@ import {
   getMatchLifecycle,
   type MatchLifecycle,
 } from "@/lib/match/lifecycle";
+import { formatUtcDate } from "@/lib/utils/dates";
 
 type ScoreLine = { homeGoals: number; awayGoals: number };
 
@@ -66,9 +67,17 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = f
     );
   }
 
-  return (
-    <span className={`num shrink-0 text-xs ${BADGE_CLASS[lifecycle]}`}>
-      {compact ? (lifecycle === "awaiting_result" ? "Syncing…" : label) : label}
-    </span>
-  );
+  if (compact) {
+    const compactLabel =
+      lifecycle === "awaiting_result"
+        ? "Syncing…"
+        : lifecycle === "upcoming"
+          ? formatUtcDate(kickoffIso)
+          : label;
+    return (
+      <span className={`num shrink-0 text-xs ${BADGE_CLASS[lifecycle]}`}>{compactLabel}</span>
+    );
+  }
+
+  return <span className={`num shrink-0 text-xs ${BADGE_CLASS[lifecycle]}`}>{label}</span>;
 }
