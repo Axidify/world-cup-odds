@@ -22,6 +22,7 @@ export function BulkAnalyzePanel() {
   const [targets, setTargets] = useState<Targets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pin, setPin] = useState("");
 
   const poll = useCallback(async () => {
     try {
@@ -58,14 +59,18 @@ export function BulkAnalyzePanel() {
     return () => clearInterval(id);
   }, [running, poll, router, toast]);
 
-  async function start(refresh = false) {
+  async function start() {
+    if (!pin.trim()) {
+      setError("Enter ADMIN_PIN to run bulk analyze");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/analyze/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
+        body: JSON.stringify({ refresh: false, pin }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
@@ -82,7 +87,15 @@ export function BulkAnalyzePanel() {
   }
 
   async function cancel() {
-    await fetch("/api/analyze/bulk", { method: "DELETE" });
+    if (!pin.trim()) {
+      setError("Enter ADMIN_PIN to cancel");
+      return;
+    }
+    await fetch("/api/analyze/bulk", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
     await poll();
   }
 
@@ -95,11 +108,22 @@ export function BulkAnalyzePanel() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex min-w-[10rem] flex-col gap-1 text-xs">
+          <span className="font-semibold text-text-muted">Admin PIN</span>
+          <input
+            type="password"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            placeholder="ADMIN_PIN"
+            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+            autoComplete="off"
+          />
+        </label>
         <Button
           variant="primary"
           disabled={loading || running || pending === 0}
-          onClick={() => start(false)}
+          onClick={() => start()}
         >
           {loading ? (
             <RefreshCw size={16} className="animate-spin" />
@@ -110,15 +134,11 @@ export function BulkAnalyzePanel() {
             ? `Analyze missing (${pending})`
             : "All analyzed"}
         </Button>
-        <Button variant="secondary" disabled={loading || running} onClick={() => start(true)}>
-          <RefreshCw size={16} />
-          Re-analyze all
-        </Button>
       </div>
       <p className="text-xs text-text-muted">
-        <strong className="font-semibold text-text">Analyze missing</strong> runs only uncached
-        predictions (group matches, top-24 pairings, and bracket-path gaps).{" "}
-        <strong className="font-semibold text-text">Re-analyze all</strong> forces a fresh LLM pass.
+        Runs only uncached predictions (group matches, top-24 pairings, and bracket-path gaps).
+        Requires <span className="font-semibold text-text">ADMIN_PIN</span> — full re-analyze is not
+        available from the dashboard.
       </p>
       {targets && !running && (
         <p className="text-xs text-text-muted">

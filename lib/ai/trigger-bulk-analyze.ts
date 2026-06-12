@@ -17,10 +17,11 @@ export async function triggerBulkAnalyze(options: { refresh?: boolean } = {}): P
   if (isBulkJobRunning()) return null;
 
   const base = resolveAppBaseUrl();
+  const pin = process.env.ADMIN_PIN?.trim();
   const res = await fetch(`${base}/api/analyze/bulk`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh: options.refresh ?? false }),
+    body: JSON.stringify({ refresh: options.refresh ?? false, pin }),
     signal: AbortSignal.timeout(15_000),
   });
 
