@@ -34,6 +34,7 @@ type Props = {
   teams: Team[];
   officialChampionId?: string;
   projectedChampionId?: string;
+  projectedChampionPct?: number;
   hasConfirmedKnockoutResults: boolean;
   hasConfirmedResults: boolean;
   hasSimulation: boolean;
@@ -54,6 +55,7 @@ export function TournamentBracket({
   teams,
   officialChampionId,
   projectedChampionId,
+  projectedChampionPct,
   hasConfirmedKnockoutResults,
   hasConfirmedResults,
   hasSimulation,
@@ -127,6 +129,9 @@ export function TournamentBracket({
             <span className="inline-flex items-center gap-1 font-semibold text-text">
               {champion.flagCode && <Flag code={champion.flagCode} alt="" size="sm" />}
               {champion.name}
+              {view === "projected" && projectedChampionPct != null ? (
+                <span className="num text-brand">({projectedChampionPct.toFixed(1)}%)</span>
+              ) : null}
             </span>
           </>
         ) : null}
@@ -169,8 +174,9 @@ export function TournamentBracket({
           )
         ) : projectedPath ? (
           <p>
-            <strong className="font-semibold text-text">Projected</strong> path from your last
-            simulation. Re-run after new results or predictions change.
+            <strong className="font-semibold text-text">Projected</strong> bracket shows the most
+            common knockout path from simulations where the top champion pick wins. Champion
+            percentages use all simulation runs. Re-run after new results or predictions change.
           </p>
         ) : (
           <p>Run a tournament simulation on the Dashboard to see projected progression.</p>
@@ -206,7 +212,15 @@ export function TournamentBracket({
           <KnockoutBracketTree
             knockout={knockout}
             displays={displays}
-            champion={champion ? { name: champion.name, flagCode: champion.flagCode } : null}
+            champion={
+              champion
+                ? {
+                    name: champion.name,
+                    flagCode: champion.flagCode,
+                    winPct: view === "projected" ? projectedChampionPct : undefined,
+                  }
+                : null
+            }
             championLabel={view === "official" ? "Champion" : "Projected champion"}
           />
         </div>

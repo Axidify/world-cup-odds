@@ -40,6 +40,11 @@ export default function BracketPage() {
       teams={getTeams()}
       officialChampionId={official.championTeamId}
       projectedChampionId={simulation?.predictedPath.championTeamId}
+      projectedChampionPct={
+        simulation?.predictedPath.championTeamId
+          ? simulation.championOdds[simulation.predictedPath.championTeamId]
+          : undefined
+      }
       hasConfirmedKnockoutResults={official.hasConfirmedKnockoutResults}
       hasConfirmedResults={hasConfirmedResults}
       hasSimulation={Boolean(simulation)}

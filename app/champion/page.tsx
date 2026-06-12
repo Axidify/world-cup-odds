@@ -108,8 +108,8 @@ export default function ChampionPage() {
 
       {update.after && (
         <p className="mt-4 text-xs text-text-muted">
-          Seeded Monte Carlo ({update.after.iterations.toLocaleString()} iters). The most likely knockout
-          path (bracket page) can differ from these headline percentages.
+          Seeded Monte Carlo ({update.after.iterations.toLocaleString()} iters). The projected bracket
+          shows the most common path among runs where the top team here wins.
         </p>
       )}
     </div>

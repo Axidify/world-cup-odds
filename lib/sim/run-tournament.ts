@@ -2,9 +2,9 @@ import { getModelForProvider } from "@/lib/ai/config";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import type { MissingPairing, SimulationResult } from "@/lib/types";
 import {
+  buildRepresentativePredictedPath,
   getSimulationIterations,
   normalizeChampionOdds,
-  runModalTournament,
   runMonteCarlo,
 } from "@/lib/simulator";
 import { getSimulationSeed } from "@/lib/sim/rng";
@@ -69,10 +69,17 @@ export function runTournamentSimulation(): SimulationResult {
   }
 
   try {
-    const predictedPath = runModalTournament(store, confirmed);
     const iterations = getSimulationIterations();
+    const seed = getSimulationSeed();
     const championOdds = normalizeChampionOdds(
-      runMonteCarlo(store, iterations, getSimulationSeed(), confirmed),
+      runMonteCarlo(store, iterations, seed, confirmed),
+    );
+    const predictedPath = buildRepresentativePredictedPath(
+      store,
+      championOdds,
+      confirmed,
+      iterations,
+      seed,
     );
     const result: SimulationResult = {
       championOdds,

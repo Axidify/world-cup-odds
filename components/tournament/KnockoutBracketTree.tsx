@@ -21,7 +21,7 @@ import type { Match, MatchStage } from "@/lib/types";
 const HEADER_HEIGHT = 24;
 const EXTRA_BOTTOM = 96;
 
-type Champion = { name: string; flagCode: string } | null;
+type Champion = { name: string; flagCode: string; winPct?: number } | null;
 
 type Props = {
   knockout: Match[];
@@ -127,6 +127,11 @@ export function KnockoutBracketTree({ knockout, displays, champion, championLabe
                   <p className="flex items-center gap-1.5 truncate text-sm font-bold text-text">
                     <Flag code={champion.flagCode} alt="" size="sm" />
                     {champion.name}
+                    {champion.winPct != null ? (
+                      <span className="num text-xs font-semibold text-brand">
+                        {champion.winPct.toFixed(1)}%
+                      </span>
+                    ) : null}
                   </p>
                 </div>
               </div>

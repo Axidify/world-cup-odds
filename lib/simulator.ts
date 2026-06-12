@@ -238,6 +238,93 @@ export function runSingleMonteCarloIteration(
   return championTeamId;
 }
 
+/** Full tournament with sampled outcomes and recorded path (one Monte Carlo draw). */
+export function runSampledTournament(
+  store: PredictionStore,
+  rng: () => number,
+  confirmed: Map<string, PlayedMatchResult> = new Map(),
+): PredictedPath {
+  const fixtures = getFixtures();
+  const groupResults = buildGroupResults(fixtures, store, confirmed, rng);
+  const ctx = computeTournamentContext(groupResults);
+  const { championTeamId, path } = runKnockout(store, ctx, confirmed, rng, true);
+  return {
+    groupStandings: ctx.standingsByGroup,
+    groupResults,
+    knockout: path,
+    championTeamId,
+  };
+}
+
+export function knockoutPathFingerprint(knockout: KnockoutPathMatch[]): string {
+  return knockout.map((m) => `${m.matchId}:${m.winnerTeamId}`).join("|");
+}
+
+export function championOddsLeader(odds: ChampionOddsMap): string {
+  let leader = "";
+  let best = -1;
+  for (const [teamId, pct] of Object.entries(odds)) {
+    if (pct > best) {
+      best = pct;
+      leader = teamId;
+    }
+  }
+  return leader;
+}
+
+type PathHistogramEntry = {
+  count: number;
+  path: PredictedPath;
+  firstIndex: number;
+};
+
+/**
+ * Among Monte Carlo runs where the odds leader wins, pick the most common knockout path.
+ * Ties break on earliest simulation index (reproducible).
+ */
+export function buildRepresentativePredictedPath(
+  store: PredictionStore,
+  championOdds: ChampionOddsMap,
+  confirmed: Map<string, PlayedMatchResult>,
+  iterations: number,
+  seed: number,
+): PredictedPath {
+  const leader = championOddsLeader(championOdds);
+  if (!leader) return runModalTournament(store, confirmed);
+
+  const histogram = new Map<string, PathHistogramEntry>();
+
+  for (let i = 0; i < iterations; i++) {
+    const rng = createRng(seed + i);
+    const champion = runSingleMonteCarloIteration(store, rng, confirmed);
+    if (champion !== leader) continue;
+
+    const sampled = runSampledTournament(store, createRng(seed + i), confirmed);
+    const fingerprint = knockoutPathFingerprint(sampled.knockout);
+    const existing = histogram.get(fingerprint);
+    if (!existing) {
+      histogram.set(fingerprint, { count: 1, path: sampled, firstIndex: i });
+      continue;
+    }
+    existing.count += 1;
+  }
+
+  if (histogram.size === 0) return runModalTournament(store, confirmed);
+
+  let best: PathHistogramEntry | null = null;
+  for (const entry of histogram.values()) {
+    if (
+      !best ||
+      entry.count > best.count ||
+      (entry.count === best.count && entry.firstIndex < best.firstIndex)
+    ) {
+      best = entry;
+    }
+  }
+
+  return best!.path;
+}
+
 export function runMonteCarlo(
   store: PredictionStore,
   iterations = getSimulationIterations(),
