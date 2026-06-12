@@ -33,6 +33,9 @@ export async function refreshWorldFootballEloOnStartup(): Promise<void> {
     console.log(
       `[poller] World Football Elo refreshed (${result.count} teams, as of ${result.asOf})`,
     );
+    const { recomputeEloFromConfirmedResults } = await import("@/lib/calibration/elo");
+    recomputeEloFromConfirmedResults();
+    console.log("[poller] Elo DB recomputed from World Football Elo + confirmed results");
   } catch (err) {
     const bundled = getWorldFootballEloData();
     console.warn(

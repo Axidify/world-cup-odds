@@ -14,6 +14,12 @@ import { getPipelineState, writePipelineState } from "@/lib/pipeline/pipeline-st
 
 const DEBOUNCE_MS = 5_000;
 
+function envFlag(name: string, defaultValue: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (raw === undefined || raw === "") return defaultValue;
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingTrigger: string | null = null;
 let running: Promise<void> | null = null;
@@ -188,6 +194,15 @@ export async function runStartupPipeline(): Promise<void> {
   } else if (config.eloSeedMissing) {
     const provider = resolveActiveProvider();
     if (provider) {
+      const reseedPredictions = envFlag("ELO_RESEED_PREDICTIONS", false);
+      if (reseedPredictions) {
+        const { seedAllGroupFixturesFromElo } = await import(
+          "@/lib/calibration/seed-elo-predictions"
+        );
+        const model = getModelForProvider(provider);
+        const n = seedAllGroupFixturesFromElo(provider, model);
+        console.log(`[pipeline] Elo-reseeded ${n} group predictions (ELO_RESEED_PREDICTIONS)`);
+      }
       const store = loadPredictionStore(provider);
       const missing = collectMissingPairings(store, provider);
       ensureEloSeedForMissing(missing);
