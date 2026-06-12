@@ -8,6 +8,8 @@ export type PipelineConfig = {
   enabled: boolean;
   simulateOnResults: boolean;
   analyzeMissing: boolean;
+  /** Seed missing predictions from World Football Elo when LLM analyze is off. */
+  eloSeedMissing: boolean;
   onStart: boolean;
 };
 
@@ -17,6 +19,7 @@ export function getPipelineConfig(): PipelineConfig {
     enabled,
     simulateOnResults: envFlag("AUTO_SIMULATE_ON_RESULTS", enabled),
     analyzeMissing: envFlag("AUTO_ANALYZE_MISSING", false),
+    eloSeedMissing: envFlag("ELO_SEED_MISSING", true),
     onStart: envFlag("AUTO_PIPELINE_ON_START", enabled),
   };
 }

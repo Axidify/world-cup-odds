@@ -32,7 +32,7 @@ describe("rank-fallback-prediction", () => {
     const pred = buildRankFallbackPrediction("ned", "sco", "r32", "vllm", "test");
     const { homeWinPct, awayWinPct } = orientProbabilities(pred, "ned");
     expect(homeWinPct).toBeGreaterThan(awayWinPct);
-    expect(pred.keyFactors).toContain("Elo rank fallback");
+    expect(pred.keyFactors).toContain("World Football Elo fallback");
   });
 
   it("lets Monte Carlo finish with only group-stage LLM predictions", () => {

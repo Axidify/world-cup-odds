@@ -3,13 +3,11 @@ import { buildLearningContext } from "@/lib/ai/build-context";
 import { getTeam } from "@/lib/data/load";
 
 describe("buildLearningContext", () => {
-  it("includes Elo ratings for both teams", () => {
+  it("includes learning context header", () => {
     const home = getTeam("mex")!;
     const away = getTeam("rsa")!;
     const ctx = buildLearningContext(home, away);
     expect(ctx).toContain("LEARNING CONTEXT:");
-    expect(ctx).toContain("Mexico Elo:");
-    expect(ctx).toContain("South Africa Elo:");
   });
 
   it("excludes squad news — applied via deterministic overlay instead", () => {

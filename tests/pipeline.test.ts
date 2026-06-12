@@ -30,6 +30,7 @@ describe("auto-pipeline", () => {
     expect(config.enabled).toBe(true);
     expect(config.simulateOnResults).toBe(false);
     expect(config.analyzeMissing).toBe(true);
+    expect(config.eloSeedMissing).toBe(true);
   });
 
   it("does not schedule when pipeline is disabled", () => {

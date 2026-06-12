@@ -5,7 +5,6 @@ import { getTeam } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
-import { getEloRating } from "@/lib/calibration/elo";
 import { pickFavoriteOutcome, storedPredictedToProbs } from "@/lib/calibration/metrics";
 const RECENT_RESULTS_LIMIT = 3;
 const ERROR_MEMORY_LIMIT = 4;
@@ -88,11 +87,6 @@ function getPredictionErrorNotes(homeId: string, awayId: string): string[] {
 
 export function buildLearningContext(home: Team, away: Team): string {
   const lines: string[] = ["LEARNING CONTEXT:"];
-
-  const homeElo = getEloRating(home.id);
-  const awayElo = getEloRating(away.id);
-  if (homeElo != null) lines.push(`- ${home.name} Elo: ${Math.round(homeElo)}`);
-  if (awayElo != null) lines.push(`- ${away.name} Elo: ${Math.round(awayElo)}`);
 
   const homeResults = getRecentResultsForTeam(home.id);
   const awayResults = getRecentResultsForTeam(away.id);

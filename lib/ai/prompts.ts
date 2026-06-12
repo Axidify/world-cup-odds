@@ -1,5 +1,6 @@
 import type { Match, Team } from "@/lib/types";
 import { buildLearningContext } from "./build-context";
+import { formatTeamStrengthBlock } from "./team-strength";
 
 // Squad news is excluded from the LLM prompt — probabilities are adjusted on read via lib/news/impact.
 
@@ -20,7 +21,8 @@ Rules:
 - homeWinPct, drawPct, awayWinPct must be numbers 0-100 that sum to 100.
 - homeWinPct is for the HOME team named in the user message; awayWinPct for the AWAY team.
 - All World Cup matches are on neutral ground — do not apply home-nation advantage; "home" is fixture orientation only.
-- Use FIFA ranking and confederation context; be realistic for international football.
+- Weight World Football Elo (eloratings.net) heavily — it is the best single strength signal provided.
+- Use FIFA rank and confederation as secondary context; be realistic for international football.
 - predictedScore format: homeGoals-awayGoals e.g. "2-1".`;
 
 const KNOCKOUT_STAGES = new Set([
@@ -44,12 +46,10 @@ Match: ${home.name} (HOME) vs ${away.name} (AWAY)
 Stage: ${stageLabel} (neutral ground)
 
 ${home.name} (HOME):
-- FIFA rank: #${home.fifaRank}
-- Confederation: ${home.confederation}
+${formatTeamStrengthBlock(home)}
 
 ${away.name} (AWAY):
-- FIFA rank: #${away.fifaRank}
-- Confederation: ${away.confederation}
+${formatTeamStrengthBlock(away)}
 
 Knockout rules: no draws — set drawPct to 0; split 100% between homeWinPct and awayWinPct (includes extra time/penalties if needed).
 
@@ -81,12 +81,10 @@ Date: ${match.date}
 Venue: ${match.venue}
 
 ${home.name} (HOME):
-- FIFA rank: #${home.fifaRank}
-- Confederation: ${home.confederation}
+${formatTeamStrengthBlock(home)}
 
 ${away.name} (AWAY):
-- FIFA rank: #${away.fifaRank}
-- Confederation: ${away.confederation}
+${formatTeamStrengthBlock(away)}
 
 ${buildLearningContext(home, away)}
 

@@ -4,13 +4,10 @@ import { getTeam, getTeams } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { actualResults, calibrationState, eloRatings } from "@/lib/db/schema";
+import { getWorldFootballEloSeedForTeam } from "@/lib/calibration/world-football-elo";
 
 const GROUP_K = 32;
 const KNOCKOUT_K = 40;
-
-export function fifaRankToElo(fifaRank: number): number {
-  return Math.round(2100 - (fifaRank - 1) * 7.5);
-}
 
 export function expectedHomeScore(eloHome: number, eloAway: number): number {
   return 1 / (1 + 10 ** ((eloAway - eloHome) / 400));
@@ -25,7 +22,7 @@ export function ensureEloInitialized(): void {
     db.insert(eloRatings)
       .values({
         teamId: team.id,
-        rating: fifaRankToElo(team.fifaRank),
+        rating: getWorldFootballEloSeedForTeam(team.id),
         updatedAt: now,
       })
       .run();
@@ -39,7 +36,7 @@ export function getEloRating(teamId: string): number | null {
 
   const db = getDb();
   const row = db.select().from(eloRatings).where(eq(eloRatings.teamId, teamId)).get();
-  return row?.rating ?? fifaRankToElo(team.fifaRank);
+  return row?.rating ?? getWorldFootballEloSeedForTeam(teamId);
 }
 
 export function getEloMap(): Map<string, number> {
@@ -52,7 +49,7 @@ export function getEloMap(): Map<string, number> {
   }
   for (const team of getTeams()) {
     if (!map.has(team.id)) {
-      map.set(team.id, fifaRankToElo(team.fifaRank));
+      map.set(team.id, getWorldFootballEloSeedForTeam(team.id));
     }
   }
   return map;
@@ -131,7 +128,7 @@ function persistRatings(ratings: Map<string, number>): void {
 }
 
 function seedRatings(): Map<string, number> {
-  return new Map(getTeams().map((team) => [team.id, fifaRankToElo(team.fifaRank)]));
+  return new Map(getTeams().map((team) => [team.id, getWorldFootballEloSeedForTeam(team.id)]));
 }
 
 function applyMatchToRatings(

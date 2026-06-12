@@ -2,15 +2,16 @@ import { describe, it, expect } from "vitest";
 import {
   computeEloDelta,
   expectedHomeScore,
-  fifaRankToElo,
   getEloRating,
   recomputeEloFromConfirmedResults,
 } from "@/lib/calibration/elo";
+import { getWorldFootballEloSeed } from "@/lib/calibration/world-football-elo";
 
 describe("elo ratings", () => {
-  it("maps FIFA rank to a reasonable starting Elo", () => {
-    expect(fifaRankToElo(1)).toBeGreaterThan(fifaRankToElo(48));
-    expect(fifaRankToElo(1)).toBe(2100);
+  it("seeds from World Football Elo Ratings (eloratings.net)", () => {
+    expect(getWorldFootballEloSeed("arg")).toBeGreaterThan(getWorldFootballEloSeed("gha")!);
+    expect(getWorldFootballEloSeed("mex")).toBe(1881);
+    expect(getWorldFootballEloSeed("esp")).toBe(2157);
   });
 
   it("computes expected home score from rating gap", () => {

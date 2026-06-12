@@ -7,6 +7,11 @@ async function main() {
   const { getDb } = await import("@/lib/db");
   getDb();
 
+  const { refreshWorldFootballEloOnStartup } = await import(
+    "@/lib/calibration/refresh-world-football-elo"
+  );
+  await refreshWorldFootballEloOnStartup();
+
   const { isFootballDataConfigured } = await import("@/lib/results/football-data");
   const { isSearchConfigured } = await import("@/lib/search/provider");
   if (isFootballDataConfigured()) {
@@ -69,7 +74,7 @@ async function main() {
   const pipeline = getPipelineConfig();
   if (pipeline.enabled) {
     console.log(
-      `[poller] Auto-pipeline on (simulate=${pipeline.simulateOnResults}, analyze=${pipeline.analyzeMissing})`,
+      `[poller] Auto-pipeline on (simulate=${pipeline.simulateOnResults}, analyze=${pipeline.analyzeMissing}, eloSeed=${pipeline.eloSeedMissing})`,
     );
     void runStartupPipeline().catch((err) => {
       console.error("[poller] Startup pipeline failed:", err);

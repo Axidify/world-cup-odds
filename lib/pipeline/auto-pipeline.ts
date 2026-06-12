@@ -1,7 +1,9 @@
 import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
+import { getModelForProvider } from "@/lib/ai/config";
 import { triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
 import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
 import { isProviderReady, resolveActiveProvider } from "@/lib/ai/settings";
+import { seedMissingPairingsFromElo } from "@/lib/calibration/seed-elo-predictions";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/run-tournament";
@@ -48,6 +50,21 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
   return getBulkJobState().failed === 0;
 }
 
+function ensureEloSeedForMissing(
+  missing: ReturnType<typeof collectMissingPairings>,
+): boolean {
+  const config = getPipelineConfig();
+  if (!config.eloSeedMissing || missing.length === 0) return false;
+
+  const provider = resolveActiveProvider();
+  if (!provider) return false;
+
+  const model = getModelForProvider(provider);
+  const seeded = seedMissingPairingsFromElo(missing, provider, model);
+  console.log(`[pipeline] Elo-seeded ${seeded} missing prediction(s) from eloratings.net`);
+  return seeded > 0;
+}
+
 export async function runAutoSimulation(trigger: string): Promise<void> {
   const config = getPipelineConfig();
   if (!config.enabled) return;
@@ -87,13 +104,18 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
     const missing = collectMissingPairings(store, provider);
     if (missing.length > 0) {
       const analyzed = await ensurePredictionsIfConfigured();
-      if (!analyzed) {
+      const stillMissing = analyzed ? [] : collectMissingPairings(store, provider);
+      if (stillMissing.length > 0) {
+        ensureEloSeedForMissing(stillMissing);
+      }
+      const remaining = collectMissingPairings(loadPredictionStore(provider), provider);
+      if (remaining.length > 0) {
         writePipelineState({
           status: "skipped",
           trigger,
           step: null,
           finishedAt: new Date().toISOString(),
-          error: `Missing ${missing.length} prediction(s) — enable AUTO_ANALYZE_MISSING or analyze manually`,
+          error: `Missing ${remaining.length} prediction(s) — enable AUTO_ANALYZE_MISSING, ELO_SEED_MISSING, or analyze manually`,
         });
         return;
       }
@@ -163,6 +185,13 @@ export async function runStartupPipeline(): Promise<void> {
 
   if (config.analyzeMissing) {
     await ensurePredictionsIfConfigured();
+  } else if (config.eloSeedMissing) {
+    const provider = resolveActiveProvider();
+    if (provider) {
+      const store = loadPredictionStore(provider);
+      const missing = collectMissingPairings(store, provider);
+      ensureEloSeedForMissing(missing);
+    }
   }
 
   if (!sim || stale.stale) {
