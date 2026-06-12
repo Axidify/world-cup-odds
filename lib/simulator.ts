@@ -42,7 +42,7 @@ type TournamentContext = {
   qualifiedThirdGroups: string[];
 };
 
-function buildGroupResults(
+export function buildGroupResults(
   fixtures: Match[],
   store: PredictionStore,
   confirmed: Map<string, PlayedMatchResult>,
