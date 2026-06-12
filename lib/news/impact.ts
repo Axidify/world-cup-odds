@@ -146,9 +146,9 @@ export function fixturePercentagesWithNews(
   newsAdjusted: boolean;
 } {
   const homeIsTeamA = prediction.teamA === homeTeamId;
-  let homeWinPct = homeIsTeamA ? prediction.homeWinPct : prediction.awayWinPct;
+  const homeWinPct = homeIsTeamA ? prediction.homeWinPct : prediction.awayWinPct;
   const drawPct = prediction.drawPct;
-  let awayWinPct = homeIsTeamA ? prediction.awayWinPct : prediction.homeWinPct;
+  const awayWinPct = homeIsTeamA ? prediction.awayWinPct : prediction.homeWinPct;
 
   if (!isNewsImpactEnabled()) {
     return { homeWinPct, drawPct, awayWinPct, newsAdjusted: false };
