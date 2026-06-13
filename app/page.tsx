@@ -10,7 +10,8 @@ import { TournamentStatusBanner } from "@/components/TournamentStatusBanner";
 import { countPredictions } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
-import { getTeams, getFixtures, getEarliestKickoff, getAllMatches } from "@/lib/data/load";
+import { getNextUpcomingMatches } from "@/lib/match/next-upcoming";
+import { getTeams, getFixtures, getEarliestKickoff, getAllMatches, getTeam } from "@/lib/data/load";
 import { formatUtcDate } from "@/lib/utils/dates";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,23 @@ export default function DashboardPage() {
   const predictionCount = countPredictions({ provider, nonStale: true });
   const simulation = getLatestSimulation();
   const staleState = getSimulationStaleState();
+  const nextMatches = getNextUpcomingMatches().flatMap((m) => {
+    const home = getTeam(m.homeTeamId);
+    const away = getTeam(m.awayTeamId);
+    if (!home || !away) return [];
+    return [
+      {
+        matchId: m.id,
+        kickoffIso: m.date,
+        homeName: home.name,
+        awayName: away.name,
+        homeFlagCode: home.flagCode,
+        awayFlagCode: away.flagCode,
+        group: m.group,
+        stage: m.stage,
+      },
+    ];
+  });
 
   return (
     <div className="space-y-6">
@@ -51,7 +69,7 @@ export default function DashboardPage() {
             <span><b className="text-text">USA · Canada · Mexico</b></span>
           </div>
           <div className="mt-8">
-            <Countdown targetISO={kickoff} />
+            <Countdown matches={nextMatches} />
           </div>
         </Card>
 
