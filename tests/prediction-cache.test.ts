@@ -13,6 +13,7 @@ import {
   resolveFixtureProbabilities,
   shouldUseCachedPredictionForAnalyze,
 } from "@/lib/predictions/resolve-fixture-probs";
+import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import type { LLMProvider } from "@/lib/types";
 
 describe("prediction cache", () => {
@@ -174,5 +175,17 @@ describe("prediction cache", () => {
     const resolved = resolveFixtureProbabilities("bra", "mex", "group", { provider: "vllm" });
     expect(resolved?.tier).toBe("stale");
     expect(shouldUseCachedPredictionForAnalyze(resolved, false)).toBe(false);
+  });
+
+  it("does not treat elo-seeded rows as simulation-ready", () => {
+    seedPairingFromElo("bra", "mex", "group", "vllm", "test-model");
+    const store = loadPredictionStore("vllm");
+    expect(store.has("bra", "mex", "group")).toBe(false);
+  });
+
+  it("treats fresh LLM rows as simulation-ready", () => {
+    seedPrediction("bra", "mex", "group");
+    const store = loadPredictionStore("vllm");
+    expect(store.has("bra", "mex", "group")).toBe(true);
   });
 });

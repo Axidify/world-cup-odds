@@ -39,9 +39,10 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
   }, []);
 
   async function runSimulation(pin: string) {
-    setLoading(true);
     setError(null);
     setMissingCount(null);
+    setLoading(true);
+
     try {
       const res = await fetch("/api/analyze/tournament", {
         method: "POST",
@@ -55,11 +56,13 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
         }
         throw new Error(data.error ?? "Simulation failed");
       }
+
       setDialogOpen(false);
       toast(hasSimulation ? "Simulation updated" : "Simulation complete");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simulation failed");
+      setDialogOpen(true);
     } finally {
       setLoading(false);
     }
@@ -71,12 +74,17 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
         variant="primary"
         onClick={() => {
           setError(null);
+          setMissingCount(null);
           setDialogOpen(true);
         }}
         disabled={loading || bulkRunning}
       >
-        {loading ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
-        {loading ? "Simulating…" : hasSimulation ? "Re-run simulation" : "Run simulation"}
+        {loading && dialogOpen ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <Trophy size={16} />
+        )}
+        {hasSimulation ? "Re-run simulation" : "Run simulation"}
       </Button>
 
       <AdminPinDialog
@@ -85,7 +93,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
           if (!loading) setDialogOpen(false);
         }}
         title={hasSimulation ? "Re-run simulation" : "Run simulation"}
-        description="Monte Carlo champion odds and bracket projections. Auto-pipeline still re-runs after confirmed results."
+        description="Monte Carlo champion odds and bracket projections. Requires fresh LLM predictions — run Analyze missing first if needed."
         confirmLabel={hasSimulation ? "Re-run" : "Run simulation"}
         loading={loading}
         error={error}
