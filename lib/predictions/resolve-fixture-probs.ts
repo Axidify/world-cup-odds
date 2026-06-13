@@ -7,6 +7,7 @@ import {
   isNewsImpactEnabled,
 } from "@/lib/news/impact";
 import { lookupPredictionTiered, type PredictionTier } from "@/lib/predictions/lookup";
+import { isLlmPrediction } from "@/lib/predictions/source";
 
 export type FixtureProbabilityResolution = {
   prediction: Prediction;
@@ -83,4 +84,13 @@ export function toMatchPredictionView(
   }
 
   return view;
+}
+
+/** Aligns with preanalyze `isCached`: only skip an LLM call for a fresh LLM row. */
+export function shouldUseCachedPredictionForAnalyze(
+  resolved: FixtureProbabilityResolution | null,
+  refresh: boolean,
+): boolean {
+  if (refresh || !resolved) return false;
+  return resolved.tier === "fresh" && isLlmPrediction(resolved.prediction);
 }

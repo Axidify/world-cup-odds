@@ -9,6 +9,10 @@ import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { appSettings, predictions } from "@/lib/db/schema";
 import { markTeamsStale } from "@/lib/results/on-confirm";
+import {
+  resolveFixtureProbabilities,
+  shouldUseCachedPredictionForAnalyze,
+} from "@/lib/predictions/resolve-fixture-probs";
 import type { LLMProvider } from "@/lib/types";
 
 describe("prediction cache", () => {
@@ -149,5 +153,26 @@ describe("prediction cache", () => {
     expect(stillQueued.some((q) => q.kind === "match" && q.matchId === first.matchId)).toBe(
       true,
     );
+  });
+
+  it("does not treat elo-seeded rows as analyze cache hits", () => {
+    seedPairingFromElo("bra", "mex", "group", "vllm", "test-model");
+    const resolved = resolveFixtureProbabilities("bra", "mex", "group", { provider: "vllm" });
+    expect(resolved?.prediction.source).toBe("elo_seed");
+    expect(shouldUseCachedPredictionForAnalyze(resolved, false)).toBe(false);
+  });
+
+  it("treats fresh LLM rows as analyze cache hits", () => {
+    seedPrediction("bra", "mex", "group");
+    const resolved = resolveFixtureProbabilities("bra", "mex", "group", { provider: "vllm" });
+    expect(shouldUseCachedPredictionForAnalyze(resolved, false)).toBe(true);
+    expect(shouldUseCachedPredictionForAnalyze(resolved, true)).toBe(false);
+  });
+
+  it("does not treat stale LLM rows as analyze cache hits", () => {
+    seedPrediction("bra", "mex", "group", { stale: 1 });
+    const resolved = resolveFixtureProbabilities("bra", "mex", "group", { provider: "vllm" });
+    expect(resolved?.tier).toBe("stale");
+    expect(shouldUseCachedPredictionForAnalyze(resolved, false)).toBe(false);
   });
 });

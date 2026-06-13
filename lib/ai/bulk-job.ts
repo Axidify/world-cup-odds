@@ -230,7 +230,7 @@ export async function runBulkAnalyzeAfterPost(options: {
   try {
     const queue = options.stale
       ? buildStaleAnalyzeQueue()
-      : buildBulkAnalyzeQueue({ refresh: options.refresh, includeGaps: false });
+      : buildBulkAnalyzeQueue({ refresh: options.refresh, includeGaps: true });
 
     const initial = prepareBulkAnalyzeWithQueue(queue, { refresh: options.refresh });
     if (initial.status === "running") {

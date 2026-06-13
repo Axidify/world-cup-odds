@@ -7,6 +7,7 @@ import { parseMatchPrediction } from "./parse-response";
 import { MATCH_ANALYSIS_SYSTEM_PROMPT } from "./prompts";
 import {
   resolveFixtureProbabilities,
+  shouldUseCachedPredictionForAnalyze,
   toMatchPredictionView,
 } from "@/lib/predictions/resolve-fixture-probs";
 import { savePrediction, toMatchView } from "./predictions";
@@ -82,7 +83,7 @@ export async function analyzePairing(
       provider: client.config.provider,
       kickoffIso: options.kickoffIso,
     });
-    if (resolved && resolved.tier !== "elo_fallback") {
+    if (resolved && shouldUseCachedPredictionForAnalyze(resolved, false)) {
       return toMatchPredictionView(resolved, home.id, away.id, options.kickoffIso);
     }
   }

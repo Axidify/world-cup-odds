@@ -11,7 +11,7 @@ import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/ru
 import { getSimulationStaleState, getLatestSimulation } from "@/lib/sim/simulation-cache";
 import { tryAcquireTournamentLock, releaseTournamentLock } from "@/lib/sim/tournament-lock";
 import { getPipelineConfig } from "@/lib/pipeline/config";
-import { getPipelineState, writePipelineState } from "@/lib/pipeline/pipeline-state";
+import { getPipelineState, writePipelineState, type PipelineState } from "@/lib/pipeline/pipeline-state";
 
 const DEBOUNCE_MS = 5_000;
 
@@ -24,6 +24,25 @@ function envFlag(name: string, defaultValue: boolean): boolean {
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingTrigger: string | null = null;
 let running: Promise<void> | null = null;
+
+/** After restart, persisted pipeline state may still say running with no in-process worker. */
+function reconcileOrphanedPipeline(graceMs = 120_000): void {
+  const state = getPipelineState();
+  if (state.status !== "running" && state.status !== "scheduled") return;
+  if (running !== null || debounceTimer !== null) return;
+  const started = state.startedAt ? Date.parse(state.startedAt) : 0;
+  if (graceMs > 0 && started && Date.now() - started < graceMs) return;
+  writePipelineState({
+    status: "idle",
+    trigger: null,
+    step: null,
+    finishedAt: new Date().toISOString(),
+    error:
+      state.status === "running"
+        ? "Pipeline interrupted when the server restarted."
+        : null,
+  });
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,7 +75,14 @@ async function ensureStaleReanalyzedIfConfigured(): Promise<boolean> {
   }
 
   if (!isBulkJobRunning()) {
-    writePipelineState({ status: "running", step: "analyze", trigger: "auto_stale" });
+    writePipelineState({
+      status: "running",
+      step: "analyze",
+      trigger: "auto_stale",
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      error: null,
+    });
     await triggerBulkAnalyze({ refresh: true, stale: true });
   }
 
@@ -79,7 +105,14 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
   }
 
   if (!isBulkJobRunning()) {
-    writePipelineState({ status: "running", step: "analyze", trigger: "auto" });
+    writePipelineState({
+      status: "running",
+      step: "analyze",
+      trigger: "auto",
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      error: null,
+    });
     await triggerBulkAnalyze({ refresh: false });
   }
   await waitForBulkJob();
@@ -135,6 +168,7 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
     trigger,
     step: "simulate",
     startedAt: new Date().toISOString(),
+    finishedAt: null,
     error: null,
   });
 
@@ -263,7 +297,19 @@ export async function runStartupPipeline(): Promise<void> {
   }
 }
 
+export function getReconciledPipelineState(): PipelineState {
+  reconcileOrphanedPipeline();
+  return getPipelineState();
+}
+
 export function isPipelineActive(): boolean {
+  reconcileOrphanedPipeline();
   const state = getPipelineState();
   return state.status === "running" || state.status === "scheduled" || running !== null;
+}
+
+try {
+  reconcileOrphanedPipeline(0);
+} catch {
+  // DB may not be ready during import in some build phases.
 }

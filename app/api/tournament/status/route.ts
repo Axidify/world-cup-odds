@@ -13,8 +13,7 @@ import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
 import { getPendingResults, getResult } from "@/lib/results/store";
 import { getPollerStatus } from "@/lib/ops/poller-heartbeat";
 import { getPipelineConfig } from "@/lib/pipeline/config";
-import { isPipelineActive } from "@/lib/pipeline/auto-pipeline";
-import { getPipelineState } from "@/lib/pipeline/pipeline-state";
+import { isPipelineActive, getReconciledPipelineState } from "@/lib/pipeline/auto-pipeline";
 import { getPredictionCoverage } from "@/lib/predictions/coverage";
 import { getDb } from "@/lib/db";
 import { resolveResultsProvider } from "@/lib/jobs/poll-results";
@@ -96,7 +95,7 @@ export async function GET() {
     },
     pipeline: {
       config: getPipelineConfig(),
-      state: getPipelineState(),
+      state: getReconciledPipelineState(),
       active: isPipelineActive(),
     },
     predictionCoverage,
