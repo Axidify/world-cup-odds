@@ -2,7 +2,6 @@ import { eq, or } from "drizzle-orm";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { predictions } from "@/lib/db/schema";
-import { settleBetsForConfirmedMatch } from "@/lib/betting/settle";
 import { updateEloForMatch } from "@/lib/calibration/elo";
 import { logPredictionAccuracy } from "@/lib/calibration/metrics";
 import { confirmResult, upsertConfirmedResult } from "./store";
@@ -43,7 +42,6 @@ export function finalizeResultConfirmation(
 
   logPredictionAccuracy(matchId);
   updateEloForMatch(matchId);
-  settleBetsForConfirmedMatch(matchId);
 
   if (match && match.homeTeamId !== "TBD" && match.awayTeamId !== "TBD") {
     markTeamsStale(match.homeTeamId, match.awayTeamId);
@@ -81,7 +79,6 @@ export function applyAdminConfirmedResult(input: {
   upsertConfirmedResult(input, "admin");
   logPredictionAccuracy(input.matchId);
   updateEloForMatch(input.matchId);
-  settleBetsForConfirmedMatch(input.matchId);
 
   if (match.homeTeamId !== "TBD" && match.awayTeamId !== "TBD") {
     markTeamsStale(match.homeTeamId, match.awayTeamId);

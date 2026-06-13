@@ -75,10 +75,8 @@ export function TournamentStatusBanner() {
           {showPending && (
             <p className="text-text-muted">
               {status.pendingResults} score{status.pendingResults === 1 ? "" : "s"} awaiting confirmation
-              {" · "}
-              <a href="/office" className="font-semibold text-brand hover:underline">
-                Review on Office
-              </a>
+              {" — "}
+              auto-confirms when 2+ sources agree, or use the admin confirm API.
             </p>
           )}
           {showPoller && (

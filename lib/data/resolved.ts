@@ -6,7 +6,7 @@ import { getConfirmedResults } from "@/lib/sim/actual-results";
 /**
  * Resolved-match layer: overlays officially-determined knockout teams
  * (derived from confirmed results) onto the static fixture data, so the
- * poller, betting, analysis, and match pages see real teams instead of
+ * poller, analysis, and match pages see real teams instead of
  * "TBD" once the group stage / earlier rounds finish.
  */
 

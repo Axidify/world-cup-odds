@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { listBets, listBettors } from "@/lib/betting/store";
 import { getPendingResults, getResult } from "@/lib/results/store";
 import { getAllMatches } from "@/lib/data/load";
 import { getDb } from "@/lib/db";
@@ -24,8 +23,6 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     exportedAt: new Date().toISOString(),
-    bettors: listBettors(),
-    bets: listBets({ limit: 50_000 }),
     results,
     pendingResults: getPendingResults(),
   });

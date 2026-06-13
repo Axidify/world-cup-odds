@@ -12,11 +12,10 @@ const nav = [
   { href: "/groups", label: "Groups" },
   { href: "/bracket", label: "Bracket" },
   { href: "/champion", label: "Champion" },
-  { href: "/office", label: "Office" },
   { href: "/accuracy", label: "Accuracy" },
 ];
 
-const mobileTabs = nav.slice(0, 5);
+const mobileTabs = nav;
 
 const THEME_KEY = "wc-odds-theme";
 

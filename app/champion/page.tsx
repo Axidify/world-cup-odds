@@ -1,4 +1,3 @@
-import { ChampionBetButton } from "@/components/ChampionBetButton";
 import { ChampionOddsUpdate } from "@/components/ChampionOddsUpdate";
 import { Flag } from "@/components/Flag";
 import { SanityAlertsPanel } from "@/components/SanityAlertsPanel";
@@ -79,7 +78,6 @@ export default function ChampionPage() {
                   <th className="px-4 py-3 text-right font-semibold">Change</th>
                 )}
                 <th className="px-4 py-3 text-right font-semibold">Decimal</th>
-                <th className="px-4 py-3 text-right font-semibold">Bet</th>
               </tr>
             </thead>
             <tbody>
@@ -116,9 +114,6 @@ export default function ChampionPage() {
                     </td>
                   )}
                   <td className="num px-4 py-3 text-right text-money">{odds ? impliedOdds(pct) : "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    {odds ? <ChampionBetButton teamId={team.id} teamName={team.name} /> : "—"}
-                  </td>
                 </tr>
               ))}
             </tbody>

@@ -98,34 +98,3 @@ export const predictionLog = sqliteTable("prediction_log", {
   logLoss: real("log_loss"),
   createdAt: text("created_at").notNull(),
 });
-
-export const bettors = sqliteTable("bettors", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  createdAt: text("created_at").notNull(),
-});
-
-export const bets = sqliteTable(
-  "bets",
-  {
-    id: text("id").primaryKey(),
-    bettorId: text("bettor_id")
-      .notNull()
-      .references(() => bettors.id),
-    betType: text("bet_type").notNull(),
-    matchId: text("match_id"),
-    selection: text("selection").notNull(),
-    stakeMyr: real("stake_myr").notNull(),
-    decimalOdds: real("decimal_odds").notNull(),
-    potentialPayoutMyr: real("potential_payout_myr").notNull(),
-    probabilityAtBet: real("probability_at_bet").notNull(),
-    status: text("status").notNull(),
-    payoutMyr: real("payout_myr"),
-    placedAt: text("placed_at").notNull(),
-    settledAt: text("settled_at"),
-  },
-  (t) => [
-    index("idx_bets_status").on(t.status),
-    index("idx_bets_bettor").on(t.bettorId),
-  ],
-);
