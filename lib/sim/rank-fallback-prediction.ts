@@ -44,7 +44,7 @@ export function buildRankFallbackPrediction(
     homeWinPct: teamAWin,
     drawPct: probs.drawPct,
     awayWinPct: teamBWin,
-    predictedScore: predictedScoreFromProbs(probs),
+    predictedScore: predictedScoreFromProbs(probs, eloHome, eloAway),
     keyFactors: ["World Football Elo fallback"],
     analysis: null,
     isCalibrated: 0,

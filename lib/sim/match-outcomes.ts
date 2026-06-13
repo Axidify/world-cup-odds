@@ -52,10 +52,12 @@ export function goalsFromOutcome(
   }
   if (outcome === "home") {
     if (parsed.homeGoals > parsed.awayGoals) return parsed;
-    return { homeGoals: 2, awayGoals: 1 };
+    const margin = Math.max(parsed.homeGoals, 2);
+    return { homeGoals: margin, awayGoals: Math.max(margin - 1, 1) };
   }
   if (parsed.awayGoals > parsed.homeGoals) return parsed;
-  return { homeGoals: 1, awayGoals: 2 };
+  const margin = Math.max(parsed.awayGoals, 2);
+  return { homeGoals: Math.max(margin - 1, 1), awayGoals: margin };
 }
 
 export function computeAdvanceProbs(homeWinPct: number, drawPct: number, awayWinPct: number): {

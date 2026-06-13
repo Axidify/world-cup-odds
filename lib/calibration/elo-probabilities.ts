@@ -46,9 +46,26 @@ export function eloKnockoutMatchProbs(
   };
 }
 
-export function predictedScoreFromProbs(probs: EloMatchProbs): string {
+export function predictedScoreFromProbs(
+  probs: EloMatchProbs,
+  eloHome?: number,
+  eloAway?: number,
+): string {
   if (probs.drawPct >= probs.homeWinPct && probs.drawPct >= probs.awayWinPct) {
-    return "1-1";
+    return probs.drawPct >= 22 ? "1-1" : "0-0";
   }
-  return probs.homeWinPct >= probs.awayWinPct ? "2-1" : "1-2";
+  const homeFav = probs.homeWinPct >= probs.awayWinPct;
+  const gap =
+    eloHome != null && eloAway != null ? Math.abs(eloHome - eloAway) : 80;
+
+  if (homeFav) {
+    if (gap >= 280) return "3-0";
+    if (gap >= 200) return "3-1";
+    if (gap >= 130) return "2-0";
+    return "2-1";
+  }
+  if (gap >= 280) return "0-3";
+  if (gap >= 200) return "1-3";
+  if (gap >= 130) return "0-2";
+  return "1-2";
 }

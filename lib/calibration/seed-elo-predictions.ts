@@ -32,6 +32,8 @@ export function seedPairingFromElo(
   elo: Map<string, number> = getEloMap(),
 ): void {
   const probs = probsForStage(homeTeamId, awayTeamId, stage, elo);
+  const eloHome = elo.get(homeTeamId) ?? 1500;
+  const eloAway = elo.get(awayTeamId) ?? 1500;
   savePrediction({
     homeTeamId,
     awayTeamId,
@@ -39,7 +41,7 @@ export function seedPairingFromElo(
     provider,
     model,
     ...probs,
-    predictedScore: predictedScoreFromProbs(probs),
+    predictedScore: predictedScoreFromProbs(probs, eloHome, eloAway),
     keyFactors: ["World Football Elo seed (eloratings.net)"],
     analysis:
       "Seeded from World Football Elo ratings — run LLM analyze to refine.",

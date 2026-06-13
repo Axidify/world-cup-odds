@@ -7,7 +7,8 @@ import { isPredictionExpired } from "@/lib/ai/cache-ttl";
 import { getModelForProvider } from "@/lib/ai/config";
 import { KNOCKOUT_PRECACHE_STAGE } from "@/lib/ai/preanalyze";
 import { getEloMap } from "@/lib/calibration/elo";
-import { applyNewsImpactToStoredPrediction } from "@/lib/news/impact";
+import { getFixtures } from "@/lib/data/load";
+import { applyNewsImpactToStoredPrediction, isNewsImpactEnabled } from "@/lib/news/impact";
 import {
   buildRankFallbackPrediction,
   isKnockoutFallbackStage,
@@ -49,7 +50,17 @@ export type PredictionStore = {
   listMissing(): MissingPairing[];
 };
 
-export function loadPredictionStore(provider: LLMProvider): PredictionStore {
+export type PredictionStoreOptions = {
+  /** When false, simulation uses raw cached/Elo probabilities only. */
+  applyNewsImpact?: boolean;
+};
+
+export function loadPredictionStore(
+  provider: LLMProvider,
+  options: PredictionStoreOptions = {},
+): PredictionStore {
+  const applyNews = options.applyNewsImpact ?? isNewsImpactEnabled();
+  const fixtureDateById = new Map(getFixtures().map((m) => [m.id, m.date]));
   const model = getModelForProvider(provider);
   const db = getDb();
   const rows = db
@@ -75,25 +86,29 @@ export function loadPredictionStore(provider: LLMProvider): PredictionStore {
   }
 
   // Predictions are stored teamA-oriented, so apply news deltas the same way.
-  function withNewsImpact(pred: Prediction): Prediction {
-    const hit = newsAdjusted.get(pred.cacheKey);
+  function withNewsImpact(pred: Prediction, matchId?: string): Prediction {
+    if (!applyNews) return pred;
+    const kickoff = matchId ? fixtureDateById.get(matchId) : undefined;
+    const cacheKey = `${pred.cacheKey}|${kickoff ?? ""}`;
+    const hit = newsAdjusted.get(cacheKey);
     if (hit) return hit;
 
-    const out = applyNewsImpactToStoredPrediction(pred);
-    newsAdjusted.set(pred.cacheKey, out);
+    const out = applyNewsImpactToStoredPrediction(pred, kickoff);
+    newsAdjusted.set(cacheKey, out);
     return out;
   }
 
-  function lookup(home: string, away: string, stage: string): Prediction | undefined {
+  function lookup(home: string, away: string, stage: string, matchId?: string): Prediction | undefined {
     const stages = [stage];
     if (KNOCKOUT_ROUND_STAGES.has(stage)) stages.push(KNOCKOUT_PRECACHE_STAGE);
     for (const s of stages) {
       const pred = byKey.get(lookupKey(home, away, s));
-      if (pred) return withNewsImpact(pred);
+      if (pred) return withNewsImpact(pred, matchId);
     }
     if (isKnockoutFallbackStage(stage)) {
       return withNewsImpact(
         buildRankFallbackPrediction(home, away, stage, provider, model, eloByTeam),
+        matchId,
       );
     }
     return undefined;
@@ -101,7 +116,7 @@ export function loadPredictionStore(provider: LLMProvider): PredictionStore {
 
   return {
     get(homeTeamId, awayTeamId, stage, matchId) {
-      const pred = lookup(homeTeamId, awayTeamId, stage);
+      const pred = lookup(homeTeamId, awayTeamId, stage, matchId);
       if (!pred) {
         const miss: MissingPairing = { homeTeamId, awayTeamId, stage, matchId };
         pendingMissing.push(miss);

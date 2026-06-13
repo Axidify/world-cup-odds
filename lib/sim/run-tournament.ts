@@ -3,9 +3,12 @@ import { resolveActiveProvider } from "@/lib/ai/settings";
 import type { MissingPairing, SimulationResult } from "@/lib/types";
 import {
   buildRepresentativePredictedPath,
+  buildSimulationExtras,
+  championOddsLeader,
   getSimulationIterations,
   normalizeChampionOdds,
   runMonteCarlo,
+  runMonteCarloBundle,
 } from "@/lib/simulator";
 import { getSimulationSeed } from "@/lib/sim/rng";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
@@ -58,6 +61,7 @@ export function runTournamentSimulation(): SimulationResult {
   }
 
   const store = loadPredictionStore(provider);
+  const storeBase = loadPredictionStore(provider, { applyNewsImpact: false });
   const confirmed = mergeConfirmedResults();
   const missing = collectMissingPairings(store, provider, confirmed);
   if (missing.length > 0) {
@@ -71,9 +75,12 @@ export function runTournamentSimulation(): SimulationResult {
   try {
     const iterations = getSimulationIterations();
     const seed = getSimulationSeed();
-    const championOdds = normalizeChampionOdds(
-      runMonteCarlo(store, iterations, seed, confirmed),
+    const bundle = runMonteCarloBundle(store, iterations, seed, confirmed);
+    const championOdds = normalizeChampionOdds(bundle.championOdds);
+    const championOddsBase = normalizeChampionOdds(
+      runMonteCarlo(storeBase, iterations, seed + 1_000_000, confirmed),
     );
+    const leader = championOddsLeader(championOdds);
     const predictedPath = buildRepresentativePredictedPath(
       store,
       championOdds,
@@ -88,6 +95,14 @@ export function runTournamentSimulation(): SimulationResult {
       provider,
       model: getModelForProvider(provider),
       runAt: new Date().toISOString(),
+      extras: buildSimulationExtras(
+        championOdds,
+        championOddsBase,
+        bundle.survivalOdds,
+        bundle.modalGroupStandings,
+        iterations,
+        leader,
+      ),
     };
     saveSimulation(result);
     return result;

@@ -37,10 +37,15 @@ export function GroupFixtureRow({
   return (
     <Link
       href={`/match/${matchId}`}
-      className={`flex items-center justify-between gap-2 px-1 py-2 text-xs hover:text-brand ${kickoffHighlightRowClass(highlight)}`}
+      className={`flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 py-2 text-xs hover:text-brand sm:flex-nowrap ${kickoffHighlightRowClass(highlight)}`}
     >
-      <span>
-        {homeLabel} vs {awayLabel}
+      <span className="min-w-0 flex-1 font-medium leading-snug">
+        <span className="sm:hidden">
+          {homeLabel} v {awayLabel}
+        </span>
+        <span className="hidden sm:inline">
+          {homeLabel} vs {awayLabel}
+        </span>
       </span>
       <MatchStatusBadge
         kickoffIso={kickoffIso}

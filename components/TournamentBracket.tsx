@@ -41,6 +41,8 @@ type Props = {
   simulationRunAt: string | null;
   simulationStale: boolean;
   staleMessage: string | null;
+  modalGroupStandings?: Record<string, import("@/lib/types").GroupStanding[]>;
+  representativePathNote?: string | null;
 };
 
 export function TournamentBracket({
@@ -62,6 +64,8 @@ export function TournamentBracket({
   simulationRunAt,
   simulationStale,
   staleMessage,
+  modalGroupStandings,
+  representativePathNote,
 }: Props) {
   const defaultView: ViewMode =
     hasConfirmedResults ? "official" : hasSimulation ? "projected" : "official";
@@ -84,7 +88,10 @@ export function TournamentBracket({
     [view, officialPath, projectedPath],
   );
 
-  const standingsByGroup = view === "official" ? officialStandings : projectedStandings;
+  const standingsByGroup =
+    view === "official"
+      ? officialStandings
+      : modalGroupStandings ?? projectedStandings;
 
   const displays = useMemo(() => {
     const isProjected = view === "projected";
@@ -177,9 +184,8 @@ export function TournamentBracket({
           )
         ) : projectedPath ? (
           <p>
-            <strong className="font-semibold text-text">Projected</strong> bracket shows the most
-            common knockout path from simulations where the top champion pick wins. Champion
-            percentages use all simulation runs. Re-run after new results or predictions change.
+            <strong className="font-semibold text-text">Projected</strong> knockout tree from
+            simulations. {representativePathNote ?? "Group tables show the most common finisher per position across all simulation runs."}
           </p>
         ) : (
           <p>Run a tournament simulation on the Dashboard to see projected progression.</p>

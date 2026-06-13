@@ -113,6 +113,20 @@ export type PredictedPath = {
 
 export type ChampionOddsMap = Record<string, number>;
 
+export type SanityAlert = {
+  type: "elo_order" | "news_shift" | "modal_group";
+  message: string;
+  teamIds?: string[];
+};
+
+export type SimulationExtras = {
+  championOddsBase: ChampionOddsMap;
+  survivalOdds: import("@/lib/sim/survival-stages").SurvivalOddsMap;
+  modalGroupStandings: Record<string, GroupStanding[]>;
+  sanityAlerts: SanityAlert[];
+  representativePathNote: string;
+};
+
 export type SimulationResult = {
   championOdds: ChampionOddsMap;
   predictedPath: PredictedPath;
@@ -120,6 +134,7 @@ export type SimulationResult = {
   provider: string;
   model: string;
   runAt: string;
+  extras?: SimulationExtras;
 };
 
 export type MissingPairing = {

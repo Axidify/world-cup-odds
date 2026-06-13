@@ -134,6 +134,7 @@ export function runMigrations() {
 
   ensureColumn(db, "team_events", "severity", "severity TEXT");
   ensureColumn(db, "team_events", "key_player", "key_player INTEGER DEFAULT 0");
+  ensureColumn(db, "simulation_cache", "extras", "extras TEXT");
 
   db.close();
 }

@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/Card";
 import { BulkAnalyzePanel } from "@/components/BulkAnalyzePanel";
 import { Countdown } from "@/components/Countdown";
 import { ChampionOddsBars } from "@/components/ChampionOddsBars";
+import { DashboardTodaySection } from "@/components/DashboardTodaySection";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { SimulationStaleAlert } from "@/components/SimulationStaleAlert";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
@@ -34,6 +35,8 @@ export default function DashboardPage() {
       <ResultsSyncBanner />
       <TournamentStatusBanner />
 
+      <DashboardTodaySection />
+
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <Card className="relative overflow-hidden p-8">
           <div className="pointer-events-none absolute -bottom-16 -right-10 h-64 w-64 rounded-full bg-brand-tint blur-3xl" />
@@ -46,9 +49,6 @@ export default function DashboardPage() {
               <span>Final <b className="text-text">{formatUtcDate(finalDate)}</b></span>
             )}
             <span><b className="text-text">USA · Canada · Mexico</b></span>
-          </div>
-          <div className="mt-6">
-            <BulkAnalyzePanel />
           </div>
           <div className="mt-8">
             <Countdown targetISO={kickoff} />
@@ -94,6 +94,14 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="p-5">
+        <h2 className="font-[family-name:var(--font-archivo)] text-base font-bold">Admin tools</h2>
+        <p className="mt-1 text-xs text-text-muted">Bulk LLM analysis for missing match predictions</p>
+        <div className="mt-4">
+          <BulkAnalyzePanel />
+        </div>
+      </Card>
     </div>
   );
 }

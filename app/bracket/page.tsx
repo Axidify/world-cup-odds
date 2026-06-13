@@ -51,6 +51,8 @@ export default function BracketPage() {
       simulationRunAt={simulation?.runAt ?? null}
       simulationStale={staleState.stale}
       staleMessage={formatSimulationStaleMessage(staleState)}
+      modalGroupStandings={simulation?.extras?.modalGroupStandings}
+      representativePathNote={simulation?.extras?.representativePathNote}
     />
   );
 }

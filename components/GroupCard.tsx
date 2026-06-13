@@ -102,8 +102,8 @@ export function GroupCard({
             <GroupFixtureRow
               key={m.id}
               matchId={m.id}
-              homeLabel={home?.id.toUpperCase() ?? "TBD"}
-              awayLabel={away?.id.toUpperCase() ?? "TBD"}
+              homeLabel={home?.name ?? "TBD"}
+              awayLabel={away?.name ?? "TBD"}
               kickoffIso={m.date}
               confirmed={result}
               projected={projected}

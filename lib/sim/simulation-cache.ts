@@ -1,5 +1,5 @@
 import { and, count, desc, eq } from "drizzle-orm";
-import type { ChampionOddsMap, PredictedPath, SimulationResult } from "@/lib/types";
+import type { ChampionOddsMap, PredictedPath, SimulationExtras, SimulationResult } from "@/lib/types";
 import { getDb } from "@/lib/db";
 import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
@@ -13,6 +13,7 @@ function rowToSimulation(row: typeof simulationCache.$inferSelect): SimulationRe
     provider: row.provider,
     model: row.model,
     runAt: row.runAt,
+    extras: row.extras ? (JSON.parse(row.extras) as SimulationExtras) : undefined,
   };
 }
 
@@ -50,6 +51,7 @@ export function saveSimulation(result: SimulationResult): void {
       iterations: result.iterations,
       championOdds: JSON.stringify(result.championOdds),
       predictedPath: JSON.stringify(result.predictedPath),
+      extras: result.extras ? JSON.stringify(result.extras) : null,
       runAt: result.runAt,
     })
     .run();

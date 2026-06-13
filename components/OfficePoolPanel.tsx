@@ -167,7 +167,8 @@ export function OfficePoolPanel() {
       </div>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="scrollbar-themed overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-2 text-left text-[10px] uppercase tracking-wider text-text-muted">
               <th className="px-4 py-3">#</th>
@@ -207,6 +208,7 @@ export function OfficePoolPanel() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
 
       <div>
@@ -225,7 +227,8 @@ export function OfficePoolPanel() {
         </div>
         {error && <p className="mb-2 text-xs text-loss">{error}</p>}
         <Card className="overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="scrollbar-themed overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-2 text-left text-[10px] uppercase tracking-wider text-text-muted">
                 <th className="px-4 py-3">Bettor</th>
@@ -278,6 +281,7 @@ export function OfficePoolPanel() {
               )}
             </tbody>
           </table>
+          </div>
         </Card>
       </div>
     </div>

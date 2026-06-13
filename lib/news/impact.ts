@@ -29,7 +29,28 @@ const SEVERITY_BASE: Record<string, number> = {
 };
 
 const KEY_PLAYER_MULTIPLIER = 1.5;
-const MAX_TEAM_DELTA = 80;
+
+export function getMaxTeamNewsDelta(): number {
+  const n = Number(process.env.NEWS_IMPACT_MAX_DELTA ?? 35);
+  return Number.isFinite(n) && n > 0 ? n : 35;
+}
+
+/** Only full news impact applies within this many days of kickoff (default 14). */
+export function getNewsImpactFixtureDays(): number {
+  const n = Number(process.env.NEWS_IMPACT_FIXTURE_DAYS ?? 14);
+  return Number.isFinite(n) && n > 0 ? n : 14;
+}
+
+export function scaleNewsDeltaForFixture(delta: number, kickoffIso?: string): number {
+  if (delta === 0) return 0;
+  if (!kickoffIso) return delta;
+  const daysUntil = (new Date(kickoffIso).getTime() - Date.now()) / 86_400_000;
+  if (daysUntil <= 0) return delta;
+  const window = getNewsImpactFixtureDays();
+  if (daysUntil >= window) return Math.round(delta * 0.2);
+  const scale = 1 - (daysUntil / window) * 0.8;
+  return Math.round(delta * scale);
+}
 
 export function isNewsImpactEnabled(): boolean {
   const raw = process.env.NEWS_IMPACT_ENABLED;
@@ -71,7 +92,7 @@ export function computeImpactFromEvents(
     reasons.push(`${e.type}: ${who}${tag} ${d > 0 ? "+" : ""}${Math.round(d)}`);
   }
 
-  const capped = Math.max(-MAX_TEAM_DELTA, Math.min(MAX_TEAM_DELTA, delta));
+  const capped = Math.max(-getMaxTeamNewsDelta(), Math.min(getMaxTeamNewsDelta(), delta));
   return { teamId, eloDelta: Math.round(capped), reasons };
 }
 
@@ -85,6 +106,14 @@ export function getTeamNewsImpact(teamId: string): TeamNewsImpact {
   const impact = computeImpactFromEvents(teamId, getTeamEvents(teamId));
   impactCache.set(teamId, { at: Date.now(), impact });
   return impact;
+}
+
+export function getTeamNewsImpactForFixture(teamId: string, kickoffIso?: string): TeamNewsImpact {
+  const base = getTeamNewsImpact(teamId);
+  if (!kickoffIso || base.eloDelta === 0) return base;
+  const scaled = scaleNewsDeltaForFixture(base.eloDelta, kickoffIso);
+  if (scaled === base.eloDelta) return base;
+  return { teamId, eloDelta: scaled, reasons: base.reasons };
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -127,10 +156,18 @@ export type PairNewsImpact = {
   away: TeamNewsImpact;
 };
 
-export function getPairNewsImpact(homeTeamId: string, awayTeamId: string): PairNewsImpact {
+export function getPairNewsImpact(
+  homeTeamId: string,
+  awayTeamId: string,
+  kickoffIso?: string,
+): PairNewsImpact {
   return {
-    home: getTeamNewsImpact(homeTeamId),
-    away: getTeamNewsImpact(awayTeamId),
+    home: kickoffIso
+      ? getTeamNewsImpactForFixture(homeTeamId, kickoffIso)
+      : getTeamNewsImpact(homeTeamId),
+    away: kickoffIso
+      ? getTeamNewsImpactForFixture(awayTeamId, kickoffIso)
+      : getTeamNewsImpact(awayTeamId),
   };
 }
 
@@ -180,10 +217,13 @@ export function fixtureProbabilitiesWithNews(
 }
 
 /** Apply news overlay to a teamA-oriented stored prediction. */
-export function applyNewsImpactToStoredPrediction(prediction: Prediction): Prediction {
+export function applyNewsImpactToStoredPrediction(
+  prediction: Prediction,
+  kickoffIso?: string,
+): Prediction {
   if (!isNewsImpactEnabled()) return prediction;
 
-  const { home, away } = getPairNewsImpact(prediction.teamA, prediction.teamB);
+  const { home, away } = getPairNewsImpact(prediction.teamA, prediction.teamB, kickoffIso);
   const result = adjustProbabilities(
     prediction.homeWinPct,
     prediction.drawPct,

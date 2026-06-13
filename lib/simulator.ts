@@ -18,7 +18,14 @@ import type {
   MatchStage,
   PlayedMatchResult,
   PredictedPath,
+  SimulationExtras,
 } from "@/lib/types";
+import {
+  emptySurvivalCounts,
+  type SurvivalStage,
+  survivalCountsToOdds,
+} from "@/lib/sim/survival-stages";
+import { buildSanityAlerts } from "@/lib/sim/sanity-alerts";
 import {
   goalsFromOutcome,
   modalKnockoutWinner,
@@ -354,4 +361,163 @@ export function normalizeChampionOdds(odds: ChampionOddsMap): ChampionOddsMap {
     out[id] = (pct / sum) * 100;
   }
   return out;
+}
+
+function qualifiedTeamIds(ctx: TournamentContext): Set<string> {
+  const out = new Set<string>();
+  for (const standings of Object.values(ctx.standingsByGroup)) {
+    const first = standings.find((s) => s.position === 1);
+    const second = standings.find((s) => s.position === 2);
+    if (first) out.add(first.teamId);
+    if (second) out.add(second.teamId);
+  }
+  for (const g of ctx.qualifiedThirdGroups) {
+    const third = ctx.thirdByGroup[g];
+    if (third) out.add(third.teamId);
+  }
+  return out;
+}
+
+function recordSurvival(
+  counts: Map<string, Record<SurvivalStage, number>>,
+  ctx: TournamentContext,
+  path: KnockoutPathMatch[],
+  championTeamId: string,
+): void {
+  for (const id of qualifiedTeamIds(ctx)) {
+    const row = counts.get(id);
+    if (row) row.qualify += 1;
+  }
+  const stageMap: Array<{ stage: MatchStage; survival: SurvivalStage }> = [
+    { stage: "r32", survival: "r16" },
+    { stage: "r16", survival: "qf" },
+    { stage: "qf", survival: "sf" },
+    { stage: "sf", survival: "final" },
+    { stage: "final", survival: "champion" },
+  ];
+  for (const { stage, survival } of stageMap) {
+    for (const m of path.filter((p) => p.stage === stage)) {
+      const row = counts.get(m.winnerTeamId);
+      if (row) row[survival] += 1;
+    }
+  }
+  if (championTeamId) {
+    const row = counts.get(championTeamId);
+    if (row) row.champion += 1;
+  }
+}
+
+type GroupPosHistogram = Map<string, Map<number, Map<string, number>>>;
+
+function recordGroupHistogram(hist: GroupPosHistogram, standings: GroupStanding[]): void {
+  for (const row of standings) {
+    let groupMap = hist.get(row.group);
+    if (!groupMap) {
+      groupMap = new Map();
+      hist.set(row.group, groupMap);
+    }
+    let posMap = groupMap.get(row.position);
+    if (!posMap) {
+      posMap = new Map();
+      groupMap.set(row.position, posMap);
+    }
+    posMap.set(row.teamId, (posMap.get(row.teamId) ?? 0) + 1);
+  }
+}
+
+export function buildModalGroupStandings(hist: GroupPosHistogram): Record<string, GroupStanding[]> {
+  const out: Record<string, GroupStanding[]> = {};
+  for (const [group, posMap] of hist) {
+    const rows: GroupStanding[] = [];
+    for (let position = 1; position <= 4; position += 1) {
+      const teamCounts = posMap.get(position);
+      if (!teamCounts || teamCounts.size === 0) continue;
+      let bestTeam = "";
+      let bestCount = -1;
+      for (const [teamId, count] of teamCounts) {
+        if (count > bestCount) {
+          bestCount = count;
+          bestTeam = teamId;
+        }
+      }
+      rows.push({
+        teamId: bestTeam,
+        group,
+        played: 3,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDifference: 0,
+        points: position <= 2 ? 6 : position === 3 ? 3 : 0,
+        position,
+      });
+    }
+    rows.sort((a, b) => a.position - b.position);
+    out[group] = rows;
+  }
+  return out;
+}
+
+export type MonteCarloBundle = {
+  championOdds: ChampionOddsMap;
+  survivalOdds: ReturnType<typeof survivalCountsToOdds>;
+  modalGroupStandings: Record<string, GroupStanding[]>;
+};
+
+/** Single-pass Monte Carlo: champion %, survival-by-round, modal group tables. */
+export function runMonteCarloBundle(
+  store: PredictionStore,
+  iterations = getSimulationIterations(),
+  seed = getSimulationSeed(),
+  confirmed: Map<string, PlayedMatchResult> = new Map(),
+): MonteCarloBundle {
+  const teams = getTeams();
+  const championCounts = new Map(teams.map((t) => [t.id, 0]));
+  const survivalCounts = emptySurvivalCounts(teams.map((t) => t.id));
+  const groupHist: GroupPosHistogram = new Map();
+  const fixtures = getFixtures();
+
+  for (let i = 0; i < iterations; i++) {
+    const rng = createRng(seed + i);
+    const groupResults = buildGroupResults(fixtures, store, confirmed, rng);
+    const ctx = computeTournamentContext(groupResults);
+    for (const standings of Object.values(ctx.standingsByGroup)) {
+      recordGroupHistogram(groupHist, standings);
+    }
+    const { championTeamId, path } = runKnockout(store, ctx, confirmed, rng, true);
+    championCounts.set(championTeamId, (championCounts.get(championTeamId) ?? 0) + 1);
+    recordSurvival(survivalCounts, ctx, path, championTeamId);
+  }
+
+  const championOdds: ChampionOddsMap = {};
+  for (const [teamId, count] of championCounts) {
+    championOdds[teamId] = (count / iterations) * 100;
+  }
+
+  return {
+    championOdds,
+    survivalOdds: survivalCountsToOdds(survivalCounts, iterations),
+    modalGroupStandings: buildModalGroupStandings(groupHist),
+  };
+}
+
+export function buildSimulationExtras(
+  championOdds: ChampionOddsMap,
+  championOddsBase: ChampionOddsMap,
+  survivalOdds: ReturnType<typeof survivalCountsToOdds>,
+  modalGroupStandings: Record<string, GroupStanding[]>,
+  iterations: number,
+  leaderTeamId: string,
+): SimulationExtras {
+  const leaderName = getTeams().find((t) => t.id === leaderTeamId)?.name ?? leaderTeamId.toUpperCase();
+
+  return {
+    championOddsBase,
+    survivalOdds,
+    modalGroupStandings,
+    sanityAlerts: buildSanityAlerts(championOdds, championOddsBase, modalGroupStandings),
+    representativePathNote: `Knockout tree: most common path when ${leaderName} wins the tournament. Group tables below show the most frequent finisher per position across all ${iterations.toLocaleString()} simulations.`,
+  };
 }

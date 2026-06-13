@@ -22,7 +22,7 @@ describe("news impact scoring", () => {
       { type: "injury", player: "B", severity: "major", keyPlayer: true },
     ]);
     expect(minor.eloDelta).toBe(-8);
-    expect(majorKey.eloDelta).toBe(-60);
+    expect(majorKey.eloDelta).toBe(-35);
   });
 
   it("credits returns and discounts card risk", () => {
@@ -34,14 +34,14 @@ describe("news impact scoring", () => {
     expect(impact.eloDelta).toBe(25);
   });
 
-  it("caps total team impact at ±80", () => {
+  it("caps total team impact at configured max (default ±35)", () => {
     const events = Array.from({ length: 5 }, (_, i) => ({
       type: "injury",
       player: `P${i}`,
       severity: "major" as const,
       keyPlayer: true,
     }));
-    expect(computeImpactFromEvents("ger", events).eloDelta).toBe(-80);
+    expect(computeImpactFromEvents("ger", events).eloDelta).toBe(-35);
   });
 
   it("treats unknown severity as moderate", () => {

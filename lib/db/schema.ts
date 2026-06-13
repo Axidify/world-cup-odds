@@ -39,6 +39,7 @@ export const simulationCache = sqliteTable("simulation_cache", {
   iterations: integer("iterations").notNull(),
   championOdds: text("champion_odds").notNull(),
   predictedPath: text("predicted_path").notNull(),
+  extras: text("extras"),
   runAt: text("run_at").notNull(),
 });
 
