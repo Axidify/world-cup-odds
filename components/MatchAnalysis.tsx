@@ -75,27 +75,29 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs text-text-muted">
-          <span className="font-semibold uppercase tracking-wider text-brand">AI prediction</span>
-          <span className="num ml-2">
-            {prediction.provider} · {prediction.model}
-          </span>
-          {prediction.stale && (
-            <span className="ml-2 rounded bg-money-tint px-1.5 py-0.5 text-[10px] font-semibold text-money">
-              stale
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand">AI prediction</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="num text-[11px] text-text-muted">
+              {prediction.provider} · {prediction.model}
             </span>
-          )}
-          {prediction.newsAdjusted && prediction.newsImpact && (
-            <span
-              className="ml-2 rounded bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand"
-              title={`Squad news Elo impact — home ${prediction.newsImpact.homeEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.homeEloDelta}, away ${prediction.newsImpact.awayEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.awayEloDelta}`}
-            >
-              news-adjusted
-            </span>
-          )}
+            {prediction.stale && (
+              <span className="rounded bg-money-tint px-1.5 py-0.5 text-[10px] font-semibold text-money">
+                stale
+              </span>
+            )}
+            {prediction.newsAdjusted && prediction.newsImpact && (
+              <span
+                className="rounded bg-brand-tint px-1.5 py-0.5 text-[10px] font-semibold text-brand"
+                title={`Squad news Elo impact — home ${prediction.newsImpact.homeEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.homeEloDelta}, away ${prediction.newsImpact.awayEloDelta >= 0 ? "+" : ""}${prediction.newsImpact.awayEloDelta}`}
+              >
+                news-adjusted
+              </span>
+            )}
+          </div>
         </div>
-        <Button variant="ghost" disabled={loading || bulkRunning} onClick={() => run(true)}>
+        <Button variant="ghost" className="shrink-0 self-start" disabled={loading || bulkRunning} onClick={() => run(true)}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Refresh
         </Button>
@@ -108,12 +110,6 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
         drawPct={prediction.drawPct}
         awayWinPct={prediction.awayWinPct}
       />
-
-      {prediction.predictedScore && (
-        <p className="num text-center text-sm text-text-muted">
-          Predicted score: <b className="text-text">{prediction.predictedScore}</b>
-        </p>
-      )}
 
       {prediction.analysis && (
         <p className="text-sm leading-relaxed text-text-muted">{prediction.analysis}</p>

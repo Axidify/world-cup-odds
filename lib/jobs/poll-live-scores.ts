@@ -9,10 +9,14 @@ import {
   upsertLiveScore,
 } from "@/lib/results/live-scores/store";
 
-export function getLiveScoresPollIntervalMs(): number {
+export function getLiveScoresPollIntervalSeconds(): number {
   const raw = Number(process.env.LIVE_SCORES_POLL_INTERVAL_SECONDS ?? 60);
   const seconds = Number.isFinite(raw) && raw > 0 ? raw : 60;
-  return Math.max(15, seconds) * 1000;
+  return Math.max(15, seconds);
+}
+
+export function getLiveScoresPollIntervalMs(): number {
+  return getLiveScoresPollIntervalSeconds() * 1000;
 }
 
 export function mapLiveApiToLocal(

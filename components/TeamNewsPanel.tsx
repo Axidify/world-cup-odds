@@ -83,10 +83,10 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
   }
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between gap-3">
+    <Card className="p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">Squad news</h2>
-        <Button variant="secondary" disabled={refreshing} onClick={() => void refresh()}>
+        <Button variant="secondary" className="w-full sm:w-auto" disabled={refreshing} onClick={() => void refresh()}>
           {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           Refresh
         </Button>

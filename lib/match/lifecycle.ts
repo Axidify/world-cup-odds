@@ -22,16 +22,6 @@ export function getResultsCheckAtMs(kickoffIso: string): number {
   return new Date(kickoffIso).getTime() + MATCH_RESULTS_CHECK_MS;
 }
 
-export function formatCountdown(targetMs: number, now = Date.now()): string {
-  const diff = targetMs - now;
-  if (diff <= 0) return "soon";
-  const totalMins = Math.ceil(diff / 60_000);
-  if (totalMins < 60) return `${totalMins}m`;
-  const hrs = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-}
-
 export function formatLifecycleLabel(
   lifecycle: MatchLifecycle,
   kickoffIso: string,
@@ -46,7 +36,7 @@ export function formatLifecycleLabel(
     case "live":
       return liveScore
         ? `Live · ${liveScore.home}–${liveScore.away}`
-        : `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
+        : "Live · in-play score syncing";
     case "awaiting_result":
       return "Awaiting final score";
   }
@@ -67,7 +57,7 @@ export function formatLifecycleLabelLocal(
     case "live":
       return liveScore
         ? `Live · ${liveScore.home}–${liveScore.away}`
-        : `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
+        : "Live · in-play score syncing";
     case "awaiting_result":
       return "Awaiting final score";
   }
@@ -76,15 +66,30 @@ export function formatLifecycleLabelLocal(
 export function formatLifecycleHint(
   lifecycle: MatchLifecycle,
   pollIntervalMinutes: number,
+  livePollIntervalSeconds = 60,
 ): string {
+  const liveEvery = formatEveryPollInterval(livePollIntervalSeconds);
   switch (lifecycle) {
     case "confirmed":
       return "Result confirmed — official standings updated.";
     case "upcoming":
-      return `Scores usually appear ~2 hours after kickoff, then the poller syncs every ${pollIntervalMinutes} minutes.`;
+      return `After kickoff, in-play scores refresh ${liveEvery}. Full-time results confirm automatically once the match ends.`;
     case "live":
-      return "Match in progress — live score updates every minute when Big Balls is configured.";
+      return `Match in progress — live score updates ${liveEvery} when the live feed is configured.`;
     case "awaiting_result":
-      return `Poller is searching for the score (every ${pollIntervalMinutes} min when matches need results). Projected tables re-sim after confirm.`;
+      return `Waiting for the confirmed final score (results sync every ${pollIntervalMinutes} min). Odds and bracket refresh after confirm.`;
   }
+}
+
+/** Human-readable cadence for live score polling copy, e.g. "every 60 seconds". */
+export function formatEveryPollInterval(seconds: number): string {
+  const s = Math.max(1, Math.round(seconds));
+  if (s === 1) return "every second";
+  if (s < 60) return `every ${s} seconds`;
+  if (s === 60) return "every minute";
+  if (s % 60 === 0) {
+    const minutes = s / 60;
+    return minutes === 1 ? "every minute" : `every ${minutes} minutes`;
+  }
+  return `every ${s} seconds`;
 }

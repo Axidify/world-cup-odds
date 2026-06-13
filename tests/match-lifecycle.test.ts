@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMatchLifecycle, getResultsCheckAtMs } from "@/lib/match/lifecycle";
+import {
+  formatEveryPollInterval,
+  getMatchLifecycle,
+  getResultsCheckAtMs,
+} from "@/lib/match/lifecycle";
 
 describe("getMatchLifecycle", () => {
   afterEach(() => {
@@ -32,5 +36,14 @@ describe("getMatchLifecycle", () => {
     expect(getResultsCheckAtMs("2026-06-11T20:00:00.000Z")).toBe(
       Date.parse("2026-06-11T22:00:00.000Z"),
     );
+  });
+});
+
+describe("formatEveryPollInterval", () => {
+  it("formats common live poll cadences", () => {
+    expect(formatEveryPollInterval(60)).toBe("every minute");
+    expect(formatEveryPollInterval(30)).toBe("every 30 seconds");
+    expect(formatEveryPollInterval(120)).toBe("every 2 minutes");
+    expect(formatEveryPollInterval(1)).toBe("every second");
   });
 });

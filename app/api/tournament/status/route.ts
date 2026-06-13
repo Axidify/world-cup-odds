@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getTeamMap } from "@/lib/data/load";
 import { getResolvedMatches } from "@/lib/data/resolved";
 import { getResultsPollPlan } from "@/lib/jobs/poll-schedule";
+import { getLiveScoresPollIntervalSeconds } from "@/lib/jobs/poll-live-scores";
 import {
   getMatchLifecycle,
   getResultsCheckAtMs,
@@ -79,6 +80,9 @@ export async function GET() {
       nextPollAt: new Date(resultsPollPlan.nextPollAt).toISOString(),
       reason: resultsPollPlan.reason,
       intervalMinutes,
+    },
+    liveScoresPoll: {
+      intervalSeconds: getLiveScoresPollIntervalSeconds(),
     },
     matchActivity: {
       liveCount,

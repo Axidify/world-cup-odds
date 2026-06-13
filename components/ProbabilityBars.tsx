@@ -23,8 +23,8 @@ export function ProbabilityBars({
         { label: awayLabel, pct: awayWinPct, color: "from-brand-strong to-brand" },
       ].map(({ label, pct, color }) => (
         <div key={label}>
-          <div className="mb-1 flex justify-between text-xs font-semibold">
-            <span>{label}</span>
+          <div className="mb-1 flex justify-between gap-2 text-xs font-semibold">
+            <span className="min-w-0 truncate">{label}</span>
             <span className="num">{pct.toFixed(1)}%</span>
           </div>
           <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
