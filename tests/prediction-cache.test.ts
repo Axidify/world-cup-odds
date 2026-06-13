@@ -4,6 +4,7 @@ import { buildCacheKey } from "@/lib/ai/cache-key";
 import { getPredictionForPair, savePrediction } from "@/lib/ai/predictions";
 import { setActiveProvider } from "@/lib/ai/settings";
 import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
+import { seedPairingFromElo } from "@/lib/calibration/seed-elo-predictions";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { appSettings, predictions } from "@/lib/db/schema";
@@ -132,5 +133,21 @@ describe("prediction cache", () => {
 
     const after = buildBulkAnalyzeQueue({ refresh: false, includeGaps: false });
     expect(after.length).toBe(before - 1);
+  });
+
+  it("queues elo-seeded fixtures for bulk analyze", () => {
+    const fx = buildBulkAnalyzeQueue({ refresh: false, includeGaps: false });
+    const first = fx[0];
+    expect(first?.kind).toBe("match");
+    if (first?.kind !== "match") return;
+
+    const match = getResolvedMatch(first.matchId);
+    expect(match).toBeTruthy();
+    seedPairingFromElo(match!.homeTeamId, match!.awayTeamId, "group", "vllm", "test-model");
+
+    const stillQueued = buildBulkAnalyzeQueue({ refresh: false, includeGaps: false });
+    expect(stillQueued.some((q) => q.kind === "match" && q.matchId === first.matchId)).toBe(
+      true,
+    );
   });
 });

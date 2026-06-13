@@ -139,7 +139,7 @@ export function BulkAnalyzePanel() {
           if (!loading) setDialogMode(null);
         }}
         title="Analyze missing predictions"
-        description="Runs only uncached predictions — group matches, top-24 pairings, and bracket-path gaps."
+        description="Runs LLM analysis for pairings without a fresh AI prediction (Elo seeds count as missing)."
         confirmLabel="Start analysis"
         loading={loading}
         error={error}
@@ -160,11 +160,11 @@ export function BulkAnalyzePanel() {
       />
 
       <p className="text-xs text-text-muted">
-        Full re-analyze is not available from the dashboard. Admin PIN required.
+        Skips fixtures that already have a fresh LLM prediction. Elo-seeded rows are re-analyzed.
       </p>
       {targets && !running && (
         <p className="text-xs text-text-muted">
-          {targets.cached} / {targets.total} core pairings cached
+          {targets.cached} / {targets.total} core pairings have LLM predictions
           {pending === 0
             ? " · up to date"
             : gapOnly

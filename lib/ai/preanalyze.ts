@@ -9,6 +9,7 @@ import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import { listStalePredictionRows } from "@/lib/predictions/lookup";
+import { isLlmPrediction } from "@/lib/predictions/source";
 import type { LLMProvider } from "@/lib/types";
 
 export type BulkWorkItem =
@@ -38,6 +39,7 @@ function isCached(
   if (refresh) return false;
   const pred = getPredictionForPair(home, away, stage, provider);
   if (!pred || pred.stale === 1) return false;
+  if (!isLlmPrediction(pred)) return false;
   return !isPredictionExpired(pred.generatedAt);
 }
 
