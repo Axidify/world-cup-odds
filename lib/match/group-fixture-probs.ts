@@ -4,6 +4,28 @@ import { resolveFixtureProbabilities } from "@/lib/predictions/resolve-fixture-p
 
 export type FixtureWinProbs = { home: number; draw: number; away: number };
 
+export function resolveFixtureWinProbs(
+  homeTeamId: string,
+  awayTeamId: string,
+  stage: string,
+  kickoffIso: string,
+): FixtureWinProbs | null {
+  const provider = resolveActiveProvider();
+  if (!provider) return null;
+
+  const resolved = resolveFixtureProbabilities(homeTeamId, awayTeamId, stage, {
+    provider,
+    kickoffIso,
+  });
+  if (!resolved) return null;
+
+  return {
+    home: Math.round(resolved.homeWinPct),
+    draw: Math.round(resolved.drawPct),
+    away: Math.round(resolved.awayWinPct),
+  };
+}
+
 export function buildGroupFixtureProbs(): Record<string, FixtureWinProbs> {
   const provider = resolveActiveProvider();
   if (!provider) return {};

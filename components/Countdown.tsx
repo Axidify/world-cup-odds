@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction";
 import { Flag } from "@/components/Flag";
+import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 
 export type CountdownMatch = {
@@ -15,6 +17,7 @@ export type CountdownMatch = {
   awayFlagCode: string;
   group?: string | null;
   stage: string;
+  prediction?: FixtureWinProbs | null;
 };
 
 function remainingMs(targetISO: string): number {
@@ -96,8 +99,15 @@ export function Countdown({ matches }: { matches: CountdownMatch[] }) {
                 <Flag code={m.awayFlagCode} alt={m.awayName} size="sm" />
                 <span className="truncate">{m.awayName}</span>
               </span>
-              <span className="num shrink-0 text-[10px] uppercase text-text-muted">
-                {m.group ? `Gp ${m.group}` : m.stage}
+              <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <DashboardMatchPrediction
+                  probs={m.prediction ?? null}
+                  homeLabel={m.homeName}
+                  awayLabel={m.awayName}
+                />
+                <span className="num text-[10px] uppercase text-text-muted">
+                  {m.group ? `Gp ${m.group}` : m.stage}
+                </span>
               </span>
             </Link>
           </li>

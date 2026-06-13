@@ -11,6 +11,7 @@ import { countPredictions } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
 import { getNextUpcomingMatches } from "@/lib/match/next-upcoming";
+import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { getTeams, getFixtures, getEarliestKickoff, getAllMatches, getTeam } from "@/lib/data/load";
 import { formatUtcDate } from "@/lib/utils/dates";
 
@@ -40,6 +41,7 @@ export default function DashboardPage() {
         awayFlagCode: away.flagCode,
         group: m.group,
         stage: m.stage,
+        prediction: resolveFixtureWinProbs(m.homeTeamId, m.awayTeamId, m.stage, m.date),
       },
     ];
   });

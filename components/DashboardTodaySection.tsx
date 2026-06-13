@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Flag } from "@/components/Flag";
+import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction";
 import { getAllMatches, getTeam } from "@/lib/data/load";
+import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { isDashboardComingUpMatch } from "@/lib/match/dashboard-upcoming";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 
@@ -24,22 +26,30 @@ export function DashboardTodaySection() {
           const home = getTeam(m.homeTeamId);
           const away = getTeam(m.awayTeamId);
           if (!home || !away) return null;
+          const probs = resolveFixtureWinProbs(m.homeTeamId, m.awayTeamId, m.stage, m.date);
           return (
             <li key={m.id}>
               <Link
                 href={`/match/${m.id}`}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-2"
               >
-                <span className="flex items-center gap-2 font-semibold">
+                <span className="flex min-w-0 items-center gap-2 font-semibold">
                   <Flag code={home.flagCode} alt={home.name} size="sm" />
                   {home.name}
                   <span className="text-text-muted">vs</span>
                   <Flag code={away.flagCode} alt={away.name} size="sm" />
                   {away.name}
                 </span>
-                <span className="num text-xs text-text-muted">
-                  {formatUtcDateTime(m.date)} UTC
-                  {m.group ? ` · Gp ${m.group}` : ""}
+                <span className="flex flex-wrap items-center justify-end gap-3">
+                  <DashboardMatchPrediction
+                    probs={probs}
+                    homeLabel={home.name}
+                    awayLabel={away.name}
+                  />
+                  <span className="num text-xs text-text-muted">
+                    {formatUtcDateTime(m.date)} UTC
+                    {m.group ? ` · Gp ${m.group}` : ""}
+                  </span>
                 </span>
               </Link>
             </li>
