@@ -100,7 +100,7 @@ export function BulkAnalyzePanel() {
       } else if (next.status === "cancelled") {
         toast("Bulk analyze cancelled");
       }
-    }, 1000);
+    }, 2500);
 
     return () => clearInterval(id);
   }, [showProgress, poll, router, toast]);

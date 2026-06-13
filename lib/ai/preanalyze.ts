@@ -217,6 +217,10 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
   return queue;
 }
 
+let targetsCache: { at: number; refresh: boolean; value: ReturnType<typeof countBulkTargets> } | null =
+  null;
+const TARGETS_CACHE_MS = 30_000;
+
 export function countBulkTargets(refresh = false): {
   total: number;
   cached: number;
@@ -224,6 +228,16 @@ export function countBulkTargets(refresh = false): {
   /** Uncached group fixtures + top-24 knockout pairings (excludes bracket-path gaps). */
   baselineMissing: number;
 } {
+  const now = Date.now();
+  if (
+    !refresh &&
+    targetsCache &&
+    !targetsCache.refresh &&
+    now - targetsCache.at < TARGETS_CACHE_MS
+  ) {
+    return targetsCache.value;
+  }
+
   const pairCount = buildTop24Pairings().length;
   const provider = resolveActiveProvider();
   const confirmed = getConfirmedResults();
@@ -236,11 +250,38 @@ export function countBulkTargets(refresh = false): {
   const total = groupCount + pairCount;
 
   if (!provider) {
-    return { total, cached: 0, remaining: total, baselineMissing: total };
+    const value = { total, cached: 0, remaining: total, baselineMissing: total };
+    targetsCache = { at: now, refresh, value };
+    return value;
   }
 
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
   const remaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
-  return { total, cached, remaining, baselineMissing };
+  const value = { total, cached, remaining, baselineMissing };
+  if (!refresh) {
+    targetsCache = { at: now, refresh, value };
+  }
+  return value;
+}
+
+export function invalidateBulkTargetsCache(): void {
+  targetsCache = null;
+}
+
+/** Cheap target snapshot while a bulk job is running (avoids gap-analysis on every poll). */
+export function bulkTargetsWhileRunning(job: {
+  catalogTotal: number;
+  cachedAtStart: number;
+  total: number;
+  completed: number;
+  failed: number;
+}): ReturnType<typeof countBulkTargets> {
+  const remaining = Math.max(0, job.total - job.completed - job.failed);
+  return {
+    total: job.catalogTotal,
+    cached: job.cachedAtStart + job.completed,
+    remaining,
+    baselineMissing: remaining,
+  };
 }

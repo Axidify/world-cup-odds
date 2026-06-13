@@ -1,14 +1,20 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   cancelBulkAnalyze,
   getBulkJobState,
   isBulkJobRunning,
+  launchBulkAnalyzeInBackground,
+  prepareBulkAnalyzeWithQueue,
   resetBulkJobState,
 } from "@/lib/ai/bulk-job";
-import { startBulkAnalyzeWithQueue } from "@/lib/ai/bulk-job";
-import { triggerBulkAnalyzeInProcess } from "@/lib/ai/trigger-bulk-analyze";
-import { buildStaleAnalyzeQueue, countBulkTargets } from "@/lib/ai/preanalyze";
+import {
+  buildBulkAnalyzeQueue,
+  buildStaleAnalyzeQueue,
+  bulkTargetsWhileRunning,
+  countBulkTargets,
+} from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
@@ -38,7 +44,8 @@ export async function GET() {
   ) {
     job = resetBulkJobState();
   }
-  const targets = countBulkTargets(false);
+  const targets =
+    job.status === "running" ? bulkTargetsWhileRunning(job) : countBulkTargets(false);
   const active = isBulkJobRunning();
   return NextResponse.json({ job, targets, active });
 }
@@ -73,10 +80,19 @@ export async function POST(request: Request) {
 
   try {
     const refresh = parsed.data.refresh ?? false;
-    const job = parsed.data.stale
-      ? await startBulkAnalyzeWithQueue(buildStaleAnalyzeQueue(), { refresh })
-      : await triggerBulkAnalyzeInProcess({ refresh });
-    return NextResponse.json({ job, active: isBulkJobRunning() });
+    const queue = parsed.data.stale
+      ? buildStaleAnalyzeQueue()
+      : buildBulkAnalyzeQueue({ refresh, includeGaps: true });
+
+    const job = prepareBulkAnalyzeWithQueue(queue, { refresh });
+
+    if (job.status === "running") {
+      after(() => {
+        launchBulkAnalyzeInBackground(queue, job);
+      });
+    }
+
+    return NextResponse.json({ job, active: job.status === "running" });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to start bulk analyze";
     const status = msg.includes("configured") ? 503 : 400;

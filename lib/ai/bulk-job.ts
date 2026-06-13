@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { analyzeMatch } from "@/lib/ai/analyze-match";
 import { analyzePair } from "@/lib/ai/analyze-pair";
 import { getModelForProvider } from "@/lib/ai/config";
-import { buildBulkAnalyzeQueue, countBulkTargets, type BulkWorkItem } from "@/lib/ai/preanalyze";
+import { buildBulkAnalyzeQueue, countBulkTargets, invalidateBulkTargetsCache, type BulkWorkItem } from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
@@ -133,20 +133,11 @@ export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Pro
   return startBulkAnalyzeWithQueue(queue, { refresh });
 }
 
-/** Run a pre-built queue (e.g. stale re-analyze) in-process. */
-export async function startBulkAnalyzeWithQueue(
+/** Write running state and return it — does not start workers. */
+export function prepareBulkAnalyzeWithQueue(
   queue: BulkWorkItem[],
   options: { refresh?: boolean } = {},
-): Promise<BulkJobState> {
-  if (runningPromise) {
-    await Promise.resolve(runningPromise).catch(() => {});
-  }
-
-  const current = readState();
-  if (current.status === "running") {
-    throw new Error("Bulk analyze is already running");
-  }
-
+): BulkJobState {
   const provider = resolveActiveProvider();
   if (!provider) {
     throw new Error("No LLM provider is configured");
@@ -193,14 +184,46 @@ export async function startBulkAnalyzeWithQueue(
     refresh,
   };
   writeState(initial);
+  return initial;
+}
+
+/** Start workers for a prepared bulk job (safe to call from next/server `after`). */
+export function launchBulkAnalyzeInBackground(
+  queue: BulkWorkItem[],
+  initial: BulkJobState,
+): void {
+  if (initial.status !== "running") return;
 
   const myRunId = ++runId;
   cancelRequested = false;
-  runningPromise = runBulkQueue(queue, initial, myRunId).finally(() => {
-    runningPromise = null;
-  });
-  void runningPromise;
+  runningPromise = runBulkQueue(queue, initial, myRunId)
+    .catch((err) => {
+      console.error("[bulk] background run failed:", err);
+    })
+    .finally(() => {
+      runningPromise = null;
+      invalidateBulkTargetsCache();
+    });
+}
 
+/** Run a pre-built queue (e.g. stale re-analyze) in-process. */
+export async function startBulkAnalyzeWithQueue(
+  queue: BulkWorkItem[],
+  options: { refresh?: boolean } = {},
+): Promise<BulkJobState> {
+  if (runningPromise) {
+    await Promise.resolve(runningPromise).catch(() => {});
+  }
+
+  const current = readState();
+  if (current.status === "running") {
+    throw new Error("Bulk analyze is already running");
+  }
+
+  const initial = prepareBulkAnalyzeWithQueue(queue, options);
+  if (initial.status === "running") {
+    launchBulkAnalyzeInBackground(queue, initial);
+  }
   return initial;
 }
 
@@ -306,6 +329,8 @@ async function runBulkQueue(
     });
 
     emitSummary(finalStatus);
+
+    invalidateBulkTargetsCache();
 
     if (completed > 0) {
       void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulationAfterBulkAnalyze }) => {
