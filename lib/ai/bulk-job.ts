@@ -2,7 +2,13 @@ import { eq } from "drizzle-orm";
 import { analyzeMatch } from "@/lib/ai/analyze-match";
 import { analyzePair } from "@/lib/ai/analyze-pair";
 import { getModelForProvider } from "@/lib/ai/config";
-import { buildBulkAnalyzeQueue, countBulkTargets, invalidateBulkTargetsCache, type BulkWorkItem } from "@/lib/ai/preanalyze";
+import {
+  buildBulkAnalyzeQueue,
+  buildStaleAnalyzeQueue,
+  countBulkTargetsLight,
+  invalidateBulkTargetsCache,
+  type BulkWorkItem,
+} from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
@@ -54,9 +60,11 @@ let runningPromise: Promise<void> | null = null;
 let runId = 0;
 
 /** After dev hot-reload or process restart, DB may still say "running" with no workers. */
-function reconcileOrphanedJob(): void {
+function reconcileOrphanedJob(graceMs = 120_000): void {
   const state = readStateRaw();
   if (state.status !== "running" || runningPromise) return;
+  const started = state.startedAt ? Date.parse(state.startedAt) : 0;
+  if (graceMs > 0 && started && Date.now() - started < graceMs) return;
   writeState({
     ...state,
     status: "cancelled",
@@ -144,7 +152,7 @@ export function prepareBulkAnalyzeWithQueue(
   }
 
   const refresh = options.refresh ?? false;
-  const targets = countBulkTargets(refresh);
+  const targets = countBulkTargetsLight(refresh);
 
   if (queue.length === 0) {
     const done: BulkJobState = {
@@ -185,6 +193,61 @@ export function prepareBulkAnalyzeWithQueue(
   };
   writeState(initial);
   return initial;
+}
+
+/** Immediate running row so POST can return before queue build / LLM work. */
+export function writeProvisionalBulkJob(refresh = false): BulkJobState {
+  const provider = resolveActiveProvider();
+  if (!provider) {
+    throw new Error("No LLM provider is configured");
+  }
+
+  const initial: BulkJobState = {
+    status: "running",
+    total: 0,
+    completed: 0,
+    skipped: 0,
+    failed: 0,
+    catalogTotal: 0,
+    cachedAtStart: 0,
+    current: "Preparing queue…",
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    error: null,
+    provider,
+    model: getModelForProvider(provider),
+    refresh,
+  };
+  writeState(initial);
+  return initial;
+}
+
+/** Build queue and start workers — run inside next/server `after()`. */
+export async function runBulkAnalyzeAfterPost(options: {
+  refresh: boolean;
+  stale: boolean;
+}): Promise<void> {
+  try {
+    const queue = options.stale
+      ? buildStaleAnalyzeQueue()
+      : buildBulkAnalyzeQueue({ refresh: options.refresh, includeGaps: false });
+
+    const initial = prepareBulkAnalyzeWithQueue(queue, { refresh: options.refresh });
+    if (initial.status === "running") {
+      launchBulkAnalyzeInBackground(queue, initial);
+    }
+  } catch (err) {
+    console.error("[bulk] failed to start:", err);
+    const state = readStateRaw();
+    writeState({
+      ...state,
+      status: "failed",
+      current: null,
+      finishedAt: new Date().toISOString(),
+      error: err instanceof Error ? err.message : "Bulk analyze failed to start",
+    });
+    invalidateBulkTargetsCache();
+  }
 }
 
 /** Start workers for a prepared bulk job (safe to call from next/server `after`). */
@@ -351,4 +414,10 @@ async function runBulkQueue(
       emitSummary("cancelled");
     }
   }
+}
+
+try {
+  reconcileOrphanedJob(0);
+} catch {
+  // DB may not be ready during import in some build phases.
 }

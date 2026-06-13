@@ -13,7 +13,8 @@ export function AnalysisProgress({ job, onCancel }: Props) {
   const done = job.completed + job.failed;
   const pct = job.total > 0 ? Math.round((done / job.total) * 100) : 0;
   const running = job.status === "running";
-  const indeterminate = running && job.total > 0 && done === 0;
+  const preparing = running && job.total === 0;
+  const indeterminate = running && (preparing || (job.total > 0 && done === 0));
   const catalogTotal = job.catalogTotal ?? 0;
   const cachedAtStart = job.cachedAtStart ?? 0;
   const overallReady =
@@ -23,9 +24,11 @@ export function AnalysisProgress({ job, onCancel }: Props) {
     <div className="space-y-3 rounded-lg border border-border bg-surface-2 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold">
-          {running
-            ? `Analyzing ${job.total} missing matchup${job.total === 1 ? "" : "s"}…`
-            : `Bulk analyze ${job.status}`}
+          {preparing
+            ? "Preparing analyze queue…"
+            : running
+              ? `Analyzing ${job.total} missing matchup${job.total === 1 ? "" : "s"}…`
+              : `Bulk analyze ${job.status}`}
         </p>
         {running && onCancel && (
           <Button variant="ghost" className="h-9 min-h-0 px-2" onClick={onCancel}>
@@ -44,7 +47,9 @@ export function AnalysisProgress({ job, onCancel }: Props) {
       </div>
       <div className="num flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
         <span>
-          {done} / {job.total} this run ({pct}%)
+          {preparing
+            ? "Building queue…"
+            : `${done} / ${job.total} this run (${pct}%)`}
         </span>
         {overallReady != null && catalogTotal > 0 && (
           <span>

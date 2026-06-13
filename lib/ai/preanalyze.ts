@@ -221,6 +221,32 @@ let targetsCache: { at: number; refresh: boolean; value: ReturnType<typeof count
   null;
 const TARGETS_CACHE_MS = 30_000;
 
+export function countBulkTargetsLight(refresh = false): {
+  total: number;
+  cached: number;
+  remaining: number;
+  baselineMissing: number;
+} {
+  const pairCount = buildTop24Pairings().length;
+  const provider = resolveActiveProvider();
+  const confirmed = getConfirmedResults();
+  const groupCount = getFixtures().filter(
+    (m) =>
+      m.homeTeamId !== "TBD" &&
+      m.awayTeamId !== "TBD" &&
+      !confirmed.has(m.id),
+  ).length;
+  const total = groupCount + pairCount;
+
+  if (!provider) {
+    return { total, cached: 0, remaining: total, baselineMissing: total };
+  }
+
+  const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
+  const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
+  return { total, cached, remaining: baselineMissing, baselineMissing };
+}
+
 export function countBulkTargets(refresh = false): {
   total: number;
   cached: number;

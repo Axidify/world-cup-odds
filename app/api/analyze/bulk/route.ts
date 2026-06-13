@@ -5,16 +5,11 @@ import {
   cancelBulkAnalyze,
   getBulkJobState,
   isBulkJobRunning,
-  launchBulkAnalyzeInBackground,
-  prepareBulkAnalyzeWithQueue,
   resetBulkJobState,
+  runBulkAnalyzeAfterPost,
+  writeProvisionalBulkJob,
 } from "@/lib/ai/bulk-job";
-import {
-  buildBulkAnalyzeQueue,
-  buildStaleAnalyzeQueue,
-  bulkTargetsWhileRunning,
-  countBulkTargets,
-} from "@/lib/ai/preanalyze";
+import { bulkTargetsWhileRunning, countBulkTargetsLight } from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
@@ -23,7 +18,6 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   refresh: z.boolean().optional(),
-  /** Re-analyze stale/expired LLM rows only (auto-pipeline). */
   stale: z.boolean().optional(),
   pin: z.string().optional(),
 });
@@ -45,7 +39,7 @@ export async function GET() {
     job = resetBulkJobState();
   }
   const targets =
-    job.status === "running" ? bulkTargetsWhileRunning(job) : countBulkTargets(false);
+    job.status === "running" ? bulkTargetsWhileRunning(job) : countBulkTargetsLight(false);
   const active = isBulkJobRunning();
   return NextResponse.json({ job, targets, active });
 }
@@ -80,19 +74,14 @@ export async function POST(request: Request) {
 
   try {
     const refresh = parsed.data.refresh ?? false;
-    const queue = parsed.data.stale
-      ? buildStaleAnalyzeQueue()
-      : buildBulkAnalyzeQueue({ refresh, includeGaps: true });
+    const stale = parsed.data.stale ?? false;
+    const job = writeProvisionalBulkJob(refresh);
 
-    const job = prepareBulkAnalyzeWithQueue(queue, { refresh });
+    after(() => {
+      void runBulkAnalyzeAfterPost({ refresh, stale });
+    });
 
-    if (job.status === "running") {
-      after(() => {
-        launchBulkAnalyzeInBackground(queue, job);
-      });
-    }
-
-    return NextResponse.json({ job, active: job.status === "running" });
+    return NextResponse.json({ job, active: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to start bulk analyze";
     const status = msg.includes("configured") ? 503 : 400;
