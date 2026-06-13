@@ -7,6 +7,7 @@ import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
 import { getLlmConcurrency, runPool } from "@/lib/utils/concurrency";
+import { logBulkLlmSummary, type BulkLlmSummary } from "@/lib/ai/llm-log";
 
 export type BulkJobStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 
@@ -202,6 +203,7 @@ async function runBulkQueue(
   myRunId: number,
 ): Promise<void> {
   const concurrency = getLlmConcurrency();
+  const bulkStarted = Date.now();
   let completed = 0;
   let failed = 0;
   let lastError: string | null = null;
@@ -225,22 +227,26 @@ async function runBulkQueue(
 
   const processItem = async (item: BulkWorkItem) => {
     if (!isActive()) return;
-    let ok = false;
-    for (let attempt = 0; attempt < 3 && !ok; attempt++) {
-      if (!isActive()) return;
-      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1500));
-      try {
-        await runItem(item);
-        ok = true;
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : "Analyze failed";
-        /* retry transient LLM / parse failures */
-      }
+    try {
+      await runItem(item);
+      completed += 1;
+    } catch (err) {
+      failed += 1;
+      lastError = err instanceof Error ? err.message : "Analyze failed";
     }
-    if (!isActive()) return;
-    if (ok) completed += 1;
-    else failed += 1;
     update({ completed, failed, skipped: 0 });
+  };
+
+  const emitSummary = (status: BulkLlmSummary["status"]) => {
+    logBulkLlmSummary({
+      status,
+      provider: state.provider,
+      model: state.model,
+      analyzed: completed,
+      failed,
+      total: readStateRaw().total,
+      durationMs: Date.now() - bulkStarted,
+    });
   };
 
   try {
@@ -255,12 +261,16 @@ async function runBulkQueue(
       () => !isActive(),
     );
 
-    if (!isActive()) return;
+    if (!isActive()) {
+      emitSummary("cancelled");
+      return;
+    }
 
     const total = readStateRaw().total;
+    const finalStatus = failed > 0 && completed === 0 ? "failed" : "completed";
     writeState({
       ...readStateRaw(),
-      status: failed > 0 && completed === 0 ? "failed" : "completed",
+      status: finalStatus,
       completed,
       failed,
       current: null,
@@ -272,6 +282,8 @@ async function runBulkQueue(
             : `${failed} item(s) failed${lastError ? `: ${lastError}` : ""}`
           : null,
     });
+
+    emitSummary(finalStatus);
 
     if (completed > 0) {
       void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulationAfterBulkAnalyze }) => {
@@ -287,6 +299,9 @@ async function runBulkQueue(
         finishedAt: new Date().toISOString(),
         error: err instanceof Error ? err.message : "Bulk analyze failed",
       });
+      emitSummary("failed");
+    } else {
+      emitSummary("cancelled");
     }
   }
 }

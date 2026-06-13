@@ -85,24 +85,18 @@ describe("news fix verification", () => {
     expect(storeAway).toBeCloseTo(fixture.away * 100, 5);
   });
 
-  it("analyze-match and analyze-pair share the same return pattern", async () => {
-    const matchSrc = await import("fs/promises").then((fs) =>
-      fs.readFile("lib/ai/analyze-match.ts", "utf8"),
-    );
-    const pairSrc = await import("fs/promises").then((fs) =>
-      fs.readFile("lib/ai/analyze-pair.ts", "utf8"),
-    );
-    expect(matchSrc).toContain(
+  it("analyze-match and analyze-pair delegate to shared analyze-pairing core", async () => {
+    const fs = await import("fs/promises");
+    const matchSrc = await fs.readFile("lib/ai/analyze-match.ts", "utf8");
+    const pairSrc = await fs.readFile("lib/ai/analyze-pair.ts", "utf8");
+    const coreSrc = await fs.readFile("lib/ai/analyze-pairing.ts", "utf8");
+
+    expect(matchSrc).toContain("analyzePairing(");
+    expect(pairSrc).toContain("analyzePairing(");
+    expect(coreSrc).toContain(
       "applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id)",
     );
-    expect(pairSrc).toContain(
-      "applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id)",
-    );
-    expect(matchSrc).toContain(
-      "applyNewsImpactToView(toMatchView(saved, home.id, away.id, false), home.id, away.id)",
-    );
-    expect(pairSrc).toContain(
-      "applyNewsImpactToView(toMatchView(saved, home.id, away.id, false), home.id, away.id)",
-    );
+    expect(coreSrc).toContain("toMatchView(saved, home.id, away.id, false)");
+    expect(coreSrc).toContain("applyNewsImpactToView(");
   });
 });

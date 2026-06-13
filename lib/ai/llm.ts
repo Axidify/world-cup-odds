@@ -7,24 +7,32 @@ import { createOpenAIClient } from "./providers/openai";
 import { createOpenRouterClient } from "./providers/openrouter";
 import { createVllmClient } from "./providers/vllm";
 import { getActiveProvider, resolveActiveProvider } from "./settings";
+import { wrapLlmClientWithLogging } from "./llm-log";
 
 export function createLLMClient(provider?: LLMProvider): LLMClient {
   const p = provider ?? getActiveProvider();
   if (!isProviderConfigured(p)) {
     throw new Error(`LLM provider "${p}" is not configured`);
   }
+  let client: LLMClient;
   switch (p) {
     case "vllm":
-      return createVllmClient();
+      client = createVllmClient();
+      break;
     case "openai":
-      return createOpenAIClient();
+      client = createOpenAIClient();
+      break;
     case "openrouter":
-      return createOpenRouterClient();
+      client = createOpenRouterClient();
+      break;
     case "gemini":
-      return createGeminiClient();
+      client = createGeminiClient();
+      break;
     case "anthropic":
-      return createAnthropicClient();
+      client = createAnthropicClient();
+      break;
   }
+  return wrapLlmClientWithLogging(client);
 }
 
 export async function checkProviderHealth(provider: LLMProvider): Promise<boolean> {

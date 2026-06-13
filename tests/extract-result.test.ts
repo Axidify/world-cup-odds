@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExtractedResult, tryParseScoreFromSnippets } from "@/lib/ai/extract-result";
+import {
+  extractScoreFromSnippetsRegex,
+  normalizeExtractedResult,
+  tryParseScoreFromSnippets,
+} from "@/lib/ai/extract-result";
 
 describe("normalizeExtractedResult", () => {
   it("reads flat homeScore/awayScore", () => {
@@ -54,5 +58,25 @@ describe("tryParseScoreFromSnippets", () => {
       },
     ]);
     expect(score).toEqual({ homeScore: 2, awayScore: 0 });
+  });
+
+  it("requires two agreeing snippets before regex extraction succeeds", () => {
+    const snippets = [
+      {
+        title: "Mexico 2-0 South Africa FT",
+        url: "https://a.com",
+        content: "Mexico beat South Africa 2-0 at full time.",
+      },
+      {
+        title: "El Tri win opener 2-0",
+        url: "https://b.com",
+        content: "Final score Mexico 2-0 South Africa.",
+      },
+    ];
+    expect(extractScoreFromSnippetsRegex(match, snippets)).toEqual({
+      homeScore: 2,
+      awayScore: 0,
+    });
+    expect(extractScoreFromSnippetsRegex(match, snippets.slice(0, 1))).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import type { SearchSnippet } from "@/lib/search/types";
 import { getTeam } from "@/lib/data/load";
 import { extractJsonObject } from "./parse-response";
 import { createLLMClient } from "./llm";
-import { parseScoreFromText } from "@/lib/results/score-agreement";
+import { parseScoreFromText, snippetsAgreeOnScore } from "@/lib/results/score-agreement";
 
 const extractSchema = z.object({
   homeScore: z.number().int().min(-1),
@@ -147,12 +147,65 @@ export function tryParseScoreFromSnippets(
   return null;
 }
 
+/** Regex + multi-snippet agreement — no LLM. */
+export function extractScoreFromSnippetsRegex(
+  match: Match,
+  snippets: SearchSnippet[],
+): { homeScore: number; awayScore: number } | null {
+  const fromText = tryParseScoreFromSnippets(match, snippets);
+  if (!fromText) return null;
+  if (!snippetsAgreeOnScore(snippets, fromText)) return null;
+  return fromText;
+}
+
+function buildResultFromScores(
+  match: Match,
+  homeScore: number,
+  awayScore: number,
+  options: {
+    wentToExtraTime?: boolean;
+    wentToPenalties?: boolean;
+    winnerTeamId?: string | null;
+    source?: string;
+  } = {},
+): ExtractedMatchResult {
+  const isKnockout = match.stage !== "group";
+  let winnerTeamId = options.winnerTeamId ?? null;
+
+  if (isKnockout) {
+    if (winnerTeamId !== match.homeTeamId && winnerTeamId !== match.awayTeamId) {
+      if (homeScore > awayScore) winnerTeamId = match.homeTeamId;
+      else if (awayScore > homeScore) winnerTeamId = match.awayTeamId;
+      else winnerTeamId = null;
+    }
+  } else {
+    winnerTeamId = null;
+  }
+
+  return {
+    matchId: match.id,
+    homeScore,
+    awayScore,
+    wentToExtraTime: options.wentToExtraTime ?? false,
+    wentToPenalties: options.wentToPenalties ?? false,
+    winnerTeamId,
+    source: options.source ?? "search",
+  };
+}
+
 export async function extractMatchResult(
   match: Match,
   snippets: SearchSnippet[],
 ): Promise<ExtractedMatchResult | null> {
   if (match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return null;
   if (snippets.length === 0) return null;
+
+  const regexScore = extractScoreFromSnippetsRegex(match, snippets);
+  if (regexScore) {
+    return buildResultFromScores(match, regexScore.homeScore, regexScore.awayScore, {
+      source: snippets[0]?.url ?? "search-regex",
+    });
+  }
 
   const home = getTeam(match.homeTeamId);
   const away = getTeam(match.awayTeamId);
@@ -181,28 +234,10 @@ export async function extractMatchResult(
     };
   }
 
-  const isKnockout = match.stage !== "group";
-  let winnerTeamId = parsed.winnerTeamId ?? null;
-
-  if (isKnockout) {
-    if (winnerTeamId !== match.homeTeamId && winnerTeamId !== match.awayTeamId) {
-      if (parsed.homeScore > parsed.awayScore) winnerTeamId = match.homeTeamId;
-      else if (parsed.awayScore > parsed.homeScore) winnerTeamId = match.awayTeamId;
-      // Level score with no extractable winner: keep null so the result
-      // stays pending until an admin resolves who advanced.
-      else winnerTeamId = null;
-    }
-  } else {
-    winnerTeamId = null;
-  }
-
-  return {
-    matchId: match.id,
-    homeScore: parsed.homeScore,
-    awayScore: parsed.awayScore,
+  return buildResultFromScores(match, parsed.homeScore, parsed.awayScore, {
     wentToExtraTime: parsed.wentToExtraTime,
     wentToPenalties: parsed.wentToPenalties,
-    winnerTeamId,
+    winnerTeamId: parsed.winnerTeamId ?? null,
     source: snippets[0]?.url ?? "search",
-  };
+  });
 }

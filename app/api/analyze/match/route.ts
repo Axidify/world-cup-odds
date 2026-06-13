@@ -83,6 +83,7 @@ export async function POST(request: Request) {
   try {
     const prediction = await analyzeMatch(parsed.data.matchId, {
       refresh: parsed.data.refresh ?? false,
+      maxAttempts: 1,
     });
     return NextResponse.json({
       prediction,
