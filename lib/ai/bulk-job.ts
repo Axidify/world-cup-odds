@@ -272,6 +272,12 @@ async function runBulkQueue(
             : `${failed} item(s) failed${lastError ? `: ${lastError}` : ""}`
           : null,
     });
+
+    if (completed > 0) {
+      void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulationAfterBulkAnalyze }) => {
+        scheduleAutoSimulationAfterBulkAnalyze();
+      });
+    }
   } catch (err) {
     if (isActive()) {
       writeState({

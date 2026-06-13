@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 import { getPipelineState, writePipelineState } from "@/lib/pipeline/pipeline-state";
-import { scheduleAutoSimulation } from "@/lib/pipeline/auto-pipeline";
+import {
+  scheduleAutoSimulation,
+  scheduleAutoSimulationAfterBulkAnalyze,
+} from "@/lib/pipeline/auto-pipeline";
 
 describe("auto-pipeline", () => {
   const envBackup = { ...process.env };
@@ -45,5 +48,13 @@ describe("auto-pipeline", () => {
     scheduleAutoSimulation("test");
     expect(getPipelineState().status).toBe("scheduled");
     expect(getPipelineState().trigger).toBe("test");
+  });
+
+  it("schedules after bulk analyze even when simulate-on-results is off", () => {
+    process.env.AUTO_PIPELINE_ENABLED = "1";
+    process.env.AUTO_SIMULATE_ON_RESULTS = "0";
+    scheduleAutoSimulationAfterBulkAnalyze();
+    expect(getPipelineState().status).toBe("scheduled");
+    expect(getPipelineState().trigger).toBe("bulk_analyze");
   });
 });

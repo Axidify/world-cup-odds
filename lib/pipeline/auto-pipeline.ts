@@ -157,7 +157,17 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
 export function scheduleAutoSimulation(trigger: string): void {
   const config = getPipelineConfig();
   if (!config.enabled || !config.simulateOnResults) return;
+  scheduleAutoSimulationDebounced(trigger);
+}
 
+/** After dashboard bulk analyze — not gated on AUTO_SIMULATE_ON_RESULTS. */
+export function scheduleAutoSimulationAfterBulkAnalyze(): void {
+  const config = getPipelineConfig();
+  if (!config.enabled) return;
+  scheduleAutoSimulationDebounced("bulk_analyze");
+}
+
+function scheduleAutoSimulationDebounced(trigger: string): void {
   pendingTrigger = trigger;
   writePipelineState({ status: "scheduled", trigger, error: null });
 
