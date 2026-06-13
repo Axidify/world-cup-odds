@@ -21,7 +21,7 @@ export function buildSanityAlerts(
     const lower = byElo[i + 1];
     const higherPct = championOdds[higher.id] ?? 0;
     const lowerPct = championOdds[lower.id] ?? 0;
-    if (higherPct + 0.15 < lowerPct && lowerPct > 1) {
+    if (higherPct + 0.2 < lowerPct && lowerPct > 2) {
       alerts.push({
         type: "elo_order",
         message: `${lower.name} (${lowerPct.toFixed(1)}%) is above ${higher.name} (${higherPct.toFixed(1)}%) despite lower Elo (${lower.elo} vs ${higher.elo}).`,
@@ -35,7 +35,7 @@ export function buildSanityAlerts(
       const cur = championOdds[id] ?? 0;
       const base = championOddsBase[id] ?? 0;
       const delta = cur - base;
-      if (Math.abs(delta) >= 2 && (base > 2 || cur > 2)) {
+      if (Math.abs(delta) >= 3 && (base > 3 || cur > 3)) {
         alerts.push({
           type: "news_shift",
           message: `${name} champion % moved ${delta > 0 ? "+" : ""}${delta.toFixed(1)} pp vs base Elo model (${base.toFixed(1)}% → ${cur.toFixed(1)}%).`,
@@ -52,7 +52,7 @@ export function buildSanityAlerts(
       if (!first || eloTop10.has(first.teamId)) continue;
       const team = teams.find((t) => t.id === first.teamId);
       const pct = championOdds[first.teamId] ?? 0;
-      if (pct < 3) {
+      if (pct < 2) {
         alerts.push({
           type: "modal_group",
           message: `${team?.name ?? first.teamId} is the modal Group ${first.group} winner but only ${pct.toFixed(1)}% to win the tournament.`,
@@ -62,5 +62,5 @@ export function buildSanityAlerts(
     }
   }
 
-  return alerts.slice(0, 12);
+  return alerts.slice(0, 8);
 }

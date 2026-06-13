@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { GroupCard } from "@/components/GroupCard";
+import { OfficialResultsBanner } from "@/components/OfficialResultsBanner";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { formatUtcDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
+import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
 type ViewMode = "official" | "projected";
@@ -15,7 +17,7 @@ type Props = {
   fixtures: Match[];
   officialStandings: Record<string, GroupStanding[]>;
   projectedStandings?: Record<string, GroupStanding[]>;
-  projectedScores?: Record<string, PlayedMatchResult>;
+  fixtureProbs?: Record<string, FixtureWinProbs>;
   confirmedScores: Record<string, PlayedMatchResult>;
   hasConfirmedGroupResults: boolean;
   simulationRunAt: string | null;
@@ -30,7 +32,7 @@ export function GroupsView({
   fixtures,
   officialStandings,
   projectedStandings,
-  projectedScores = {},
+  fixtureProbs = {},
   confirmedScores,
   hasConfirmedGroupResults,
   simulationRunAt,
@@ -46,9 +48,9 @@ export function GroupsView({
     () => new Map(Object.entries(confirmedScores)),
     [confirmedScores],
   );
-  const projectedMap = useMemo(
-    () => new Map(Object.entries(projectedScores)),
-    [projectedScores],
+  const fixtureProbsMap = useMemo(
+    () => new Map(Object.entries(fixtureProbs)),
+    [fixtureProbs],
   );
 
   const standingsByGroup = view === "official" ? officialStandings : projectedStandings;
@@ -87,10 +89,14 @@ export function GroupsView({
                 : "bg-surface-2 text-text-muted hover:text-text"
             }`}
           >
-            {mode === "official" ? "Official" : "Projected"}
+            {mode === "official" ? "Official" : "Simulated"}
           </button>
         ))}
       </div>
+
+      {view === "projected" && hasConfirmedGroupResults && (
+        <OfficialResultsBanner onSwitch={() => setView("official")} />
+      )}
 
       <div className="mt-4 rounded-lg border border-border bg-surface-2/50 px-4 py-3 text-sm text-text-muted">
         {view === "official" ? (
@@ -110,10 +116,9 @@ export function GroupsView({
           )
         ) : projectedStandings ? (
           <p>
-            <strong className="font-semibold text-text">Projected</strong> tables and fixture scores
-            come from your last simulation — confirmed FT results plus the most likely AI scoreline
-            for unplayed group matches (<span className="num">proj</span>). Re-run simulation after
-            new results to refresh.
+            <strong className="font-semibold text-text">Simulated</strong> tables use the most
+            common group finishers across Monte Carlo runs. Unplayed fixtures show model win
+            probabilities (home·draw·away %) — not predicted scorelines.
           </p>
         ) : (
           <p>
@@ -147,8 +152,8 @@ export function GroupsView({
             fixtures={fixtures}
             standings={standingsByGroup?.[g.group]}
             confirmedScores={confirmedMap}
-            projectedScores={projectedMap}
-            showProjectedScores={view === "projected" && hasSimulation}
+            projectedProbs={fixtureProbsMap}
+            showProjectedProbs={view === "projected" && hasSimulation}
             showFixtures
           />
         ))}

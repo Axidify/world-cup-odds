@@ -64,7 +64,7 @@ export default async function MatchPage({
         ← Back to {match.stage === "group" ? "groups" : "bracket"}
       </Link>
       <p className="num text-xs font-semibold uppercase tracking-widest text-brand">Match Detail</p>
-      <h1 className="font-[family-name:var(--font-archivo)] text-3xl font-bold">{title}</h1>
+      <h1 className="font-[family-name:var(--font-archivo)] text-2xl font-bold leading-tight sm:text-3xl">{title}</h1>
 
       <MatchStatusCard
         kickoffIso={match.date}
@@ -87,8 +87,8 @@ export default async function MatchPage({
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card className="p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col items-center gap-2 text-center">
+          <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex flex-1 flex-col items-center gap-2 text-center min-w-0">
               {home ? <Flag code={home.flagCode} alt={home.name} size="lg" /> : <span>▢</span>}
               <div className="font-bold">{home?.name ?? (match.homeSlot ? formatBracketSlot(match.homeSlot) : "TBD")}</div>
               {home && (
@@ -101,11 +101,11 @@ export default async function MatchPage({
                 </div>
               )}
             </div>
-            <div className="num text-sm text-text-muted uppercase">
+            <div className="num shrink-0 text-center text-sm text-text-muted uppercase">
               {match.stage}
               {match.group ? ` · Group ${match.group}` : ""}
             </div>
-            <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex flex-1 flex-col items-center gap-2 text-center min-w-0">
               {away ? <Flag code={away.flagCode} alt={away.name} size="lg" /> : <span>▢</span>}
               <div className="font-bold">{away?.name ?? (match.awaySlot ? formatBracketSlot(match.awaySlot) : "TBD")}</div>
               {away && (

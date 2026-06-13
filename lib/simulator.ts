@@ -43,7 +43,7 @@ export function getSimulationIterations(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 5000;
 }
 
-type TournamentContext = {
+export type TournamentContext = {
   standingsByGroup: Record<string, GroupStanding[]>;
   thirdByGroup: Record<string, GroupStanding>;
   qualifiedThirdGroups: string[];
@@ -135,7 +135,7 @@ function pickKnockoutWinner(
     : modalKnockoutWinner(pred, homeTeamId, awayTeamId);
 }
 
-function runKnockout(
+export function runKnockout(
   store: PredictionStore,
   ctx: TournamentContext,
   confirmed: Map<string, PlayedMatchResult>,

@@ -34,9 +34,21 @@ export function AccuracyDashboard() {
 
   if (data.count === 0) {
     return (
-      <Card className="p-8 text-center text-text-muted">
-        No confirmed results yet. Metrics appear after match results are confirmed (poller or admin entry).
-      </Card>
+      <div className="space-y-4">
+        <Card className="p-8 text-center text-text-muted">
+          No confirmed results yet. Metrics appear after match results are confirmed (poller or admin
+          entry).
+        </Card>
+        <Card className="p-5 text-sm text-text-muted">
+          <p>
+            Until then, use the{" "}
+            <a href="/champion" className="font-semibold text-brand hover:underline">
+              champion odds
+            </a>{" "}
+            page for model title probabilities, survival-by-round, and base-vs-news comparison.
+          </p>
+        </Card>
+      </div>
     );
   }
 

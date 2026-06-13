@@ -14,11 +14,15 @@ import { formatUpcomingKickoffCompact } from "@/lib/utils/dates";
 
 type ScoreLine = { homeGoals: number; awayGoals: number };
 
+type WinProbs = { home: number; draw: number; away: number };
+
 type Props = {
   kickoffIso: string;
   confirmed?: ScoreLine | null;
   /** Modal simulation score for unplayed group fixtures (projected view). */
   projected?: ScoreLine | null;
+  /** Model 1X2 probabilities for unplayed group fixtures. */
+  projectedProbs?: WinProbs | null;
   compact?: boolean;
 };
 
@@ -29,7 +33,7 @@ const BADGE_CLASS: Record<MatchLifecycle, string> = {
   confirmed: "text-win font-semibold",
 };
 
-export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = false }: Props) {
+export function MatchStatusBadge({ kickoffIso, confirmed, projected, projectedProbs, compact = false }: Props) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -44,6 +48,15 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, compact = f
       <span className={`num shrink-0 ${BADGE_CLASS.confirmed}`}>
         {confirmed.homeGoals}–{confirmed.awayGoals}{" "}
         <span className="text-[10px] font-normal uppercase tracking-wide">FT</span>
+      </span>
+    );
+  }
+
+  if (projectedProbs && lifecycle !== "live") {
+    return (
+      <span className="num shrink-0 font-semibold text-brand" title={`Home ${projectedProbs.home}% · Draw ${projectedProbs.draw}% · Away ${projectedProbs.away}%`}>
+        {projectedProbs.home}·{projectedProbs.draw}·{projectedProbs.away}
+        <span className="text-[10px] font-normal uppercase tracking-wide text-text-muted"> %</span>
       </span>
     );
   }

@@ -18,6 +18,7 @@ export type BracketMatchDisplay = {
   winnerId?: string;
   score: { home: number; away: number } | null;
   projected: boolean;
+  advancePct?: { home: number; away: number } | null;
 };
 
 type BracketSlot = { home: string; away: string };
@@ -48,9 +49,10 @@ export function buildBracketMatchDisplay(
     bracketSlots: Map<string, BracketSlot>;
     teamMap: Map<string, Team>;
     isProjected: boolean;
+    advancePct?: { home: number; away: number } | null;
   },
 ): BracketMatchDisplay {
-  const { pathEntry, confirmed, bracketSlots, teamMap, isProjected } = options;
+  const { pathEntry, confirmed, bracketSlots, teamMap, isProjected, advancePct } = options;
   const homeId = pathEntry?.homeTeamId;
   const awayId = pathEntry?.awayTeamId;
   const home = homeId ? teamLine(teamMap, homeId) : null;
@@ -75,5 +77,6 @@ export function buildBracketMatchDisplay(
     winnerId: showWinner ? winnerId : undefined,
     score,
     projected: isProjected && !score && Boolean(home && away),
+    advancePct: isProjected && !score ? advancePct : null,
   };
 }

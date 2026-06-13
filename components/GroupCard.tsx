@@ -9,8 +9,8 @@ type Props = {
   fixtures: Match[];
   standings?: GroupStanding[];
   confirmedScores?: Map<string, PlayedMatchResult>;
-  projectedScores?: Map<string, PlayedMatchResult>;
-  showProjectedScores?: boolean;
+  projectedProbs?: Map<string, import("@/lib/match/group-fixture-probs").FixtureWinProbs>;
+  showProjectedProbs?: boolean;
   showFixtures?: boolean;
 };
 
@@ -26,8 +26,8 @@ export function GroupCard({
   fixtures,
   standings,
   confirmedScores,
-  projectedScores,
-  showProjectedScores = false,
+  projectedProbs,
+  showProjectedProbs = false,
   showFixtures = true,
 }: Props) {
   const teamMap = new Map(teams.map((t) => [t.id, t]));
@@ -97,7 +97,7 @@ export function GroupCard({
           const home = teamMap.get(m.homeTeamId as string);
           const away = teamMap.get(m.awayTeamId as string);
           const result = confirmedScores?.get(m.id);
-          const projected = showProjectedScores ? projectedScores?.get(m.id) : undefined;
+          const probs = showProjectedProbs ? projectedProbs?.get(m.id) : undefined;
           return (
             <GroupFixtureRow
               key={m.id}
@@ -106,7 +106,7 @@ export function GroupCard({
               awayLabel={away?.name ?? "TBD"}
               kickoffIso={m.date}
               confirmed={result}
-              projected={projected}
+              projectedProbs={probs}
             />
           );
         })}

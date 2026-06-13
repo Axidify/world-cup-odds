@@ -1,5 +1,8 @@
 import { TournamentBracket } from "@/components/TournamentBracket";
+import { buildConsensusKnockoutPath } from "@/lib/bracket/consensus-path";
+import { buildAdvanceProbsForKnockoutPath } from "@/lib/bracket/knockout-advance-probs";
 import { buildOfficialKnockoutPath } from "@/lib/bracket/official-knockout";
+import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
 import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
@@ -11,8 +14,23 @@ import {
   getKnockoutFixtures,
   getTeams,
 } from "@/lib/data/load";
+import { loadPredictionStore } from "@/lib/sim/prediction-store";
+
+import type { KnockoutPathMatch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+function buildRepresentativeAdvanceProbs(knockoutPath: KnockoutPathMatch[] | undefined) {
+  if (!knockoutPath?.length) return {};
+  const provider = resolveActiveProvider();
+  if (!provider) return {};
+  try {
+    const store = loadPredictionStore(provider);
+    return buildAdvanceProbsForKnockoutPath(store, knockoutPath);
+  } catch {
+    return {};
+  }
+}
 
 export default function BracketPage() {
   const knockout = getKnockoutFixtures();
@@ -26,6 +44,31 @@ export default function BracketPage() {
   const groupFixtures = getFixtures();
   const hasConfirmedResults =
     groupFixtures.some((f) => confirmed.has(f.id)) || official.hasConfirmedKnockoutResults;
+  const representativeAdvanceProbs = buildRepresentativeAdvanceProbs(
+    simulation?.predictedPath.knockout,
+  );
+  const modalStandings = simulation?.extras?.modalGroupStandings;
+  const provider = resolveActiveProvider();
+  const consensus =
+    modalStandings && provider
+      ? (() => {
+          try {
+            const store = loadPredictionStore(provider);
+            const { knockout, championTeamId } = buildConsensusKnockoutPath(
+              store,
+              modalStandings,
+              confirmed,
+            );
+            return {
+              knockout,
+              championTeamId,
+              advanceProbs: buildAdvanceProbsForKnockoutPath(store, knockout),
+            };
+          } catch {
+            return null;
+          }
+        })()
+      : null;
 
   return (
     <TournamentBracket
@@ -54,6 +97,10 @@ export default function BracketPage() {
       modalGroupStandings={simulation?.extras?.modalGroupStandings}
       representativePathNote={simulation?.extras?.representativePathNote}
       championOdds={simulation?.championOdds}
+      representativeAdvanceProbs={representativeAdvanceProbs}
+      consensusKnockout={consensus?.knockout}
+      consensusChampionId={consensus?.championTeamId}
+      consensusAdvanceProbs={consensus?.advanceProbs}
     />
   );
 }

@@ -147,17 +147,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-1 flex-col items-center justify-center py-3 text-[10px] font-semibold min-h-[52px] sm:text-[11px] ${
+            className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center px-0.5 py-2 text-[9px] font-semibold leading-tight xs:text-[10px] sm:text-[11px] ${
               isActive(item.href) ? "text-brand" : "text-text-muted"
             }`}
           >
-            {item.label}
+            <span className="truncate max-w-full">{item.label}</span>
           </Link>
         ))}
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className={`flex flex-1 flex-col items-center justify-center py-3 text-[10px] font-semibold min-h-[52px] sm:text-[11px] ${
+          className={`flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center px-0.5 py-2 text-[9px] font-semibold leading-tight xs:text-[10px] sm:text-[11px] ${
             nav.some((item) => !mobileTabs.includes(item) && isActive(item.href))
               ? "text-brand"
               : "text-text-muted"

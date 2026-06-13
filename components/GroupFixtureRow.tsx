@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { MatchStatusBadge } from "@/components/MatchStatusBadge";
 import { getKickoffHighlight, kickoffHighlightRowClass } from "@/lib/match/kickoff-highlight";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
+import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import type { PlayedMatchResult } from "@/lib/types";
 
 type Props = {
@@ -13,7 +14,7 @@ type Props = {
   awayLabel: string;
   kickoffIso: string;
   confirmed?: PlayedMatchResult;
-  projected?: PlayedMatchResult;
+  projectedProbs?: FixtureWinProbs;
 };
 
 export function GroupFixtureRow({
@@ -22,7 +23,7 @@ export function GroupFixtureRow({
   awayLabel,
   kickoffIso,
   confirmed,
-  projected,
+  projectedProbs,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -50,11 +51,7 @@ export function GroupFixtureRow({
       <MatchStatusBadge
         kickoffIso={kickoffIso}
         confirmed={confirmed ? { homeGoals: confirmed.homeGoals, awayGoals: confirmed.awayGoals } : null}
-        projected={
-          !confirmed && projected
-            ? { homeGoals: projected.homeGoals, awayGoals: projected.awayGoals }
-            : null
-        }
+        projectedProbs={!confirmed ? projectedProbs : null}
         compact
       />
     </Link>

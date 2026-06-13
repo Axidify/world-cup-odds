@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Flag } from "@/components/Flag";
+import { OfficialResultsBanner } from "@/components/OfficialResultsBanner";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { GroupStagePanel } from "@/components/tournament/GroupStagePanel";
@@ -20,7 +21,7 @@ import type {
 } from "@/lib/types";
 
 type ViewMode = "official" | "projected";
-type ProjectedStoryMode = "representative" | "sample";
+type ProjectedStoryMode = "representative" | "consensus" | "sample";
 
 type SamplePathResponse = {
   index: number;
@@ -29,6 +30,7 @@ type SamplePathResponse = {
   knockout: KnockoutPathMatch[];
   championTeamId: string;
   championOddsPct: number;
+  knockoutAdvanceProbs: Record<string, { home: number; away: number }>;
 };
 
 type BracketSlot = { home: string; away: string };
@@ -55,6 +57,10 @@ type Props = {
   modalGroupStandings?: Record<string, import("@/lib/types").GroupStanding[]>;
   representativePathNote?: string | null;
   championOdds?: Record<string, number>;
+  representativeAdvanceProbs?: Record<string, { home: number; away: number }>;
+  consensusKnockout?: KnockoutPathMatch[];
+  consensusChampionId?: string;
+  consensusAdvanceProbs?: Record<string, { home: number; away: number }>;
 };
 
 export function TournamentBracket({
@@ -79,11 +85,15 @@ export function TournamentBracket({
   modalGroupStandings,
   representativePathNote,
   championOdds,
+  representativeAdvanceProbs = {},
+  consensusKnockout,
+  consensusChampionId,
+  consensusAdvanceProbs = {},
 }: Props) {
   const defaultView: ViewMode =
     hasConfirmedResults ? "official" : hasSimulation ? "projected" : "official";
   const [view, setView] = useState<ViewMode>(defaultView);
-  const [storyMode, setStoryMode] = useState<ProjectedStoryMode>("representative");
+  const [storyMode, setStoryMode] = useState<ProjectedStoryMode>("consensus");
   const [sample, setSample] = useState<SamplePathResponse | null>(null);
   const [sampleLoading, setSampleLoading] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
@@ -120,7 +130,11 @@ export function TournamentBracket({
   );
 
   const projectedKnockoutPath =
-    storyMode === "sample" && sample ? sample.knockout : projectedPath;
+    storyMode === "sample" && sample
+      ? sample.knockout
+      : storyMode === "consensus"
+        ? consensusKnockout
+        : projectedPath;
 
   const pathByMatch = useMemo(
     () =>
@@ -141,11 +155,24 @@ export function TournamentBracket({
         : modalGroupStandings ?? projectedStandings;
 
   const activeProjectedChampionId =
-    storyMode === "sample" && sample ? sample.championTeamId : projectedChampionId;
+    storyMode === "sample" && sample
+      ? sample.championTeamId
+      : storyMode === "consensus"
+        ? consensusChampionId
+        : projectedChampionId;
   const activeProjectedChampionPct =
     storyMode === "sample" && sample
       ? sample.championOddsPct
-      : projectedChampionPct;
+      : activeProjectedChampionId
+        ? championOdds?.[activeProjectedChampionId]
+        : projectedChampionPct;
+
+  const activeAdvanceProbs =
+    storyMode === "sample" && sample
+      ? sample.knockoutAdvanceProbs
+      : storyMode === "consensus"
+        ? consensusAdvanceProbs
+        : representativeAdvanceProbs;
 
   const displays = useMemo(() => {
     const isProjected = view === "projected";
@@ -159,11 +186,12 @@ export function TournamentBracket({
           bracketSlots,
           teamMap,
           isProjected,
+          advancePct: isProjected ? activeAdvanceProbs[m.id] ?? null : null,
         }),
       );
     }
     return out;
-  }, [knockout, pathByMatch, confirmedScores, bracketSlots, teamMap, view]);
+  }, [knockout, pathByMatch, confirmedScores, bracketSlots, teamMap, view, activeAdvanceProbs]);
 
   const championId = view === "official" ? officialChampionId : activeProjectedChampionId;
   const champion = championId ? teamMap.get(championId) : null;
@@ -191,7 +219,13 @@ export function TournamentBracket({
         {champion ? (
           <>
             {" "}
-            · {view === "official" ? "Champion" : storyMode === "sample" ? "Simulated champion" : "Example champion"}:{" "}
+            · {view === "official"
+              ? "Champion"
+              : storyMode === "sample"
+                ? "Simulated champion"
+                : storyMode === "consensus"
+                  ? "Consensus champion"
+                  : "Example champion"}:{" "}
             <span className="inline-flex items-center gap-1 font-semibold text-text">
               {champion.flagCode && <Flag code={champion.flagCode} alt="" size="sm" />}
               {champion.name}
@@ -227,10 +261,15 @@ export function TournamentBracket({
         ))}
       </div>
 
+      {view === "projected" && hasConfirmedResults && (
+        <OfficialResultsBanner onSwitch={() => setView("official")} />
+      )}
+
       {view === "projected" && projectedPath && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {(
             [
+              { id: "consensus" as const, label: "Consensus" },
               { id: "representative" as const, label: leaderName ? `If ${leaderName} wins` : "Leader path" },
               { id: "sample" as const, label: "Random draw" },
             ] as const
@@ -294,6 +333,12 @@ export function TournamentBracket({
                 <span className="mt-1 block text-loss">{sampleError}</span>
               ) : null}
             </p>
+          ) : storyMode === "consensus" ? (
+            <p>
+              <strong className="font-semibold text-text">Consensus</strong> — modal group
+              finishers plus the model&apos;s most likely knockout winner at each slot. Still one
+              story, not a joint probability.
+            </p>
           ) : (
             <p>
               <strong className="font-semibold text-text">Example path</strong> —{" "}
@@ -349,7 +394,9 @@ export function TournamentBracket({
                 ? "Champion"
                 : storyMode === "sample"
                   ? "Simulated champion"
-                  : "Example champion"
+                  : storyMode === "consensus"
+                    ? "Consensus champion"
+                    : "Example champion"
             }
           />
         </div>

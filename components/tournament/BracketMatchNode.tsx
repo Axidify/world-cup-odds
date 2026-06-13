@@ -19,10 +19,12 @@ function TeamRow({
   line,
   isWinner,
   goals,
+  advancePct,
 }: {
   line: { name: string; flagCode: string };
   isWinner: boolean;
   goals: number | null;
+  advancePct?: number | null;
 }) {
   return (
     <div
@@ -34,9 +36,16 @@ function TeamRow({
       <span className={`truncate text-xs ${isWinner ? "font-bold" : "font-semibold"}`}>
         {line.name}
       </span>
-      {goals != null && (
+      {goals != null ? (
         <span className="num ml-auto shrink-0 text-xs font-bold tabular-nums">{goals}</span>
-      )}
+      ) : advancePct != null ? (
+        <span
+          className={`num ml-auto shrink-0 text-[10px] font-bold tabular-nums ${isWinner ? "text-brand" : "text-text-muted"}`}
+          title="Model advance probability (win share plus half of draw mass). Simulated winner highlighted."
+        >
+          {advancePct.toFixed(0)}%
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -77,7 +86,7 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
           {hasScore ? (
             <span className="text-win">FT</span>
           ) : match.projected ? (
-            <span className="text-brand">proj</span>
+            <span className="text-brand">model</span>
           ) : (
             <MatchStatusBadge kickoffIso={match.date} compact />
           )}
@@ -89,11 +98,13 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
               line={match.home}
               isWinner={match.winnerId === match.home.teamId}
               goals={match.score ? match.score.home : null}
+              advancePct={match.advancePct?.home}
             />
             <TeamRow
               line={match.away}
               isWinner={match.winnerId === match.away.teamId}
               goals={match.score ? match.score.away : null}
+              advancePct={match.advancePct?.away}
             />
           </div>
         ) : (

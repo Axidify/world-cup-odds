@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveActiveProvider } from "@/lib/ai/settings";
+import { buildAdvanceProbsForKnockoutPath } from "@/lib/bracket/knockout-advance-probs";
 import { getDb } from "@/lib/db";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
     const confirmed = getConfirmedResults();
     const path = runSamplePathAtIndex(store, index, seed, confirmed);
     const championOddsPct = latest.championOdds[path.championTeamId] ?? 0;
+    const knockoutAdvanceProbs = buildAdvanceProbsForKnockoutPath(store, path.knockout);
 
     return NextResponse.json({
       index,
@@ -45,6 +47,7 @@ export async function GET(req: Request) {
       knockout: path.knockout,
       championTeamId: path.championTeamId,
       championOddsPct,
+      knockoutAdvanceProbs,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sample path failed";
