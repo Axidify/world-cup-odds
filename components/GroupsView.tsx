@@ -117,8 +117,8 @@ export function GroupsView({
         ) : projectedStandings ? (
           <p>
             <strong className="font-semibold text-text">Simulated</strong> tables use the most
-            common group finishers across Monte Carlo runs. Unplayed fixtures show model win
-            probabilities (home·draw·away %) — not predicted scorelines.
+            common group finishers across Monte Carlo runs. Fixtures show a model bar (home·draw·away)
+            and the favorite pick — hover for full percentages.
           </p>
         ) : (
           <p>

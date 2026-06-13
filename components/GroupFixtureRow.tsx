@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { FixtureProbsBadge } from "@/components/FixtureProbsBadge";
 import { MatchStatusBadge } from "@/components/MatchStatusBadge";
 import { getKickoffHighlight, kickoffHighlightRowClass } from "@/lib/match/kickoff-highlight";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
@@ -48,12 +49,17 @@ export function GroupFixtureRow({
           {homeLabel} vs {awayLabel}
         </span>
       </span>
-      <MatchStatusBadge
-        kickoffIso={kickoffIso}
-        confirmed={confirmed ? { homeGoals: confirmed.homeGoals, awayGoals: confirmed.awayGoals } : null}
-        projectedProbs={!confirmed ? projectedProbs : null}
-        compact
-      />
+      {confirmed ? (
+        <MatchStatusBadge
+          kickoffIso={kickoffIso}
+          confirmed={{ homeGoals: confirmed.homeGoals, awayGoals: confirmed.awayGoals }}
+          compact
+        />
+      ) : projectedProbs ? (
+        <FixtureProbsBadge probs={projectedProbs} homeLabel={homeLabel} awayLabel={awayLabel} />
+      ) : (
+        <MatchStatusBadge kickoffIso={kickoffIso} compact />
+      )}
     </Link>
   );
 }
