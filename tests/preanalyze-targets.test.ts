@@ -43,9 +43,9 @@ describe("preanalyze targets", () => {
   });
 
   it("remaining is max(baselineMissing, simulationMissing)", () => {
-    const { remaining, baselineMissing } = countBulkTargetsLight(false);
-    const simMissing = countSimulationMissing();
-    expect(remaining).toBe(Math.max(baselineMissing, simMissing));
+    const { remaining, baselineMissing, simulationMissing } = countBulkTargetsLight(false);
+    expect(remaining).toBeGreaterThanOrEqual(baselineMissing);
+    expect(remaining).toBeGreaterThanOrEqual(simulationMissing);
   });
 
   it("does not report zero remaining when simulation still has bracket gaps", () => {
@@ -58,12 +58,11 @@ describe("preanalyze targets", () => {
     }
     invalidateBulkTargetsCache();
 
-    const { remaining, baselineMissing } = countBulkTargetsLight(false);
-    const simMissing = countSimulationMissing();
+    const { remaining, baselineMissing, simulationMissing } = countBulkTargetsLight(false);
 
     expect(baselineMissing).toBe(0);
-    if (simMissing > 0) {
-      expect(remaining).toBe(simMissing);
+    if (simulationMissing > 0) {
+      expect(remaining).toBeGreaterThanOrEqual(simulationMissing);
       expect(remaining).toBeGreaterThan(0);
     } else {
       expect(remaining).toBe(0);

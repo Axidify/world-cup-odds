@@ -14,6 +14,7 @@ type Targets = {
   cached: number;
   remaining?: number;
   baselineMissing?: number;
+  simulationMissing?: number;
 };
 
 type DialogMode = "start" | "cancel" | null;
@@ -66,12 +67,16 @@ export function BulkAnalyzePanel() {
     }
   }, []);
 
-  useEffect(() => {
-    void poll();
-  }, [poll]);
-
   const running = job?.status === "running";
   const showProgress = starting || running;
+
+  useEffect(() => {
+    void poll();
+    const id = setInterval(() => {
+      if (!showProgress) void poll();
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [poll, showProgress]);
 
   useEffect(() => {
     if (!showProgress) return;
@@ -167,11 +172,12 @@ export function BulkAnalyzePanel() {
   }
 
   const pending = targets?.remaining ?? null;
+  const simMissing = targets?.simulationMissing ?? null;
+  const baselineMissing = targets?.baselineMissing ?? null;
   const gapOnly =
     pending != null &&
-    targets != null &&
     pending > 0 &&
-    (targets.baselineMissing ?? pending) === 0;
+    baselineMissing === 0;
 
   return (
     <div className="space-y-3">
@@ -237,11 +243,11 @@ export function BulkAnalyzePanel() {
       </p>
       {targets && !showProgress && (
         <p className="text-xs text-text-muted">
-          {targets.cached} / {targets.total} core pairings have LLM predictions
+          {targets.cached} / {targets.total} core pairings have fresh LLM predictions
           {pending === 0
             ? " · up to date"
             : gapOnly
-              ? ` · ${pending} bracket-specific pairing${pending === 1 ? "" : "s"} need analysis`
+              ? ` · ${simMissing ?? pending} bracket-path pairing${(simMissing ?? pending) === 1 ? "" : "s"} needed before simulation`
               : ` · ${pending} to analyze this run`}
         </p>
       )}

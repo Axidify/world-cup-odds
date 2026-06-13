@@ -142,7 +142,6 @@ export function buildBulkAnalyzeQueue(options: {
     for (const g of gaps) {
       const key = pairKey(g.homeTeamId, g.awayTeamId, g.stage);
       if (seen.has(key)) continue;
-      if (isCached(g.homeTeamId, g.awayTeamId, g.stage, provider, refresh)) continue;
       seen.add(key);
       queue.push(workItemForGap(g));
     }
@@ -212,33 +211,18 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
 }
 
 export function countSimulationMissing(): number {
-  const now = Date.now();
-  if (simMissingCache && now - simMissingCache.at < TARGETS_CACHE_MS) {
-    return simMissingCache.value;
-  }
-
   const provider = resolveActiveProvider();
-  if (!provider) {
-    simMissingCache = { at: now, value: 0 };
-    return 0;
-  }
-
+  if (!provider) return 0;
   const store = loadPredictionStore(provider);
-  const value = collectMissingPairings(store, provider, getConfirmedResults()).length;
-  simMissingCache = { at: now, value };
-  return value;
+  return collectMissingPairings(store, provider, getConfirmedResults()).length;
 }
 
-let targetsCache: { at: number; refresh: boolean; value: ReturnType<typeof countBulkTargets> } | null =
-  null;
-let simMissingCache: { at: number; value: number } | null = null;
-const TARGETS_CACHE_MS = 30_000;
-
-export function countBulkTargetsLight(refresh = false): {
+function computeBulkTargets(refresh = false): {
   total: number;
   cached: number;
   remaining: number;
   baselineMissing: number;
+  simulationMissing: number;
 } {
   const pairCount = buildTop24Pairings().length;
   const provider = resolveActiveProvider();
@@ -252,64 +236,47 @@ export function countBulkTargetsLight(refresh = false): {
   const total = groupCount + pairCount;
 
   if (!provider) {
-    return { total, cached: 0, remaining: total, baselineMissing: total };
+    return { total, cached: 0, remaining: total, baselineMissing: total, simulationMissing: total };
   }
 
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
-  const simMissing = countSimulationMissing();
-  const remaining = Math.max(baselineMissing, simMissing);
+  const simulationMissing = countSimulationMissing();
+  // What bulk analyze POST actually queues (includes bracket-path gaps).
+  const queueRemaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
+  const remaining = Math.max(queueRemaining, simulationMissing);
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
-  return { total, cached, remaining, baselineMissing };
+  return { total, cached, remaining, baselineMissing, simulationMissing };
 }
 
-export function countBulkTargets(refresh = false): {
-  total: number;
-  cached: number;
-  remaining: number;
-  /** Uncached group fixtures + top-24 knockout pairings (excludes bracket-path gaps). */
-  baselineMissing: number;
-} {
-  const now = Date.now();
-  if (
-    !refresh &&
-    targetsCache &&
-    !targetsCache.refresh &&
-    now - targetsCache.at < TARGETS_CACHE_MS
-  ) {
-    return targetsCache.value;
-  }
+let targetsCache: {
+  at: number;
+  refresh: boolean;
+  value: ReturnType<typeof computeBulkTargets>;
+} | null = null;
+const TARGETS_CACHE_MS = 30_000;
 
-  const pairCount = buildTop24Pairings().length;
-  const provider = resolveActiveProvider();
-  const confirmed = getConfirmedResults();
-  const groupCount = getFixtures().filter(
-    (m) =>
-      m.homeTeamId !== "TBD" &&
-      m.awayTeamId !== "TBD" &&
-      !confirmed.has(m.id),
-  ).length;
-  const total = groupCount + pairCount;
-
-  if (!provider) {
-    const value = { total, cached: 0, remaining: total, baselineMissing: total };
+export function countBulkTargetsLight(refresh = false): ReturnType<typeof computeBulkTargets> {
+  if (!refresh) {
+    const now = Date.now();
+    if (targetsCache && !targetsCache.refresh && now - targetsCache.at < TARGETS_CACHE_MS) {
+      return targetsCache.value;
+    }
+    const value = computeBulkTargets(false);
     targetsCache = { at: now, refresh, value };
     return value;
   }
+  return computeBulkTargets(refresh);
+}
 
-  const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
-  const simMissing = countSimulationMissing();
-  const remaining = Math.max(baselineMissing, simMissing);
-  const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
-  const value = { total, cached, remaining, baselineMissing };
+export function countBulkTargets(refresh = false): ReturnType<typeof computeBulkTargets> {
   if (!refresh) {
-    targetsCache = { at: now, refresh, value };
+    return countBulkTargetsLight(false);
   }
-  return value;
+  return computeBulkTargets(true);
 }
 
 export function invalidateBulkTargetsCache(): void {
   targetsCache = null;
-  simMissingCache = null;
 }
 
 /** Cheap target snapshot while a bulk job is running (avoids gap-analysis on every poll). */
@@ -319,12 +286,13 @@ export function bulkTargetsWhileRunning(job: {
   total: number;
   completed: number;
   failed: number;
-}): ReturnType<typeof countBulkTargets> {
+}): ReturnType<typeof computeBulkTargets> {
   const remaining = Math.max(0, job.total - job.completed - job.failed);
   return {
     total: job.catalogTotal,
     cached: job.cachedAtStart + job.completed,
     remaining,
     baselineMissing: remaining,
+    simulationMissing: remaining,
   };
 }

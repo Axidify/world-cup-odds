@@ -63,6 +63,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simulation failed");
       setDialogOpen(true);
+      router.refresh();
     } finally {
       setLoading(false);
     }
