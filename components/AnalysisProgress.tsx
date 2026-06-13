@@ -13,6 +13,7 @@ export function AnalysisProgress({ job, onCancel }: Props) {
   const done = job.completed + job.failed;
   const pct = job.total > 0 ? Math.round((done / job.total) * 100) : 0;
   const running = job.status === "running";
+  const indeterminate = running && job.total > 0 && done === 0;
   const catalogTotal = job.catalogTotal ?? 0;
   const cachedAtStart = job.cachedAtStart ?? 0;
   const overallReady =
@@ -35,8 +36,10 @@ export function AnalysisProgress({ job, onCancel }: Props) {
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-surface">
         <div
-          className="h-full rounded-full bg-brand transition-all duration-200"
-          style={{ width: `${pct}%` }}
+          className={`h-full rounded-full bg-brand transition-all duration-200 ${
+            indeterminate ? "w-1/3 animate-pulse" : ""
+          }`}
+          style={indeterminate ? undefined : { width: `${pct}%` }}
         />
       </div>
       <div className="num flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">

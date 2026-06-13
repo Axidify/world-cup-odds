@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play, RefreshCw } from "lucide-react";
 import { AdminPinDialog } from "@/components/AdminPinDialog";
@@ -18,14 +18,41 @@ type Targets = {
 
 type DialogMode = "start" | "cancel" | null;
 
+function optimisticJob(total: number, targets: Targets | null): BulkJobState {
+  return {
+    status: "running",
+    total,
+    completed: 0,
+    skipped: 0,
+    failed: 0,
+    catalogTotal: targets?.total ?? total,
+    cachedAtStart: targets?.cached ?? 0,
+    current: "Starting…",
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    error: null,
+    provider: null,
+    model: null,
+    refresh: false,
+  };
+}
+
 export function BulkAnalyzePanel() {
   const router = useRouter();
   const { toast } = useToast();
+  const progressRef = useRef<HTMLDivElement>(null);
   const [job, setJob] = useState<BulkJobState | null>(null);
   const [targets, setTargets] = useState<Targets | null>(null);
   const [loading, setLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+
+  const scrollProgressIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      progressRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
 
   const poll = useCallback(async () => {
     try {
@@ -44,27 +71,49 @@ export function BulkAnalyzePanel() {
   }, [poll]);
 
   const running = job?.status === "running";
+  const showProgress = starting || running;
 
   useEffect(() => {
-    if (!running) return;
+    if (!showProgress) return;
+
     const id = setInterval(async () => {
       const next = await poll();
-      if (next && next.status === "completed") {
-        clearInterval(id);
+      if (!next) return;
+
+      if (next.status === "running") {
+        setStarting(false);
+        return;
+      }
+
+      clearInterval(id);
+      setStarting(false);
+
+      if (next.status === "completed") {
         toast(
           next.total === 0
             ? "All predictions are up to date"
             : `Analyzed ${next.completed} matchup${next.completed === 1 ? "" : "s"}`,
         );
         router.refresh();
+      } else if (next.status === "failed") {
+        toast(next.error ?? "Bulk analyze failed");
+      } else if (next.status === "cancelled") {
+        toast("Bulk analyze cancelled");
       }
-    }, 2000);
+    }, 1000);
+
     return () => clearInterval(id);
-  }, [running, poll, router, toast]);
+  }, [showProgress, poll, router, toast]);
 
   async function start(pin: string) {
-    setLoading(true);
+    const runTotal = targets?.remaining ?? 0;
     setError(null);
+    setDialogMode(null);
+    setStarting(true);
+    setJob(optimisticJob(runTotal, targets));
+    scrollProgressIntoView();
+    setLoading(true);
+
     try {
       const res = await fetch("/api/analyze/bulk", {
         method: "POST",
@@ -73,14 +122,23 @@ export function BulkAnalyzePanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
-      setDialogMode(null);
+
       setJob(data.job);
-      if (data.job?.status === "completed" && data.job.total === 0) {
-        toast("All predictions are up to date");
+      if (data.job?.status === "running") {
+        setStarting(false);
+        scrollProgressIntoView();
+      } else {
+        setStarting(false);
+        if (data.job?.status === "completed" && data.job.total === 0) {
+          toast("All predictions are up to date");
+        }
       }
       void poll();
     } catch (err) {
+      setStarting(false);
+      setJob(null);
       setError(err instanceof Error ? err.message : "Failed to start");
+      setDialogMode("start");
     } finally {
       setLoading(false);
     }
@@ -98,6 +156,7 @@ export function BulkAnalyzePanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
       setDialogMode(null);
+      setStarting(false);
       await poll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel");
@@ -115,9 +174,21 @@ export function BulkAnalyzePanel() {
 
   return (
     <div className="space-y-3">
+      {showProgress && job && (
+        <div ref={progressRef}>
+          <AnalysisProgress
+            job={{ ...job, status: "running" }}
+            onCancel={() => {
+              setError(null);
+              setDialogMode("cancel");
+            }}
+          />
+        </div>
+      )}
+
       <Button
         variant="primary"
-        disabled={loading || running || pending === 0}
+        disabled={loading || running || starting || pending === 0}
         onClick={() => {
           setError(null);
           setDialogMode("start");
@@ -136,12 +207,12 @@ export function BulkAnalyzePanel() {
       <AdminPinDialog
         open={dialogMode === "start"}
         onClose={() => {
-          if (!loading) setDialogMode(null);
+          if (!loading && !starting) setDialogMode(null);
         }}
         title="Analyze missing predictions"
         description="Runs LLM analysis for pairings without a fresh AI prediction (Elo seeds count as missing)."
         confirmLabel="Start analysis"
-        loading={loading}
+        loading={loading && dialogMode === "start"}
         error={error}
         onSubmit={start}
       />
@@ -162,7 +233,7 @@ export function BulkAnalyzePanel() {
       <p className="text-xs text-text-muted">
         Skips fixtures that already have a fresh LLM prediction. Elo-seeded rows are re-analyzed.
       </p>
-      {targets && !running && (
+      {targets && !showProgress && (
         <p className="text-xs text-text-muted">
           {targets.cached} / {targets.total} core pairings have LLM predictions
           {pending === 0
@@ -172,16 +243,7 @@ export function BulkAnalyzePanel() {
               : ` · ${pending} to analyze this run`}
         </p>
       )}
-      {running && job && (
-        <AnalysisProgress
-          job={{ ...job, status: "running" }}
-          onCancel={() => {
-            setError(null);
-            setDialogMode("cancel");
-          }}
-        />
-      )}
-      {!running && job?.error && job.status !== "idle" && (
+      {!showProgress && job?.error && job.status !== "idle" && (
         <p className={`text-xs ${job.status === "cancelled" ? "text-text-muted" : "text-loss"}`}>
           {job.error}
         </p>
