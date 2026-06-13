@@ -1,6 +1,4 @@
 import { sortTeamPair } from "@/lib/ai/cache-key";
-import { isPredictionExpired } from "@/lib/ai/cache-ttl";
-import { getPredictionForPair } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getAllMatches, getFixtures, getTeams } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
@@ -8,8 +6,7 @@ import type { MissingPairing } from "@/lib/types";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
-import { listStalePredictionRows } from "@/lib/predictions/lookup";
-import { isLlmPrediction } from "@/lib/predictions/source";
+import { isFreshLlmCachedPair, listStalePredictionRows } from "@/lib/predictions/lookup";
 import type { LLMProvider } from "@/lib/types";
 
 export type BulkWorkItem =
@@ -37,10 +34,7 @@ function isCached(
   refresh: boolean,
 ): boolean {
   if (refresh) return false;
-  const pred = getPredictionForPair(home, away, stage, provider);
-  if (!pred || pred.stale === 1) return false;
-  if (!isLlmPrediction(pred)) return false;
-  return !isPredictionExpired(pred.generatedAt);
+  return isFreshLlmCachedPair(home, away, stage, provider);
 }
 
 export function getTop24TeamIds(): string[] {
@@ -217,8 +211,27 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
   return queue;
 }
 
+export function countSimulationMissing(): number {
+  const now = Date.now();
+  if (simMissingCache && now - simMissingCache.at < TARGETS_CACHE_MS) {
+    return simMissingCache.value;
+  }
+
+  const provider = resolveActiveProvider();
+  if (!provider) {
+    simMissingCache = { at: now, value: 0 };
+    return 0;
+  }
+
+  const store = loadPredictionStore(provider);
+  const value = collectMissingPairings(store, provider, getConfirmedResults()).length;
+  simMissingCache = { at: now, value };
+  return value;
+}
+
 let targetsCache: { at: number; refresh: boolean; value: ReturnType<typeof countBulkTargets> } | null =
   null;
+let simMissingCache: { at: number; value: number } | null = null;
 const TARGETS_CACHE_MS = 30_000;
 
 export function countBulkTargetsLight(refresh = false): {
@@ -243,8 +256,10 @@ export function countBulkTargetsLight(refresh = false): {
   }
 
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
+  const simMissing = countSimulationMissing();
+  const remaining = Math.max(baselineMissing, simMissing);
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
-  return { total, cached, remaining: baselineMissing, baselineMissing };
+  return { total, cached, remaining, baselineMissing };
 }
 
 export function countBulkTargets(refresh = false): {
@@ -282,7 +297,8 @@ export function countBulkTargets(refresh = false): {
   }
 
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
-  const remaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
+  const simMissing = countSimulationMissing();
+  const remaining = Math.max(baselineMissing, simMissing);
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
   const value = { total, cached, remaining, baselineMissing };
   if (!refresh) {
@@ -293,6 +309,7 @@ export function countBulkTargets(refresh = false): {
 
 export function invalidateBulkTargetsCache(): void {
   targetsCache = null;
+  simMissingCache = null;
 }
 
 /** Cheap target snapshot while a bulk job is running (avoids gap-analysis on every poll). */

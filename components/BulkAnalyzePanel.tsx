@@ -232,7 +232,8 @@ export function BulkAnalyzePanel() {
       />
 
       <p className="text-xs text-text-muted">
-        Skips fixtures that already have a fresh LLM prediction. Elo-seeded rows are re-analyzed.
+        Skips fixtures that already have a fresh LLM prediction. Elo-seeded rows and bracket-path
+        gaps are included.
       </p>
       {targets && !showProgress && (
         <p className="text-xs text-text-muted">

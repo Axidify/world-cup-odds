@@ -120,6 +120,20 @@ export function lookupPredictionTiered(
   return null;
 }
 
+/** Shared readiness check for bulk analyze cache hits and simulation `store.has()`. */
+export function isFreshLlmCachedPair(
+  homeTeamId: string,
+  awayTeamId: string,
+  stage: string,
+  provider: LLMProvider,
+): boolean {
+  const hit = lookupPredictionTiered(homeTeamId, awayTeamId, stage, provider, {
+    allowEloFallback: false,
+  });
+  if (!hit) return false;
+  return hit.tier === "fresh" && isLlmPrediction(hit.prediction);
+}
+
 export function shouldProtectFromEloSeed(existing: Prediction | null): boolean {
   if (!existing) return false;
   if (!isLlmPrediction(existing)) return false;

@@ -3,8 +3,7 @@ import type { LLMProvider, MissingPairing, Prediction } from "@/lib/types";
 import { getEloMap } from "@/lib/calibration/elo";
 import { getFixtures } from "@/lib/data/load";
 import { applyNewsImpactToStoredPrediction, isNewsImpactEnabled } from "@/lib/news/impact";
-import { lookupPredictionTiered } from "@/lib/predictions/lookup";
-import { isLlmPrediction } from "@/lib/predictions/source";
+import { lookupPredictionTiered, isFreshLlmCachedPair } from "@/lib/predictions/lookup";
 import { buildCacheKey } from "@/lib/ai/cache-key";
 import { getModelForProvider } from "@/lib/ai/config";
 
@@ -65,10 +64,7 @@ export function loadPredictionStore(
       return pred;
     },
     has(homeTeamId, awayTeamId, stage) {
-      const hit = lookupPredictionTiered(homeTeamId, awayTeamId, stage, provider, { eloByTeam });
-      if (!hit) return false;
-      // Align with bulk analyze `isCached`: only fresh LLM rows count as simulation-ready.
-      return hit.tier === "fresh" && isLlmPrediction(hit.prediction);
+      return isFreshLlmCachedPair(homeTeamId, awayTeamId, stage, provider);
     },
     listMissing() {
       const seen = new Set<string>();
