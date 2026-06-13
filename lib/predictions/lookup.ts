@@ -69,13 +69,19 @@ function getRowByCacheKey(cacheKey: string): Prediction | null {
   return row ? rowToPrediction(row) : null;
 }
 
-export type LookupPredictionOptions = {
-  eloByTeam?: Map<string, number>;
-  allowEloFallback?: boolean;
-};
+/** Load all provider predictions once — used by simulation Monte Carlo hot paths. */
+export function loadPredictionIndex(provider: LLMProvider): Map<string, Prediction> {
+  const db = getDb();
+  const rows = db.select().from(predictions).where(eq(predictions.provider, provider)).all();
+  const index = new Map<string, Prediction>();
+  for (const row of rows) {
+    index.set(row.cacheKey, rowToPrediction(row));
+  }
+  return index;
+}
 
-/** Resolve a fixture prediction: fresh cache → stale/expired LLM → knockout Elo fallback. */
-export function lookupPredictionTiered(
+function lookupPredictionTieredWithGetter(
+  getRow: (cacheKey: string) => Prediction | null,
   homeTeamId: string,
   awayTeamId: string,
   stage: string,
@@ -89,7 +95,7 @@ export function lookupPredictionTiered(
 
   for (const s of stagesToTry(stage)) {
     const cacheKey = buildCacheKey(homeTeamId, awayTeamId, s, provider, model);
-    const row = getRowByCacheKey(cacheKey);
+    const row = getRow(cacheKey);
     if (!row) continue;
 
     const tier = classifyRow(row);
@@ -120,16 +126,62 @@ export function lookupPredictionTiered(
   return null;
 }
 
+export function lookupPredictionTieredFromIndex(
+  index: Map<string, Prediction>,
+  homeTeamId: string,
+  awayTeamId: string,
+  stage: string,
+  provider: LLMProvider,
+  options: LookupPredictionOptions = {},
+): TieredPrediction | null {
+  return lookupPredictionTieredWithGetter(
+    (cacheKey) => index.get(cacheKey) ?? null,
+    homeTeamId,
+    awayTeamId,
+    stage,
+    provider,
+    options,
+  );
+}
+
+export type LookupPredictionOptions = {
+  eloByTeam?: Map<string, number>;
+  allowEloFallback?: boolean;
+};
+
+/** Resolve a fixture prediction: fresh cache → stale/expired LLM → knockout Elo fallback. */
+export function lookupPredictionTiered(
+  homeTeamId: string,
+  awayTeamId: string,
+  stage: string,
+  provider: LLMProvider,
+  options: LookupPredictionOptions = {},
+): TieredPrediction | null {
+  return lookupPredictionTieredWithGetter(
+    getRowByCacheKey,
+    homeTeamId,
+    awayTeamId,
+    stage,
+    provider,
+    options,
+  );
+}
+
 /** Shared readiness check for bulk analyze cache hits and simulation `store.has()`. */
 export function isFreshLlmCachedPair(
   homeTeamId: string,
   awayTeamId: string,
   stage: string,
   provider: LLMProvider,
+  index?: Map<string, Prediction>,
 ): boolean {
-  const hit = lookupPredictionTiered(homeTeamId, awayTeamId, stage, provider, {
-    allowEloFallback: false,
-  });
+  const hit = index
+    ? lookupPredictionTieredFromIndex(index, homeTeamId, awayTeamId, stage, provider, {
+        allowEloFallback: false,
+      })
+    : lookupPredictionTiered(homeTeamId, awayTeamId, stage, provider, {
+        allowEloFallback: false,
+      });
   if (!hit) return false;
   return hit.tier === "fresh" && isLlmPrediction(hit.prediction);
 }

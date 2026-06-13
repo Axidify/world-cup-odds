@@ -3,7 +3,11 @@ import type { LLMProvider, MissingPairing, Prediction } from "@/lib/types";
 import { getEloMap } from "@/lib/calibration/elo";
 import { getFixtures } from "@/lib/data/load";
 import { applyNewsImpactToStoredPrediction, isNewsImpactEnabled } from "@/lib/news/impact";
-import { lookupPredictionTiered, isFreshLlmCachedPair } from "@/lib/predictions/lookup";
+import {
+  isFreshLlmCachedPair,
+  loadPredictionIndex,
+  lookupPredictionTieredFromIndex,
+} from "@/lib/predictions/lookup";
 import { buildCacheKey } from "@/lib/ai/cache-key";
 import { getModelForProvider } from "@/lib/ai/config";
 
@@ -32,6 +36,7 @@ export function loadPredictionStore(
   const applyNews = options.applyNewsImpact ?? isNewsImpactEnabled();
   const fixtureDateById = new Map(getFixtures().map((m) => [m.id, m.date]));
   const eloByTeam = getEloMap();
+  const index = loadPredictionIndex(provider);
   const newsAdjusted = new Map<string, Prediction>();
   const pendingMissing: MissingPairing[] = [];
 
@@ -48,7 +53,7 @@ export function loadPredictionStore(
   }
 
   function lookup(home: string, away: string, stage: string, matchId?: string): Prediction | undefined {
-    const hit = lookupPredictionTiered(home, away, stage, provider, { eloByTeam });
+    const hit = lookupPredictionTieredFromIndex(index, home, away, stage, provider, { eloByTeam });
     if (!hit) return undefined;
     return withNewsImpact(hit.prediction, matchId);
   }
@@ -64,7 +69,7 @@ export function loadPredictionStore(
       return pred;
     },
     has(homeTeamId, awayTeamId, stage) {
-      return isFreshLlmCachedPair(homeTeamId, awayTeamId, stage, provider);
+      return isFreshLlmCachedPair(homeTeamId, awayTeamId, stage, provider, index);
     },
     listMissing() {
       const seen = new Set<string>();
