@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trophy } from "lucide-react";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 
@@ -18,6 +19,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [missingCount, setMissingCount] = useState<number | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -36,12 +38,16 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
     };
   }, []);
 
-  async function runSimulation() {
+  async function runSimulation(pin: string) {
     setLoading(true);
     setError(null);
     setMissingCount(null);
     try {
-      const res = await fetch("/api/analyze/tournament", { method: "POST" });
+      const res = await fetch("/api/analyze/tournament", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
       const data = await res.json();
       if (!res.ok) {
         if (Array.isArray(data.missing) && data.missing.length > 0) {
@@ -49,6 +55,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
         }
         throw new Error(data.error ?? "Simulation failed");
       }
+      setDialogOpen(false);
       toast(hasSimulation ? "Simulation updated" : "Simulation complete");
       router.refresh();
     } catch (err) {
@@ -60,10 +67,31 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
 
   return (
     <div className="space-y-2">
-      <Button variant="primary" onClick={runSimulation} disabled={loading || bulkRunning}>
+      <Button
+        variant="primary"
+        onClick={() => {
+          setError(null);
+          setDialogOpen(true);
+        }}
+        disabled={loading || bulkRunning}
+      >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
         {loading ? "Simulating…" : hasSimulation ? "Re-run simulation" : "Run simulation"}
       </Button>
+
+      <AdminPinDialog
+        open={dialogOpen}
+        onClose={() => {
+          if (!loading) setDialogOpen(false);
+        }}
+        title={hasSimulation ? "Re-run simulation" : "Run simulation"}
+        description="Monte Carlo champion odds and bracket projections. Auto-pipeline still re-runs after confirmed results."
+        confirmLabel={hasSimulation ? "Re-run" : "Run simulation"}
+        loading={loading}
+        error={error}
+        onSubmit={runSimulation}
+      />
+
       {lastRunAt && (
         <p className="num text-xs text-text-muted">
           Last run {new Date(lastRunAt).toLocaleString()}
@@ -74,7 +102,6 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
           {missingCount} match pairing(s) still need AI analysis before simulating.
         </p>
       )}
-      {error && <p className="text-xs text-loss">{error}</p>}
     </div>
   );
 }

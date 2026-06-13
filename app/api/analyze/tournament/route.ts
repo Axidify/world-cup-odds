@@ -1,11 +1,26 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isBulkJobRunning } from "@/lib/ai/bulk-job";
 import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/run-tournament";
 import { tryAcquireTournamentLock, releaseTournamentLock } from "@/lib/sim/tournament-lock";
 import { getDb } from "@/lib/db";
+import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
 
-export async function POST() {
+const bodySchema = z.object({
+  pin: z.string().optional(),
+});
+
+export async function POST(request: Request) {
   getDb();
+
+  if (!isAdminConfigured()) {
+    return NextResponse.json({ error: "ADMIN_PIN is not configured" }, { status: 503 });
+  }
+
+  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success || !verifyAdminPin(parsed.data.pin)) {
+    return NextResponse.json({ error: "Invalid or missing ADMIN_PIN" }, { status: 401 });
+  }
 
   if (isBulkJobRunning()) {
     return NextResponse.json(

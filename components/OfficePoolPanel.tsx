@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatMoney, formatMoneyCompact } from "@/lib/utils/currency";
@@ -59,7 +60,8 @@ export function OfficePoolPanel() {
   const [bets, setBets] = useState<BetRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [voiding, setVoiding] = useState<string | null>(null);
-  const [pin, setPin] = useState("");
+  const [voidTarget, setVoidTarget] = useState<BetRow | null>(null);
+  const [voidLoading, setVoidLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -89,26 +91,26 @@ export function OfficePoolPanel() {
     return () => clearInterval(id);
   }, [load]);
 
-  async function voidBet(id: string) {
-    if (!pin.trim()) {
-      setError("Enter ADMIN_PIN to void bets");
-      return;
-    }
-    setVoiding(id);
+  async function voidBet(pin: string) {
+    if (!voidTarget) return;
+    setVoiding(voidTarget.id);
+    setVoidLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/bets/${id}/void`, {
+      const res = await fetch(`/api/bets/${voidTarget.id}/void`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Void failed");
+      setVoidTarget(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Void failed");
     } finally {
       setVoiding(null);
+      setVoidLoading(false);
     }
   }
 
@@ -212,20 +214,28 @@ export function OfficePoolPanel() {
       </Card>
 
       <div>
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-bold">Recent bets</h2>
-          <label className="text-xs text-text-muted">
-            Admin PIN (void)
-            <input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="mt-1 block w-36 rounded border border-border bg-surface px-2 py-1.5 text-sm"
-              autoComplete="off"
-            />
-          </label>
         </div>
-        {error && <p className="mb-2 text-xs text-loss">{error}</p>}
+
+        <AdminPinDialog
+          open={voidTarget != null}
+          onClose={() => {
+            if (!voidLoading) setVoidTarget(null);
+          }}
+          title="Void bet"
+          description={
+            voidTarget
+              ? `${voidTarget.selectionLabel} · ${formatMoney(voidTarget.stakeMyr)} @ ${voidTarget.decimalOdds.toFixed(2)}`
+              : undefined
+          }
+          confirmLabel="Void bet"
+          loading={voidLoading}
+          error={error}
+          onSubmit={voidBet}
+        />
+
+        {error && !voidTarget && <p className="mb-2 text-xs text-loss">{error}</p>}
         <Card className="overflow-hidden">
           <div className="scrollbar-themed overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
@@ -270,7 +280,10 @@ export function OfficePoolPanel() {
                         <Button
                           variant="ghost"
                           disabled={voiding === bet.id}
-                          onClick={() => void voidBet(bet.id)}
+                          onClick={() => {
+                            setError(null);
+                            setVoidTarget(bet);
+                          }}
                         >
                           {voiding === bet.id ? <Loader2 size={12} className="animate-spin" /> : "Void"}
                         </Button>

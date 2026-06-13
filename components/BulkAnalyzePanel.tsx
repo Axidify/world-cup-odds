@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play, RefreshCw } from "lucide-react";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { useToast } from "@/components/ui/Toast";
 import type { BulkJobState } from "@/lib/ai/bulk-job";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
@@ -15,6 +16,8 @@ type Targets = {
   baselineMissing?: number;
 };
 
+type DialogMode = "start" | "cancel" | null;
+
 export function BulkAnalyzePanel() {
   const router = useRouter();
   const { toast } = useToast();
@@ -22,7 +25,7 @@ export function BulkAnalyzePanel() {
   const [targets, setTargets] = useState<Targets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pin, setPin] = useState("");
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
 
   const poll = useCallback(async () => {
     try {
@@ -59,11 +62,7 @@ export function BulkAnalyzePanel() {
     return () => clearInterval(id);
   }, [running, poll, router, toast]);
 
-  async function start() {
-    if (!pin.trim()) {
-      setError("Enter ADMIN_PIN to run bulk analyze");
-      return;
-    }
+  async function start(pin: string) {
     setLoading(true);
     setError(null);
     try {
@@ -74,6 +73,7 @@ export function BulkAnalyzePanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
+      setDialogMode(null);
       setJob(data.job);
       if (data.job?.status === "completed" && data.job.total === 0) {
         toast("All predictions are up to date");
@@ -86,17 +86,24 @@ export function BulkAnalyzePanel() {
     }
   }
 
-  async function cancel() {
-    if (!pin.trim()) {
-      setError("Enter ADMIN_PIN to cancel");
-      return;
+  async function cancel(pin: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/analyze/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
+      setDialogMode(null);
+      await poll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel");
+    } finally {
+      setLoading(false);
     }
-    await fetch("/api/analyze/bulk", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin }),
-    });
-    await poll();
   }
 
   const pending = targets?.remaining ?? null;
@@ -108,37 +115,52 @@ export function BulkAnalyzePanel() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-[10rem] flex-col gap-1 text-xs">
-          <span className="font-semibold text-text-muted">Admin PIN</span>
-          <input
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="ADMIN_PIN"
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
-            autoComplete="off"
-          />
-        </label>
-        <Button
-          variant="primary"
-          disabled={loading || running || pending === 0}
-          onClick={() => start()}
-        >
-          {loading ? (
-            <RefreshCw size={16} className="animate-spin" />
-          ) : (
-            <Play size={16} />
-          )}
-          {pending != null && pending > 0
-            ? `Analyze missing (${pending})`
-            : "All analyzed"}
-        </Button>
-      </div>
+      <Button
+        variant="primary"
+        disabled={loading || running || pending === 0}
+        onClick={() => {
+          setError(null);
+          setDialogMode("start");
+        }}
+      >
+        {loading && dialogMode === "start" ? (
+          <RefreshCw size={16} className="animate-spin" />
+        ) : (
+          <Play size={16} />
+        )}
+        {pending != null && pending > 0
+          ? `Analyze missing (${pending})`
+          : "All analyzed"}
+      </Button>
+
+      <AdminPinDialog
+        open={dialogMode === "start"}
+        onClose={() => {
+          if (!loading) setDialogMode(null);
+        }}
+        title="Analyze missing predictions"
+        description="Runs only uncached predictions — group matches, top-24 pairings, and bracket-path gaps."
+        confirmLabel="Start analysis"
+        loading={loading}
+        error={error}
+        onSubmit={start}
+      />
+
+      <AdminPinDialog
+        open={dialogMode === "cancel"}
+        onClose={() => {
+          if (!loading) setDialogMode(null);
+        }}
+        title="Cancel bulk analyze"
+        description="Stop the in-progress analysis run."
+        confirmLabel="Cancel run"
+        loading={loading}
+        error={error}
+        onSubmit={cancel}
+      />
+
       <p className="text-xs text-text-muted">
-        Runs only uncached predictions (group matches, top-24 pairings, and bracket-path gaps).
-        Requires <span className="font-semibold text-text">ADMIN_PIN</span> — full re-analyze is not
-        available from the dashboard.
+        Full re-analyze is not available from the dashboard. Admin PIN required.
       </p>
       {targets && !running && (
         <p className="text-xs text-text-muted">
@@ -150,9 +172,14 @@ export function BulkAnalyzePanel() {
               : ` · ${pending} to analyze this run`}
         </p>
       )}
-      {error && <p className="text-xs text-loss">{error}</p>}
       {running && job && (
-        <AnalysisProgress job={{ ...job, status: "running" }} onCancel={cancel} />
+        <AnalysisProgress
+          job={{ ...job, status: "running" }}
+          onCancel={() => {
+            setError(null);
+            setDialogMode("cancel");
+          }}
+        />
       )}
       {!running && job?.error && job.status !== "idle" && (
         <p className={`text-xs ${job.status === "cancelled" ? "text-text-muted" : "text-loss"}`}>

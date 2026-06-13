@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatStageLabel } from "@/lib/utils/match-label";
@@ -20,8 +21,8 @@ type PendingRow = {
 
 export function PendingResultsPanel() {
   const [pending, setPending] = useState<PendingRow[]>([]);
-  const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingRow | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -40,26 +41,24 @@ export function PendingResultsPanel() {
     return () => clearInterval(id);
   }, [load]);
 
-  async function confirm(matchId: string) {
-    if (!pin.trim()) {
-      setError("Enter ADMIN_PIN to confirm results");
-      return;
-    }
-    setLoading(matchId);
+  async function confirm(pin: string) {
+    if (!confirming) return;
+    setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/results/${matchId}/confirm`, {
+      const res = await fetch(`/api/results/${confirming.matchId}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Confirm failed");
+      setConfirming(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Confirm failed");
     } finally {
-      setLoading(null);
+      setLoading(false);
     }
   }
 
@@ -73,19 +72,23 @@ export function PendingResultsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="text-xs text-text-muted">
-          Admin PIN
-          <input
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            className="mt-1 block w-40 rounded border border-border bg-surface px-2 py-1.5 text-sm"
-            autoComplete="off"
-          />
-        </label>
-      </div>
-      {error && <p className="text-xs text-loss">{error}</p>}
+      <AdminPinDialog
+        open={confirming != null}
+        onClose={() => {
+          if (!loading) setConfirming(null);
+        }}
+        title="Confirm result"
+        description={
+          confirming
+            ? `${confirming.homeName} ${confirming.homeScore}–${confirming.awayScore} ${confirming.awayName}`
+            : undefined
+        }
+        confirmLabel="Confirm result"
+        loading={loading}
+        error={error}
+        onSubmit={confirm}
+      />
+
       <div className="space-y-2">
         {pending.map((row) => (
           <Card key={row.matchId} className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -100,10 +103,17 @@ export function PendingResultsPanel() {
             </div>
             <Button
               variant="secondary"
-              disabled={loading === row.matchId}
-              onClick={() => confirm(row.matchId)}
+              disabled={loading && confirming?.matchId === row.matchId}
+              onClick={() => {
+                setError(null);
+                setConfirming(row);
+              }}
             >
-              {loading === row.matchId ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {loading && confirming?.matchId === row.matchId ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Check size={14} />
+              )}
               Confirm
             </Button>
           </Card>
