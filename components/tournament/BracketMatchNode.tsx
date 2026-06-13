@@ -88,7 +88,7 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
           ) : match.projected ? (
             <span className="text-brand">model</span>
           ) : (
-            <MatchStatusBadge kickoffIso={match.date} compact />
+            <MatchStatusBadge matchId={match.matchId} kickoffIso={match.date} compact />
           )}
         </div>
 

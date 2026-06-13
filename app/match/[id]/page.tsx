@@ -67,6 +67,7 @@ export default async function MatchPage({
       <h1 className="font-[family-name:var(--font-archivo)] text-2xl font-bold leading-tight sm:text-3xl">{title}</h1>
 
       <MatchStatusCard
+        matchId={match.id}
         kickoffIso={match.date}
         venue={match.venue}
         homeName={home?.name}

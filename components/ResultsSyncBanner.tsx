@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Radio } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { useLiveScores } from "@/components/LiveScoresProvider";
 
 type StatusResponse = {
-  resultsProvider?: "football-data" | "search";
   matchActivity?: {
     liveCount: number;
     awaitingCount: number;
@@ -22,11 +21,12 @@ type StatusResponse = {
     nextPollAt: string;
     intervalMinutes: number;
   };
-  poller?: { lastResultsPollAt: string | null };
+  poller?: { lastResultsPollAt: string | null; lastLiveScoresPollAt: string | null };
 };
 
 export function ResultsSyncBanner() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
+  const { scores } = useLiveScores();
 
   const load = useCallback(async () => {
     try {
@@ -64,39 +64,37 @@ export function ResultsSyncBanner() {
             {activity.liveCount > 0 && activity.awaitingCount > 0 && " · "}
             {activity.awaitingCount > 0 && (
               <span className="text-money">
-                {activity.awaitingCount} awaiting score sync
+                {activity.awaitingCount} awaiting final score sync
               </span>
             )}
           </p>
           {activity.matches.length > 0 && (
             <ul className="space-y-1 text-xs text-text-muted">
-              {activity.matches.map((m) => (
-                <li key={m.matchId}>
-                  <a href={`/match/${m.matchId}`} className="font-semibold text-brand hover:underline">
-                    {m.label}
-                  </a>
-                  {" — "}
-                  {m.lifecycle === "live"
-                    ? `live · score check ~${formatUtcDateTime(m.resultsCheckAt)} UTC`
-                    : status?.resultsProvider === "football-data"
-                      ? "awaiting football-data.org (FINISHED only)"
-                      : "searching for final score"}
-                </li>
-              ))}
+              {activity.matches.map((m) => {
+                const live = scores[m.matchId];
+                return (
+                  <li key={m.matchId}>
+                    <a href={`/match/${m.matchId}`} className="font-semibold text-brand hover:underline">
+                      {m.label}
+                    </a>
+                    {" — "}
+                    {m.lifecycle === "live" && live
+                      ? `live ${live.homeScore}–${live.awayScore}${live.minute ? ` (${live.minute})` : ""}`
+                      : m.lifecycle === "live"
+                        ? "live · waiting for score feed"
+                        : "awaiting full-time confirm"}
+                  </li>
+                );
+              })}
             </ul>
           )}
           {poll && (
             <p className="text-xs text-text-muted">
-              Poller {poll.shouldPoll ? "active" : "idle"} · checks every {poll.intervalMinutes} min
-              when needed · next activity{" "}
-              <span className="num">{new Date(poll.nextPollAt).toLocaleTimeString()}</span>
-              {status?.poller?.lastResultsPollAt && (
+              Final scores: poller {poll.shouldPoll ? "active" : "idle"} every {poll.intervalMinutes} min
+              {status?.poller?.lastLiveScoresPollAt && (
                 <>
                   {" "}
-                  · last sync{" "}
-                  <span className="num">
-                    {new Date(status.poller.lastResultsPollAt).toLocaleTimeString()}
-                  </span>
+                  · live feed {new Date(status.poller.lastLiveScoresPollAt).toLocaleTimeString()}
                 </>
               )}
             </p>

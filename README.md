@@ -1,6 +1,6 @@
 # World Cup Odds 2026
 
-AI-powered odds calculator for the 2026 FIFA World Cup — predictions, tournament simulation, champion odds, and an office betting pool (MYR).
+AI-powered odds calculator for the 2026 FIFA World Cup — match predictions, tournament simulation, champion odds, and live bracket projections.
 
 ## Stack
 
@@ -40,34 +40,52 @@ For local vLLM on an H100, see **[docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.
 
 For cloud hosting, see **[docs/RAILWAY.md](docs/RAILWAY.md)**.
 
+## Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Dashboard — next fixtures, champion odds preview, bulk analyze, status |
+| `/groups` | Group standings (official + projected), fixture win % |
+| `/bracket` | Official and simulated knockout paths (consensus, leader, random) |
+| `/champion` | All 48 teams — champion %, base vs news, survival odds, simulation |
+| `/accuracy` | Brier score, log loss, calibration bins from confirmed results |
+| `/match/[id]` | Match detail — analysis, squad news, Elo, confirmed score |
+
+## API
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/ai/health` | GET | Active provider status |
 | `/api/settings/llm` | GET/PATCH | Switch LLM provider |
 | `/api/analyze/match` | GET/POST | Single-match analysis |
 | `/api/analyze/bulk` | GET/POST/DELETE | Bulk analyze job + status / cancel |
-| `/api/analyze/tournament` | POST | Run simulation (Monte Carlo) |
+| `/api/analyze/tournament` | POST | Run simulation (Monte Carlo, `ADMIN_PIN`) |
 | `/api/odds/champion` | GET | Latest champion odds cache |
 | `/api/results/pending` | GET | Unconfirmed match results queue |
 | `/api/results/[matchId]/confirm` | POST | Admin confirm pending result (`ADMIN_PIN`) |
+| `/api/results/[matchId]/unconfirm` | POST | Admin revert a confirmed result (`ADMIN_PIN`) |
 | `/api/sync/results` | POST | Admin manual result entry (`ADMIN_PIN`) |
 | `/api/accuracy` | GET | Prediction accuracy metrics |
 | `/api/news/[matchId]` | GET | Squad news + Elo for both teams |
 | `/api/sync/news` | POST | On-demand news refresh (`matchId` or `teamId`) |
-| `/api/bettors` | GET/POST | List / register office bettors |
-| `/api/bets` | GET/POST | List / place bets (match or champion) |
-| `/api/bets/[id]/void` | POST | Admin void bet (`ADMIN_PIN`) |
-| `/api/office/leaderboard` | GET | P&L leaderboard + pool summary |
-| `/api/betting/lines` | GET | Odds snapshot for match or champion team |
+| `/api/tournament/status` | GET | Simulation staleness, pending results, pipeline state |
+| `/api/simulation/sample-path` | GET | Random knockout draw for bracket UI |
 | `/api/admin/export` | GET | JSON backup (`?pin=`) |
+| `/api/admin/poll-results` | POST | Trigger results poll (`ADMIN_PIN`) |
 
-**Bulk analyze** (dashboard → “Analyze all matches”): 72 group fixtures + 276 top-24 knockout pairings, then gap-fill for modal-path knockouts. Progress polls every 2s.
+**Bulk analyze** (dashboard → “Analyze all matches”): 72 group fixtures + 276 top-24 knockout pairings, then gap-fill for modal-path knockouts. Progress polls every 2s. Requires `ADMIN_PIN`.
 
-**Simulation** (dashboard / champion → “Run simulation”): requires cached predictions; 5,000-iteration Monte Carlo by default.
+**Simulation** (dashboard / champion → “Run simulation”): requires cached predictions; 5,000-iteration Monte Carlo by default. Requires `ADMIN_PIN`.
 
-**Poller** (separate process): `npm run poller` — syncs match results (every 15 min) and squad news (every 6 h) via Tavily/Serper. Results auto-confirm when 2+ snippets agree. Requires `TAVILY_API_KEY` (or `SERPER_API_KEY`). Production: `npm run start:all`.
+**Poller** (separate process): `npm run poller` — syncs match results (every 15 min) and squad news (every 6 h). Results auto-confirm when a structured API reports a finished match (football-data.org `FINISHED`, or Big Balls `finished`), with web search + 2-snippet agreement as last resort. Requires `TAVILY_API_KEY` (or `SERPER_API_KEY`) for news. Production: `npm run start:all`.
+
+**Results provider chain:** football-data.org (if `FOOTBALL_DATA_API_TOKEN`) → Big Balls finished fallback (if `BBS_API_KEY`) → Tavily/Serper search.
+
+**Live scores:** Requires `BBS_API_KEY`. Poller calls `GET /v1/wc2026/matches?status=live` every ~60s only while matches are in the kickoff→2h window. UI reads `/api/live/scores` (cached in SQLite).
 
 **Auto-pipeline** (poller, on by default): when results confirm, re-runs simulation automatically (debounced). Dashboard shows “Auto-updating odds and bracket…”. Env: `AUTO_PIPELINE_ENABLED`, `AUTO_SIMULATE_ON_RESULTS`, `AUTO_PIPELINE_ON_START`, `AUTO_ANALYZE_MISSING` (optional LLM gap-fill).
+
+**Pending results:** The poller ingests scores but leaves them unconfirmed until sources agree. The dashboard banner shows how many are waiting. There is no in-app confirm UI today — use `POST /api/results/[matchId]/confirm` with `{ "pin": "…" }`, or rely on auto-confirm.
 
 ## Scripts
 
@@ -76,7 +94,7 @@ For cloud hosting, see **[docs/RAILWAY.md](docs/RAILWAY.md)**.
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run start` | Production server |
-| `npm run poller` | Background poller (Phase 5+) |
+| `npm run poller` | Background poller |
 | `npm run start:all` | App + poller (production) |
 | `npm test` | Vitest unit tests |
 
@@ -88,9 +106,8 @@ For cloud hosting, see **[docs/RAILWAY.md](docs/RAILWAY.md)**.
 - **Phase 4:** Bulk analyze, progress UI, local LLM guide
 - **Phase 5A:** Results pipeline, poller, accuracy dashboard
 - **Phase 5B:** Team news polling, Elo tracking, prompt memory in analysis
-- **Phase 5C:** Optional statistical calibration (`CALIBRATION_ENABLED`)
-- **Phase 6 (current):** Office betting pool — champion-only, fixed RM 100 stakes, AI odds lines, auto-settlement, leaderboard
+- **Phase 5C:** Elo-based seeding and accuracy metrics (`CALIBRATION_ENABLED` reserved for future learning loop)
 
-Office betting uses an office-trust model (name picker, no login). The pool takes a single market — World Cup winner — at a fixed stake (`POOL_FIXED_STAKE_MYR`, default RM 100). Set `ADMIN_PIN` for voids and result confirm. Bets lock at `TOURNAMENT_LOCK_AT` (defaults to first kickoff) and settle when the final result is confirmed.
+The core product loop is complete: predict → simulate → display odds → ingest results → refresh. An optional office betting pool was removed — the app is odds-only.
 
 Design reference: `World Cup Odds - v0 Mockup.html`

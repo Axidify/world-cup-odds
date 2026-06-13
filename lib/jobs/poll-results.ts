@@ -6,18 +6,32 @@ import {
   isFootballDataConfigured,
   pollResultsFromFootballData,
 } from "@/lib/results/football-data";
+import {
+  isBigBallsConfigured,
+  pollResultsFromBigBalls,
+} from "@/lib/results/big-balls";
 import { snippetsAgreeOnScore } from "@/lib/results/score-agreement";
-import { searchWeb } from "@/lib/search/provider";
+import { isSearchConfigured, searchWeb } from "@/lib/search/provider";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
 import { RESULT_POLL_START_AFTER_MS } from "@/lib/match/poll-timing";
 import { getResult, isResultConfirmable, upsertPendingResult } from "@/lib/results/store";
 
 export { RESULT_POLL_START_AFTER_MS };
 
-export type ResultsProvider = "football-data" | "search";
+export type ResultsProvider = "football-data" | "big-balls" | "search";
 
 export function resolveResultsProvider(): ResultsProvider {
-  return isFootballDataConfigured() ? "football-data" : "search";
+  if (isFootballDataConfigured()) return "football-data";
+  if (isBigBallsConfigured()) return "big-balls";
+  return "search";
+}
+
+export function resolveResultsProviderChain(): ResultsProvider[] {
+  const chain: ResultsProvider[] = [];
+  if (isFootballDataConfigured()) chain.push("football-data");
+  if (isBigBallsConfigured()) chain.push("big-balls");
+  if (isSearchConfigured()) chain.push("search");
+  return chain.length > 0 ? chain : ["search"];
 }
 
 export function getMatchesNeedingResults(options: { backfill?: boolean } = {}): Match[] {
@@ -34,6 +48,10 @@ export function getMatchesNeedingResults(options: { backfill?: boolean } = {}): 
     if (options.backfill) return true;
     return kickoff + RESULT_POLL_START_AFTER_MS <= now;
   });
+}
+
+function targetsStillNeedingResults(targets: Match[]): Match[] {
+  return targets.filter((m) => !getResult(m.id)?.confirmed);
 }
 
 function buildSearchQueries(match: Match): string[] {
@@ -131,15 +149,23 @@ async function pollMatchResultFromSearch(
 }
 
 export async function pollMatchResult(matchId: string): Promise<"synced" | "confirmed" | "skipped" | "failed"> {
-  if (resolveResultsProvider() === "football-data") {
-    const summary = await pollResultsFromFootballData(
-      getMatchesNeedingResults().filter((m) => m.id === matchId),
-    );
+  const chain = resolveResultsProviderChain().filter((p) => p !== "search");
+
+  for (const provider of chain) {
+    const summary =
+      provider === "football-data"
+        ? await pollResultsFromFootballData(
+            getMatchesNeedingResults().filter((m) => m.id === matchId),
+          )
+        : await pollResultsFromBigBalls(
+            getMatchesNeedingResults().filter((m) => m.id === matchId),
+          );
+
     if (summary.confirmed > 0) return "confirmed";
     if (summary.synced > 0) return "synced";
     if (summary.failed > 0) return "failed";
-    return "skipped";
   }
+
   return pollMatchResultFromSearch(matchId);
 }
 
@@ -151,23 +177,39 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
   provider: ResultsProvider;
 }> {
   const targets = getMatchesNeedingResults(options);
-  const provider = resolveResultsProvider();
+  const chain = resolveResultsProviderChain();
   let confirmed = 0;
   let synced = 0;
   let failed = 0;
+  let remaining = targets;
 
-  if (provider === "football-data") {
-    const summary = await pollResultsFromFootballData(targets);
-    confirmed = summary.confirmed;
-    synced = summary.synced;
-    failed = summary.failed;
-  } else {
-    for (const match of targets) {
+  for (const provider of chain) {
+    remaining = targetsStillNeedingResults(remaining);
+    if (remaining.length === 0) break;
+
+    if (provider === "football-data") {
+      const summary = await pollResultsFromFootballData(remaining);
+      confirmed += summary.confirmed;
+      synced += summary.synced;
+      failed += summary.failed;
+      continue;
+    }
+
+    if (provider === "big-balls") {
+      const summary = await pollResultsFromBigBalls(remaining);
+      confirmed += summary.confirmed;
+      synced += summary.synced;
+      failed += summary.failed;
+      continue;
+    }
+
+    for (const match of remaining) {
       const outcome = await pollMatchResultFromSearch(match.id);
       if (outcome === "confirmed") confirmed += 1;
       else if (outcome === "synced") synced += 1;
       else if (outcome === "failed") failed += 1;
     }
+    break;
   }
 
   const { recordPollerRun } = await import("@/lib/ops/poller-heartbeat");
@@ -178,5 +220,11 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
     scheduleAutoSimulation("poll_results");
   }
 
-  return { polled: targets.length, confirmed, synced, failed, provider };
+  return {
+    polled: targets.length,
+    confirmed,
+    synced,
+    failed,
+    provider: resolveResultsProvider(),
+  };
 }

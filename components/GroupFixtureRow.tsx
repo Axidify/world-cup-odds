@@ -51,6 +51,7 @@ export function GroupFixtureRow({
       </span>
       {confirmed ? (
         <MatchStatusBadge
+          matchId={matchId}
           kickoffIso={kickoffIso}
           confirmed={{ homeGoals: confirmed.homeGoals, awayGoals: confirmed.awayGoals }}
           compact
@@ -58,7 +59,7 @@ export function GroupFixtureRow({
       ) : projectedProbs ? (
         <FixtureProbsBadge probs={projectedProbs} homeLabel={homeLabel} awayLabel={awayLabel} />
       ) : (
-        <MatchStatusBadge kickoffIso={kickoffIso} compact />
+        <MatchStatusBadge matchId={matchId} kickoffIso={kickoffIso} compact />
       )}
     </Link>
   );

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, Sun, Moon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ProviderStatus } from "@/components/ProviderStatus";
+import { LiveScoresProvider } from "@/components/LiveScoresProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const nav = [
@@ -55,6 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
+    <LiveScoresProvider>
     <div className="min-h-screen bg-bg text-text">
       <header className="sticky top-0 z-40 flex h-[60px] items-center gap-4 border-b border-border bg-bg/80 px-4 backdrop-blur-md md:px-6">
         <Link href="/" className="flex items-center gap-2 font-[family-name:var(--font-archivo)] text-sm font-extrabold tracking-tight md:text-base">
@@ -166,6 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </nav>
     </div>
+    </LiveScoresProvider>
     </ToastProvider>
   );
 }

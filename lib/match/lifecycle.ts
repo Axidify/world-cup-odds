@@ -36,6 +36,7 @@ export function formatLifecycleLabel(
   lifecycle: MatchLifecycle,
   kickoffIso: string,
   now = Date.now(),
+  liveScore?: { home: number; away: number } | null,
 ): string {
   switch (lifecycle) {
     case "confirmed":
@@ -43,7 +44,9 @@ export function formatLifecycleLabel(
     case "upcoming":
       return `Kickoff ${formatUtcDateTime(kickoffIso)} UTC`;
     case "live":
-      return `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
+      return liveScore
+        ? `Live · ${liveScore.home}–${liveScore.away}`
+        : `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
     case "awaiting_result":
       return "Awaiting final score";
   }
@@ -54,6 +57,7 @@ export function formatLifecycleLabelLocal(
   kickoffIso: string,
   now = Date.now(),
   timeZone?: string,
+  liveScore?: { home: number; away: number } | null,
 ): string {
   switch (lifecycle) {
     case "confirmed":
@@ -61,7 +65,9 @@ export function formatLifecycleLabelLocal(
     case "upcoming":
       return `Kickoff ${formatLocalDateTime(kickoffIso, timeZone)}`;
     case "live":
-      return `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
+      return liveScore
+        ? `Live · ${liveScore.home}–${liveScore.away}`
+        : `Live · score sync in ${formatCountdown(getResultsCheckAtMs(kickoffIso), now)}`;
     case "awaiting_result":
       return "Awaiting final score";
   }
@@ -77,7 +83,7 @@ export function formatLifecycleHint(
     case "upcoming":
       return `Scores usually appear ~2 hours after kickoff, then the poller syncs every ${pollIntervalMinutes} minutes.`;
     case "live":
-      return "Match in progress. We start checking for the final score about 2 hours after kickoff.";
+      return "Match in progress — live score updates every minute when Big Balls is configured.";
     case "awaiting_result":
       return `Poller is searching for the score (every ${pollIntervalMinutes} min when matches need results). Projected tables re-sim after confirm.`;
   }

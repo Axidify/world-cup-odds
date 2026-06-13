@@ -21,7 +21,7 @@ This app runs **Next.js + a background poller** in one container (`npm run start
 DATABASE_PATH=/data/worldcup.db
 ```
 
-Without a volume, predictions, bets, and simulation results reset on each redeploy.
+Without a volume, predictions and simulation results reset on each redeploy.
 
 ## 3. Required variables
 
@@ -34,9 +34,10 @@ Set these in the service **Variables** tab (use **Raw Editor** for bulk paste).
 | `LLM_PROVIDER` | `openrouter`, `gemini`, `openai`, or `anthropic` (not `vllm` unless you expose a GPU endpoint) |
 | `OPENROUTER_API_KEY` | If using OpenRouter |
 | `GEMINI_API_KEY` | If using Gemini |
-| `FOOTBALL_DATA_API_TOKEN` | **Recommended** — official results via [football-data.org](https://www.football-data.org/client/register) (free). Confirms only `FINISHED` matches. |
-| `TAVILY_API_KEY` | News polling; results fallback only if `FOOTBALL_DATA_API_TOKEN` is unset |
-| `ADMIN_PIN` | PIN for admin actions (void bets, confirm results) |
+| `FOOTBALL_DATA_API_TOKEN` | **Recommended** — primary results via [football-data.org](https://www.football-data.org/client/register) (free). Confirms only `FINISHED` matches. |
+| `BBS_API_KEY` | **Required for live scores** — [Big Balls](https://bigballsdata.com) in-play feed (`?status=live`, ~60s poll). Also FT fallback if football-data misses. |
+| `TAVILY_API_KEY` | News polling; search-based results fallback if no scores API |
+| `ADMIN_PIN` | PIN for admin actions (confirm results, run simulation, bulk analyze, export) |
 
 Railway sets `PORT` automatically — do not hard-code it.
 
@@ -48,6 +49,7 @@ DATABASE_PATH=/data/worldcup.db
 LLM_PROVIDER=openrouter
 FOOTBALL_DATA_API_TOKEN=
 FOOTBALL_DATA_SEASON=2026
+BBS_API_KEY=
 SEARCH_PROVIDER=tavily
 AUTO_PIPELINE_ENABLED=1
 AUTO_SIMULATE_ON_RESULTS=1
@@ -55,7 +57,7 @@ AUTO_PIPELINE_ON_START=1
 AUTO_ANALYZE_MISSING=0
 ```
 
-Copy the rest from `.env.local.example` as needed (pool name, currency, simulation seed, etc.).
+Copy the rest from `.env.local.example` as needed (simulation seed, news impact, etc.).
 
 ## 4. LLM provider notes
 

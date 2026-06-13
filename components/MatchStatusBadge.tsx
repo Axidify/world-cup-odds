@@ -11,12 +11,14 @@ import {
   type MatchLifecycle,
 } from "@/lib/match/lifecycle";
 import { formatUpcomingKickoffCompact } from "@/lib/utils/dates";
+import { useLiveScore } from "@/components/LiveScoresProvider";
 
 type ScoreLine = { homeGoals: number; awayGoals: number };
 
 type WinProbs = { home: number; draw: number; away: number };
 
 type Props = {
+  matchId?: string;
   kickoffIso: string;
   confirmed?: ScoreLine | null;
   /** Modal simulation score for unplayed group fixtures (projected view). */
@@ -33,8 +35,16 @@ const BADGE_CLASS: Record<MatchLifecycle, string> = {
   confirmed: "text-win font-semibold",
 };
 
-export function MatchStatusBadge({ kickoffIso, confirmed, projected, projectedProbs, compact = false }: Props) {
+export function MatchStatusBadge({
+  matchId,
+  kickoffIso,
+  confirmed,
+  projected,
+  projectedProbs,
+  compact = false,
+}: Props) {
   const [now, setNow] = useState(() => Date.now());
+  const live = useLiveScore(matchId ?? "");
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -42,12 +52,31 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, projectedPr
   }, []);
 
   const lifecycle = getMatchLifecycle(kickoffIso, Boolean(confirmed), now);
+  const liveScore =
+    live != null ? { home: live.homeScore, away: live.awayScore } : null;
 
   if (lifecycle === "confirmed" && confirmed) {
     return (
       <span className={`num shrink-0 ${BADGE_CLASS.confirmed}`}>
         {confirmed.homeGoals}–{confirmed.awayGoals}{" "}
         <span className="text-[10px] font-normal uppercase tracking-wide">FT</span>
+      </span>
+    );
+  }
+
+  if (lifecycle === "live" && liveScore) {
+    return (
+      <span className={`num shrink-0 flex items-center gap-1.5 ${BADGE_CLASS.live}`}>
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-loss opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-loss" />
+        </span>
+        {liveScore.home}–{liveScore.away}
+        {live?.minute ? (
+          <span className="text-[10px] font-normal uppercase tracking-wide text-text-muted">
+            {live.minute}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -71,7 +100,7 @@ export function MatchStatusBadge({ kickoffIso, confirmed, projected, projectedPr
   }
 
   const highlight = getKickoffHighlight(kickoffIso, lifecycle, now);
-  const label = formatLifecycleLabelLocal(lifecycle, kickoffIso, now);
+  const label = formatLifecycleLabelLocal(lifecycle, kickoffIso, now, undefined, liveScore);
 
   if (lifecycle === "live") {
     return (

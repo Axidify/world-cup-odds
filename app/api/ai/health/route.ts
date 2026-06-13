@@ -8,6 +8,10 @@ import {
   isFootballDataConfigured,
 } from "@/lib/results/football-data";
 import {
+  getBigBallsStatus,
+  isBigBallsConfigured,
+} from "@/lib/results/big-balls";
+import {
   isSearchConfigured,
   isSearchReady,
   resolveSearchProvider,
@@ -28,10 +32,12 @@ export async function GET() {
   const searchOnline = searchConfigured ? isSearchReady() : false;
   const resultsProvider = resolveResultsProvider();
   const footballDataConfigured = isFootballDataConfigured();
+  const bigBallsConfigured = isBigBallsConfigured();
   const footballData =
     footballDataConfigured && resultsProvider === "football-data"
       ? await getFootballDataStatus()
       : null;
+  const bigBalls = bigBallsConfigured ? await getBigBallsStatus() : null;
 
   return NextResponse.json({
     active: active
@@ -50,14 +56,26 @@ export async function GET() {
     },
     results: {
       provider: resultsProvider,
-      configured: footballDataConfigured || searchConfigured,
-      online: resultsProvider === "football-data" ? Boolean(footballData?.ok) : searchOnline,
+      configured: footballDataConfigured || bigBallsConfigured || searchConfigured,
+      online:
+        resultsProvider === "football-data"
+          ? Boolean(footballData?.ok)
+          : resultsProvider === "big-balls"
+            ? Boolean(bigBalls?.ok)
+            : searchOnline,
       footballData: footballData
         ? {
             season: footballData.season,
             matchCount: footballData.matchCount,
             finishedCount: footballData.finishedCount,
             error: footballData.error,
+          }
+        : undefined,
+      bigBalls: bigBalls
+        ? {
+            matchCount: bigBalls.matchCount,
+            finishedCount: bigBalls.finishedCount,
+            error: bigBalls.error,
           }
         : undefined,
     },

@@ -4,6 +4,7 @@ import { appSettings } from "@/lib/db/schema";
 const KEYS = {
   results: "poller_results_at",
   news: "poller_news_at",
+  live_scores: "poller_live_scores_at",
 } as const;
 
 export type PollerKind = keyof typeof KEYS;
@@ -24,6 +25,7 @@ export function recordPollerRun(kind: PollerKind): void {
 export function getPollerStatus(): {
   lastResultsPollAt: string | null;
   lastNewsPollAt: string | null;
+  lastLiveScoresPollAt: string | null;
 } {
   const db = getDb();
   const rows = db.select().from(appSettings).all();
@@ -31,5 +33,6 @@ export function getPollerStatus(): {
   return {
     lastResultsPollAt: byKey.get(KEYS.results) ?? null,
     lastNewsPollAt: byKey.get(KEYS.news) ?? null,
+    lastLiveScoresPollAt: byKey.get(KEYS.live_scores) ?? null,
   };
 }

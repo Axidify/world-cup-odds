@@ -130,6 +130,15 @@ export function runMigrations() {
     );
     CREATE INDEX IF NOT EXISTS idx_bets_status ON bets(status);
     CREATE INDEX IF NOT EXISTS idx_bets_bettor ON bets(bettor_id);
+
+    CREATE TABLE IF NOT EXISTS live_scores (
+      match_id TEXT PRIMARY KEY,
+      home_score INTEGER NOT NULL,
+      away_score INTEGER NOT NULL,
+      status TEXT,
+      minute TEXT,
+      synced_at TEXT NOT NULL
+    );
   `);
 
   ensureColumn(db, "team_events", "severity", "severity TEXT");

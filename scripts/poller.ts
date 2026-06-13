@@ -13,20 +13,24 @@ async function main() {
   await refreshWorldFootballEloOnStartup();
 
   const { isFootballDataConfigured } = await import("@/lib/results/football-data");
+  const { isBigBallsConfigured } = await import("@/lib/results/big-balls");
   const { isSearchConfigured } = await import("@/lib/search/provider");
+  if (isBigBallsConfigured()) {
+    console.log("[poller] Live scores: Big Balls (?status=live, only while matches are on)");
+  }
   if (isFootballDataConfigured()) {
-    console.log("[poller] Official results via football-data.org (FINISHED matches only)");
+    console.log("[poller] Final results: football-data.org (FINISHED)");
+    if (isBigBallsConfigured()) {
+      console.log("[poller] Final results fallback: Big Balls (?status=finished)");
+    }
+  } else if (isBigBallsConfigured()) {
+    console.log("[poller] Final results: Big Balls (?status=finished)");
   } else if (!isSearchConfigured()) {
     console.warn(
-      "[poller] No results source — set FOOTBALL_DATA_API_TOKEN (recommended) or TAVILY_API_KEY.",
+      "[poller] No final results source — set FOOTBALL_DATA_API_TOKEN, BBS_API_KEY, or TAVILY_API_KEY.",
     );
   } else {
-    console.warn("[poller] Results via web search fallback — set FOOTBALL_DATA_API_TOKEN for reliable scores.");
-  }
-
-  const { isProviderReady } = await import("@/lib/ai/settings");
-  if (!isProviderReady()) {
-    console.warn("[poller] No LLM configured — news extraction will fail until LLM_PROVIDER is set.");
+    console.warn("[poller] Final results via web search — set a scores API for reliable sync.");
   }
 
   const intervalMin = Number(process.env.RESULTS_POLL_INTERVAL_MINUTES ?? 15);
@@ -35,14 +39,26 @@ async function main() {
   const { runResultsPollJob } = await import("@/lib/jobs/poll-results");
   const { runNewsPollJob } = await import("@/lib/jobs/poll-news");
   const { getResultsPollPlan } = await import("@/lib/jobs/poll-schedule");
+  const { runLiveScoresPollJob, getLiveScoresPollPlan } = await import(
+    "@/lib/jobs/poll-live-scores"
+  );
 
   const newsHours = Number(process.env.NEWS_POLL_INTERVAL_HOURS ?? 6);
   const newsCron = `0 */${Math.max(1, Math.min(newsHours, 23))} * * *`;
+  const liveIntervalSec = Number(process.env.LIVE_SCORES_POLL_INTERVAL_SECONDS ?? 60);
 
   console.log(
-    `[poller] Results poller schedule-aware (every ${intervalMin} min when matches need scores)`,
+    `[poller] Final results poller (every ${intervalMin} min when matches need FT scores)`,
+  );
+  console.log(
+    `[poller] Live scores poller (every ${liveIntervalSec}s while matches are live)`,
   );
   console.log(`[poller] Starting news poller (every ${newsHours} h)`);
+
+  const { isProviderReady } = await import("@/lib/ai/settings");
+  if (!isProviderReady()) {
+    console.warn("[poller] No LLM configured — news extraction will fail until LLM_PROVIDER is set.");
+  }
 
   const runResults = async (backfill = false) => {
     try {
@@ -66,7 +82,21 @@ async function main() {
     }
   };
 
+  const runLiveScores = async () => {
+    try {
+      const summary = await runLiveScoresPollJob();
+      if (summary.polled) {
+        console.log(
+          `[poller] live-scores: synced=${summary.synced} localLive=${summary.localLive}`,
+        );
+      }
+    } catch (err) {
+      console.error("[poller] live-scores job failed:", err);
+    }
+  };
+
   await runResults(isFootballDataConfigured());
+  await runLiveScores();
   await runNews();
 
   const { runStartupPipeline } = await import("@/lib/pipeline/auto-pipeline");
@@ -96,8 +126,19 @@ async function main() {
     }
   };
 
+  const scheduleLiveScoresLoop = async () => {
+    for (;;) {
+      const plan = getLiveScoresPollPlan();
+      if (plan.shouldPoll) {
+        await runLiveScores();
+      }
+      await sleep(plan.delayMs);
+    }
+  };
+
   cron.schedule(newsCron, () => void runNews());
   void scheduleResultsLoop();
+  void scheduleLiveScoresLoop();
   console.log("[poller] Scheduled. Press Ctrl+C to stop.");
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { useLiveScore } from "@/components/LiveScoresProvider";
 import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kickoff-highlight";
 import {
   formatLifecycleHint,
@@ -15,6 +16,7 @@ type StatusResponse = {
 };
 
 type Props = {
+  matchId: string;
   kickoffIso: string;
   venue: string;
   confirmed?: {
@@ -27,9 +29,17 @@ type Props = {
   awayName?: string;
 };
 
-export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayName }: Props) {
+export function MatchStatusCard({
+  matchId,
+  kickoffIso,
+  venue,
+  confirmed,
+  homeName,
+  awayName,
+}: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [poll, setPoll] = useState<StatusResponse["resultsPoll"] | null>(null);
+  const live = useLiveScore(matchId);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -62,6 +72,8 @@ export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayNa
   const lifecycle = getMatchLifecycle(kickoffIso, isConfirmed, now);
   const highlight = getKickoffHighlight(kickoffIso, lifecycle, now);
   const intervalMinutes = poll?.intervalMinutes ?? 15;
+  const liveScore =
+    live != null ? { home: live.homeScore, away: live.awayScore } : null;
 
   if (lifecycle === "confirmed" && confirmed && homeName && awayName) {
     return (
@@ -71,6 +83,23 @@ export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayNa
           {homeName} {confirmed.homeScore}–{confirmed.awayScore} {awayName}
           {confirmed.et ? " (aet)" : ""}
           {confirmed.pens ? " (pens)" : ""}
+        </p>
+      </Card>
+    );
+  }
+
+  if (lifecycle === "live" && live && homeName && awayName) {
+    return (
+      <Card className="border-loss/40 bg-loss/5 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-loss">Live</p>
+        <p className="mt-1 text-lg font-bold">
+          {homeName} {live.homeScore}–{live.awayScore} {awayName}
+          {live.minute ? (
+            <span className="ml-2 text-sm font-semibold text-text-muted">{live.minute}</span>
+          ) : null}
+        </p>
+        <p className="mt-2 text-xs text-text-muted">
+          Updated {new Date(live.syncedAt).toLocaleTimeString()} · Big Balls live feed
         </p>
       </Card>
     );
@@ -88,7 +117,7 @@ export function MatchStatusCard({ kickoffIso, venue, confirmed, homeName, awayNa
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Match status</p>
         <p className={`text-sm font-semibold ${lifecycle === "live" ? "text-loss" : "text-text"}`}>
-          {formatLifecycleLabelLocal(lifecycle, kickoffIso, now)}
+          {formatLifecycleLabelLocal(lifecycle, kickoffIso, now, undefined, liveScore)}
         </p>
       </div>
       <p className="mt-2 text-sm text-text-muted">{formatLifecycleHint(lifecycle, intervalMinutes)}</p>

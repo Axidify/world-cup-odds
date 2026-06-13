@@ -98,3 +98,12 @@ export const predictionLog = sqliteTable("prediction_log", {
   logLoss: real("log_loss"),
   createdAt: text("created_at").notNull(),
 });
+
+export const liveScores = sqliteTable("live_scores", {
+  matchId: text("match_id").primaryKey(),
+  homeScore: integer("home_score").notNull(),
+  awayScore: integer("away_score").notNull(),
+  status: text("status"),
+  minute: text("minute"),
+  syncedAt: text("synced_at").notNull(),
+});
