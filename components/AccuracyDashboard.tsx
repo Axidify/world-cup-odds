@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { AccuracySummary } from "@/lib/calibration/metrics";
-import { formatStageLabel } from "@/lib/calibration/metrics";
+import { formatStageLabel } from "@/lib/utils/match-label";
 import { Card } from "@/components/ui/Card";
 
 function StatCard({

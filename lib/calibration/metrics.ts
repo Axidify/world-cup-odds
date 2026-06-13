@@ -7,6 +7,7 @@ import { getPredictionForPair } from "@/lib/ai/predictions";
 import { fixtureProbabilitiesWithNews } from "@/lib/news/impact";
 import type { LLMProvider, Match, Prediction } from "@/lib/types";
 import { getResolvedMatch } from "@/lib/data/resolved";
+import { formatStageLabel } from "@/lib/utils/match-label";
 
 export type ActualOutcome = "home" | "draw" | "away";
 
@@ -56,20 +57,6 @@ export type AccuracySummary = {
     brier: number;
   }>;
 };
-
-const STAGE_LABELS: Record<string, string> = {
-  group: "Group stage",
-  r32: "Round of 32",
-  r16: "Round of 16",
-  qf: "Quarter-finals",
-  sf: "Semi-finals",
-  final: "Final",
-  third_place: "Third place",
-};
-
-export function formatStageLabel(stage: string): string {
-  return STAGE_LABELS[stage] ?? stage.replace(/_/g, " ");
-}
 
 function formatFavoritePick(predicted: StoredPredicted, match: Match): string {
   const fav = pickFavoriteOutcome(predicted, match.stage);
