@@ -108,10 +108,6 @@ export function BulkAnalyzePanel() {
   async function start(pin: string) {
     const runTotal = targets?.remaining ?? 0;
     setError(null);
-    setDialogMode(null);
-    setStarting(true);
-    setJob(optimisticJob(runTotal, targets));
-    scrollProgressIntoView();
     setLoading(true);
 
     try {
@@ -122,6 +118,11 @@ export function BulkAnalyzePanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start");
+
+      setDialogMode(null);
+      setStarting(true);
+      setJob(optimisticJob(runTotal, targets));
+      scrollProgressIntoView();
 
       setJob(data.job);
       if (data.job?.status === "running") {
@@ -212,7 +213,7 @@ export function BulkAnalyzePanel() {
         title="Analyze missing predictions"
         description="Runs LLM analysis for pairings without a fresh AI prediction (Elo seeds count as missing)."
         confirmLabel="Start analysis"
-        loading={loading && dialogMode === "start"}
+        loading={loading}
         error={error}
         onSubmit={start}
       />
