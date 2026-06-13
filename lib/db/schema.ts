@@ -18,6 +18,7 @@ export const predictions = sqliteTable(
     analysis: text("analysis"),
     isCalibrated: integer("is_calibrated").default(0),
     stale: integer("stale").default(0),
+    source: text("source").default("llm"),
     generatedAt: text("generated_at").notNull(),
   },
   (t) => [

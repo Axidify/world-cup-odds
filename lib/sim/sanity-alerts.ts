@@ -38,7 +38,7 @@ export function buildSanityAlerts(
       if (Math.abs(delta) >= 3 && (base > 3 || cur > 3)) {
         alerts.push({
           type: "news_shift",
-          message: `${name} champion % moved ${delta > 0 ? "+" : ""}${delta.toFixed(1)} pp vs base Elo model (${base.toFixed(1)}% → ${cur.toFixed(1)}%).`,
+          message: `${name} champion % moved ${delta > 0 ? "+" : ""}${delta.toFixed(1)} pp vs AI base (${base.toFixed(1)}% → ${cur.toFixed(1)}%).`,
           teamIds: [id],
         });
       }

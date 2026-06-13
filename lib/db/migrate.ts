@@ -144,8 +144,58 @@ export function runMigrations() {
   ensureColumn(db, "team_events", "severity", "severity TEXT");
   ensureColumn(db, "team_events", "key_player", "key_player INTEGER DEFAULT 0");
   ensureColumn(db, "simulation_cache", "extras", "extras TEXT");
+  ensureColumn(db, "predictions", "source", "source TEXT DEFAULT 'llm'");
+
+  backfillPredictionSources(db);
 
   db.close();
+}
+
+function backfillPredictionSources(db: Database.Database) {
+  const done = db
+    .prepare(`SELECT 1 FROM calibration_state WHERE key = 'prediction_source_backfill_v1'`)
+    .get();
+  if (done) return;
+
+  const rows = db
+    .prepare(
+      `SELECT cache_key, key_factors, analysis, source FROM predictions WHERE source IS NULL OR source = '' OR source = 'llm'`,
+    )
+    .all() as Array<{
+    cache_key: string;
+    key_factors: string | null;
+    analysis: string | null;
+    source: string | null;
+  }>;
+
+  const update = db.prepare(`UPDATE predictions SET source = ? WHERE cache_key = ?`);
+  for (const row of rows) {
+    if (row.source && row.source !== "llm") continue;
+    let factors: string[] = [];
+    try {
+      factors = row.key_factors ? (JSON.parse(row.key_factors) as string[]) : [];
+    } catch {
+      factors = [];
+    }
+    const joined = factors.join(" ");
+    let source = "llm";
+    if (
+      joined.includes("Tournament Elo seed") ||
+      joined.includes("World Football Elo seed")
+    ) {
+      source = "elo_seed";
+    }
+    if (source === "llm" && row.source === "llm") continue;
+    if (source !== row.source) {
+      update.run(source, row.cache_key);
+    }
+  }
+
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO calibration_state (key, value, updated_at) VALUES ('prediction_source_backfill_v1', '1', ?)
+     ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = excluded.updated_at`,
+  ).run(now);
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

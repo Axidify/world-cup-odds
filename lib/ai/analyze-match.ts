@@ -18,5 +18,8 @@ export async function analyzeMatch(
 
   const { home, away } = requireTeams(match.homeTeamId, match.awayTeamId);
   const userPrompt = buildMatchUserPrompt(match, home, away);
-  return analyzePairing(home, away, match.stage, userPrompt, options);
+  return analyzePairing(home, away, match.stage, userPrompt, {
+    ...options,
+    kickoffIso: match.date,
+  });
 }

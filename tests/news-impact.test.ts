@@ -100,6 +100,7 @@ describe("fixtureProbabilitiesWithNews", () => {
     analysis: null,
     isCalibrated: 0,
     stale: 0,
+    source: "llm" as const,
     generatedAt: "2026-06-01T00:00:00.000Z",
   };
 
@@ -135,6 +136,7 @@ describe("applyNewsImpactToStoredPrediction", () => {
       analysis: null,
       isCalibrated: 0,
       stale: 0,
+      source: "llm" as const,
       generatedAt: "2026-06-01T00:00:00.000Z",
     };
     const prev = process.env.NEWS_IMPACT_ENABLED;

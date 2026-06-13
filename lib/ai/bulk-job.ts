@@ -100,9 +100,8 @@ export function getBulkJobState(): BulkJobState {
 }
 
 export function isBulkJobRunning(): boolean {
-  const state = readStateRaw();
-  if (state.status !== "running") return false;
-  return Boolean(runningPromise) || state.status === "running";
+  reconcileOrphanedJob();
+  return readStateRaw().status === "running";
 }
 
 /** Clear persisted bulk job UI state (e.g. after switching LLM provider). */
@@ -116,7 +115,31 @@ export function resetBulkJobState(): BulkJobState {
 
 export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Promise<BulkJobState> {
   if (runningPromise) {
-    await runningPromise.catch(() => {});
+    await Promise.resolve(runningPromise).catch(() => {});
+  }
+
+  const current = readState();
+  if (current.status === "running") {
+    throw new Error("Bulk analyze is already running");
+  }
+
+  const provider = resolveActiveProvider();
+  if (!provider) {
+    throw new Error("No LLM provider is configured");
+  }
+
+  const refresh = options.refresh ?? false;
+  const queue = buildBulkAnalyzeQueue({ refresh, includeGaps: true });
+  return startBulkAnalyzeWithQueue(queue, { refresh });
+}
+
+/** Run a pre-built queue (e.g. stale re-analyze) in-process. */
+export async function startBulkAnalyzeWithQueue(
+  queue: BulkWorkItem[],
+  options: { refresh?: boolean } = {},
+): Promise<BulkJobState> {
+  if (runningPromise) {
+    await Promise.resolve(runningPromise).catch(() => {});
   }
 
   const current = readState();
@@ -131,7 +154,6 @@ export async function startBulkAnalyze(options: { refresh?: boolean } = {}): Pro
 
   const refresh = options.refresh ?? false;
   const targets = countBulkTargets(refresh);
-  const queue = buildBulkAnalyzeQueue({ refresh, includeGaps: true });
 
   if (queue.length === 0) {
     const done: BulkJobState = {

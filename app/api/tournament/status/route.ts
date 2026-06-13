@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getTeamMap } from "@/lib/data/load";
 import { getResolvedMatches } from "@/lib/data/resolved";
 import { getResultsPollPlan } from "@/lib/jobs/poll-schedule";
@@ -14,6 +15,7 @@ import { getPollerStatus } from "@/lib/ops/poller-heartbeat";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 import { isPipelineActive } from "@/lib/pipeline/auto-pipeline";
 import { getPipelineState } from "@/lib/pipeline/pipeline-state";
+import { getPredictionCoverage } from "@/lib/predictions/coverage";
 import { getDb } from "@/lib/db";
 import { resolveResultsProvider } from "@/lib/jobs/poll-results";
 
@@ -66,6 +68,9 @@ export async function GET() {
     return a.kickoff.localeCompare(b.kickoff);
   });
 
+  const provider = resolveActiveProvider();
+  const predictionCoverage = provider ? getPredictionCoverage(provider) : null;
+
   return NextResponse.json({
     resultsProvider: resolveResultsProvider(),
     simulation: simulation
@@ -94,5 +99,6 @@ export async function GET() {
       state: getPipelineState(),
       active: isPipelineActive(),
     },
+    predictionCoverage,
   });
 }

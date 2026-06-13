@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
-import type { LLMProvider, MatchPredictionView, Prediction } from "@/lib/types";
+import type { LLMProvider, MatchPredictionView, Prediction, PredictionSource } from "@/lib/types";
 import { getDb } from "@/lib/db";
 import { predictions } from "@/lib/db/schema";
-import { isPredictionExpired } from "./cache-ttl";
+import { inferPredictionSource } from "@/lib/predictions/source";
+import { lookupPredictionTiered } from "@/lib/predictions/lookup";
 import { buildCacheKey, sortTeamPair } from "./cache-key";
 import { resolveActiveProvider } from "./settings";
-import { getModelForProvider } from "./config";
 
 function rowToPrediction(row: typeof predictions.$inferSelect): Prediction {
+  const keyFactors = row.keyFactors ? (JSON.parse(row.keyFactors) as string[]) : [];
   return {
     cacheKey: row.cacheKey,
     teamA: row.teamA,
@@ -20,10 +21,15 @@ function rowToPrediction(row: typeof predictions.$inferSelect): Prediction {
     drawPct: row.drawPct,
     awayWinPct: row.awayWinPct,
     predictedScore: row.predictedScore,
-    keyFactors: row.keyFactors ? (JSON.parse(row.keyFactors) as string[]) : [],
+    keyFactors,
     analysis: row.analysis,
     isCalibrated: row.isCalibrated ?? 0,
     stale: row.stale ?? 0,
+    source: inferPredictionSource({
+      source: row.source,
+      keyFactors,
+      analysis: row.analysis,
+    }),
     generatedAt: row.generatedAt,
   };
 }
@@ -34,29 +40,6 @@ export function getPredictionByCacheKey(cacheKey: string): Prediction | null {
   return row ? rowToPrediction(row) : null;
 }
 
-const KNOCKOUT_ROUND_STAGES = new Set(["r32", "r16", "qf", "sf", "final", "third_place"]);
-
-function lookupPrediction(
-  homeTeamId: string,
-  awayTeamId: string,
-  stage: string,
-  provider: LLMProvider,
-): Prediction | null {
-  const model = getModelForProvider(provider);
-  const stages = [stage];
-  if (KNOCKOUT_ROUND_STAGES.has(stage) && stage !== "knockout") {
-    stages.push("knockout");
-  }
-  for (const s of stages) {
-    const cacheKey = buildCacheKey(homeTeamId, awayTeamId, s, provider, model);
-    const row = getPredictionByCacheKey(cacheKey);
-    if (!row) continue;
-    if (row.stale !== 1 && isPredictionExpired(row.generatedAt)) continue;
-    return row;
-  }
-  return null;
-}
-
 export function getPredictionForPair(
   homeTeamId: string,
   awayTeamId: string,
@@ -64,7 +47,10 @@ export function getPredictionForPair(
   provider = resolveActiveProvider() ?? undefined,
 ): Prediction | null {
   if (!provider) return null;
-  return lookupPrediction(homeTeamId, awayTeamId, stage, provider);
+  const hit = lookupPredictionTiered(homeTeamId, awayTeamId, stage, provider, {
+    allowEloFallback: false,
+  });
+  return hit?.prediction ?? null;
 }
 
 export function toMatchView(
@@ -72,6 +58,7 @@ export function toMatchView(
   homeTeamId: string,
   awayTeamId: string,
   fromCache: boolean,
+  tier?: "fresh" | "stale" | "elo_fallback",
 ): MatchPredictionView {
   const homeIsTeamA = prediction.teamA === homeTeamId;
   return {
@@ -85,7 +72,9 @@ export function toMatchView(
     provider: prediction.provider,
     model: prediction.model,
     generatedAt: prediction.generatedAt,
-    stale: prediction.stale === 1,
+    stale: tier === "stale" || prediction.stale === 1,
+    source: prediction.source,
+    tier: tier ?? (prediction.stale === 1 ? "stale" : "fresh"),
     fromCache,
   };
 }
@@ -103,6 +92,7 @@ export function savePrediction(
     predictedScore: string;
     keyFactors: string[];
     analysis: string;
+    source?: PredictionSource;
   },
 ): Prediction {
   const [teamA, teamB] = sortTeamPair(input.homeTeamId, input.awayTeamId);
@@ -114,6 +104,7 @@ export function savePrediction(
     input.provider as LLMProvider,
     input.model,
   );
+  const source = input.source ?? "llm";
 
   const record: Prediction = {
     cacheKey,
@@ -131,6 +122,7 @@ export function savePrediction(
     analysis: input.analysis,
     isCalibrated: 0,
     stale: 0,
+    source,
     generatedAt: new Date().toISOString(),
   };
 
@@ -152,6 +144,7 @@ export function savePrediction(
       analysis: record.analysis,
       isCalibrated: record.isCalibrated,
       stale: record.stale,
+      source: record.source,
       generatedAt: record.generatedAt,
     })
     .onConflictDoUpdate({
@@ -163,6 +156,7 @@ export function savePrediction(
         predictedScore: record.predictedScore,
         keyFactors: JSON.stringify(record.keyFactors),
         analysis: record.analysis,
+        source: record.source,
         stale: 0,
         generatedAt: record.generatedAt,
       },

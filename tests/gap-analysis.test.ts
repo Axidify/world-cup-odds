@@ -25,6 +25,7 @@ function makePred(teamA: string, teamB: string, stage: string): Prediction {
     analysis: null,
     isCalibrated: 0,
     stale: 0,
+    source: "llm" as const,
     generatedAt: new Date().toISOString(),
   };
 }

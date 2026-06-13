@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getResult, unconfirmResult } from "@/lib/results/store";
+import { getResult } from "@/lib/results/store";
+import { finalizeResultUnconfirmation } from "@/lib/results/on-confirm";
 import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
 import { getDb } from "@/lib/db";
 
@@ -39,7 +40,7 @@ export async function POST(
     return NextResponse.json({ error: "No result found for this match" }, { status: 404 });
   }
 
-  if (!unconfirmResult(matchId)) {
+  if (!finalizeResultUnconfirmation(matchId)) {
     return NextResponse.json({ error: "Result is not confirmed" }, { status: 400 });
   }
 

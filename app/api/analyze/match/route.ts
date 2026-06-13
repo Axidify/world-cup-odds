@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzeMatch, AnalyzeMatchError } from "@/lib/ai/analyze-match";
 import { isBulkJobRunning } from "@/lib/ai/bulk-job";
-import { getPredictionForPair, toMatchView } from "@/lib/ai/predictions";
-import { applyNewsImpactToView } from "@/lib/news/impact";
+import {
+  resolveFixtureProbabilities,
+  toMatchPredictionView,
+} from "@/lib/predictions/resolve-fixture-probs";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
@@ -38,15 +40,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ prediction: null });
   }
 
-  const cached = getPredictionForPair(match.homeTeamId, match.awayTeamId, match.stage);
-  if (!cached) return NextResponse.json({ prediction: null });
+  const resolved = resolveFixtureProbabilities(
+    match.homeTeamId,
+    match.awayTeamId,
+    match.stage,
+    { kickoffIso: match.date },
+  );
+  if (!resolved) return NextResponse.json({ prediction: null });
 
   return NextResponse.json({
-    prediction: applyNewsImpactToView(
-      toMatchView(cached, match.homeTeamId, match.awayTeamId, true),
-      match.homeTeamId,
-      match.awayTeamId,
-    ),
+    prediction: toMatchPredictionView(resolved, match.homeTeamId, match.awayTeamId, match.date),
   });
 }
 

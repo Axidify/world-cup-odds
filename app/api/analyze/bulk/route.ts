@@ -6,8 +6,9 @@ import {
   isBulkJobRunning,
   resetBulkJobState,
 } from "@/lib/ai/bulk-job";
+import { startBulkAnalyzeWithQueue } from "@/lib/ai/bulk-job";
 import { triggerBulkAnalyzeInProcess } from "@/lib/ai/trigger-bulk-analyze";
-import { countBulkTargets } from "@/lib/ai/preanalyze";
+import { buildStaleAnalyzeQueue, countBulkTargets } from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   refresh: z.boolean().optional(),
+  /** Re-analyze stale/expired LLM rows only (auto-pipeline). */
+  stale: z.boolean().optional(),
   pin: z.string().optional(),
 });
 
@@ -69,7 +72,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const job = await triggerBulkAnalyzeInProcess({ refresh: parsed.data.refresh ?? false });
+    const refresh = parsed.data.refresh ?? false;
+    const job = parsed.data.stale
+      ? await startBulkAnalyzeWithQueue(buildStaleAnalyzeQueue(), { refresh })
+      : await triggerBulkAnalyzeInProcess({ refresh });
     return NextResponse.json({ job, active: isBulkJobRunning() });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to start bulk analyze";

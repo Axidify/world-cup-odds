@@ -5,8 +5,10 @@ import { MatchAnalysis } from "@/components/MatchAnalysis";
 import { MatchStatusCard } from "@/components/MatchStatusCard";
 import { TeamNewsPanel } from "@/components/TeamNewsPanel";
 import { getEloRating } from "@/lib/calibration/elo";
-import { getPredictionForPair, toMatchView } from "@/lib/ai/predictions";
-import { applyNewsImpactToView } from "@/lib/news/impact";
+import {
+  resolveFixtureProbabilities,
+  toMatchPredictionView,
+} from "@/lib/predictions/resolve-fixture-probs";
 import { getBracketTemplate, getTeam } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getResult } from "@/lib/results/store";
@@ -48,10 +50,11 @@ export default async function MatchPage({
   const initialPrediction =
     home && away
       ? (() => {
-          const cached = getPredictionForPair(home.id, away.id, match.stage);
-          return cached
-            ? applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id)
-            : null;
+          const resolved = resolveFixtureProbabilities(home.id, away.id, match.stage, {
+            kickoffIso: match.date,
+          });
+          if (!resolved) return null;
+          return toMatchPredictionView(resolved, home.id, away.id, match.date);
         })()
       : null;
 

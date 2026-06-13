@@ -86,11 +86,13 @@ describe("prediction cache", () => {
     expect(hit?.stage).toBe("knockout");
   });
 
-  it("does not return expired non-stale predictions", () => {
+  it("returns expired LLM predictions for display lookup", () => {
     seedPrediction("bra", "mex", "group", {
       generatedAt: "2020-01-01T00:00:00.000Z",
     });
-    expect(getPredictionForPair("bra", "mex", "group", "vllm")).toBeNull();
+    const row = getPredictionForPair("bra", "mex", "group", "vllm");
+    expect(row).not.toBeNull();
+    expect(row?.source).toBe("llm");
   });
 
   it("still returns stale predictions for display lookup", () => {

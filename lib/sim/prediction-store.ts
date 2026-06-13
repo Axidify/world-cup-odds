@@ -1,47 +1,17 @@
-import { eq } from "drizzle-orm";
+import { sortTeamPair } from "@/lib/ai/cache-key";
 import type { LLMProvider, MissingPairing, Prediction } from "@/lib/types";
-import { getDb } from "@/lib/db";
-import { predictions } from "@/lib/db/schema";
-import { buildCacheKey, sortTeamPair } from "@/lib/ai/cache-key";
-import { isPredictionExpired } from "@/lib/ai/cache-ttl";
-import { getModelForProvider } from "@/lib/ai/config";
-import { KNOCKOUT_PRECACHE_STAGE } from "@/lib/ai/preanalyze";
 import { getEloMap } from "@/lib/calibration/elo";
 import { getFixtures } from "@/lib/data/load";
 import { applyNewsImpactToStoredPrediction, isNewsImpactEnabled } from "@/lib/news/impact";
-import {
-  buildRankFallbackPrediction,
-  isKnockoutFallbackStage,
-} from "@/lib/sim/rank-fallback-prediction";
-
-const KNOCKOUT_ROUND_STAGES = new Set(["r32", "r16", "qf", "sf", "final", "third_place"]);
+import { lookupPredictionTiered } from "@/lib/predictions/lookup";
+import { buildCacheKey } from "@/lib/ai/cache-key";
+import { getModelForProvider } from "@/lib/ai/config";
 
 export class MissingPredictionError extends Error {
   constructor(public missing: MissingPairing[]) {
     super(`Missing ${missing.length} prediction(s) for simulation`);
     this.name = "MissingPredictionError";
   }
-}
-
-function rowToPrediction(row: typeof predictions.$inferSelect): Prediction {
-  return {
-    cacheKey: row.cacheKey,
-    teamA: row.teamA,
-    teamB: row.teamB,
-    stage: row.stage,
-    isNeutral: row.isNeutral ?? 1,
-    provider: row.provider,
-    model: row.model,
-    homeWinPct: row.homeWinPct,
-    drawPct: row.drawPct,
-    awayWinPct: row.awayWinPct,
-    predictedScore: row.predictedScore,
-    keyFactors: row.keyFactors ? (JSON.parse(row.keyFactors) as string[]) : [],
-    analysis: row.analysis,
-    isCalibrated: row.isCalibrated ?? 0,
-    stale: row.stale ?? 0,
-    generatedAt: row.generatedAt,
-  };
 }
 
 export type PredictionStore = {
@@ -61,31 +31,10 @@ export function loadPredictionStore(
 ): PredictionStore {
   const applyNews = options.applyNewsImpact ?? isNewsImpactEnabled();
   const fixtureDateById = new Map(getFixtures().map((m) => [m.id, m.date]));
-  const model = getModelForProvider(provider);
-  const db = getDb();
-  const rows = db
-    .select()
-    .from(predictions)
-    .where(eq(predictions.provider, provider))
-    .all();
-
-  const byKey = new Map<string, Prediction>();
-  for (const row of rows) {
-    if (row.stale === 1) continue;
-    const pred = rowToPrediction(row);
-    if (isPredictionExpired(pred.generatedAt)) continue;
-    byKey.set(pred.cacheKey, pred);
-  }
-
-  const pendingMissing: MissingPairing[] = [];
   const eloByTeam = getEloMap();
   const newsAdjusted = new Map<string, Prediction>();
+  const pendingMissing: MissingPairing[] = [];
 
-  function lookupKey(home: string, away: string, stage: string) {
-    return buildCacheKey(home, away, stage, provider, model);
-  }
-
-  // Predictions are stored teamA-oriented, so apply news deltas the same way.
   function withNewsImpact(pred: Prediction, matchId?: string): Prediction {
     if (!applyNews) return pred;
     const kickoff = matchId ? fixtureDateById.get(matchId) : undefined;
@@ -99,19 +48,9 @@ export function loadPredictionStore(
   }
 
   function lookup(home: string, away: string, stage: string, matchId?: string): Prediction | undefined {
-    const stages = [stage];
-    if (KNOCKOUT_ROUND_STAGES.has(stage)) stages.push(KNOCKOUT_PRECACHE_STAGE);
-    for (const s of stages) {
-      const pred = byKey.get(lookupKey(home, away, s));
-      if (pred) return withNewsImpact(pred, matchId);
-    }
-    if (isKnockoutFallbackStage(stage)) {
-      return withNewsImpact(
-        buildRankFallbackPrediction(home, away, stage, provider, model, eloByTeam),
-        matchId,
-      );
-    }
-    return undefined;
+    const hit = lookupPredictionTiered(home, away, stage, provider, { eloByTeam });
+    if (!hit) return undefined;
+    return withNewsImpact(hit.prediction, matchId);
   }
 
   return {
@@ -166,6 +105,7 @@ export function createSyntheticPredictionStore(provider: LLMProvider): Predictio
         analysis: null,
         isCalibrated: 0,
         stale: 0,
+        source: "llm",
         generatedAt: new Date().toISOString(),
       };
     },

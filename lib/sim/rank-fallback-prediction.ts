@@ -7,6 +7,7 @@ import {
   predictedScoreFromProbs,
 } from "@/lib/calibration/elo-probabilities";
 import type { LLMProvider, Prediction } from "@/lib/types";
+import { ELO_FALLBACK_MARKER } from "@/lib/predictions/source";
 
 const KNOCKOUT_ROUND_STAGES = new Set(["r32", "r16", "qf", "sf", "final", "third_place"]);
 
@@ -45,10 +46,11 @@ export function buildRankFallbackPrediction(
     drawPct: probs.drawPct,
     awayWinPct: teamBWin,
     predictedScore: predictedScoreFromProbs(probs, eloHome, eloAway),
-    keyFactors: ["World Football Elo fallback"],
+    keyFactors: [ELO_FALLBACK_MARKER],
     analysis: null,
     isCalibrated: 0,
     stale: 0,
+    source: "elo_fallback",
     generatedAt: new Date().toISOString(),
   };
 }

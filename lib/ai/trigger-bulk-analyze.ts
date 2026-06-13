@@ -13,7 +13,9 @@ export function resolveAppBaseUrl(): string {
  * Start bulk analyze in the Next.js process.
  * Poller and other workers must use HTTP so in-memory job state stays in one place.
  */
-export async function triggerBulkAnalyze(options: { refresh?: boolean } = {}): Promise<BulkJobState | null> {
+export async function triggerBulkAnalyze(
+  options: { refresh?: boolean; stale?: boolean } = {},
+): Promise<BulkJobState | null> {
   if (isBulkJobRunning()) return null;
 
   const base = resolveAppBaseUrl();
@@ -21,7 +23,11 @@ export async function triggerBulkAnalyze(options: { refresh?: boolean } = {}): P
   const res = await fetch(`${base}/api/analyze/bulk`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh: options.refresh ?? false, pin }),
+    body: JSON.stringify({
+      refresh: options.refresh ?? false,
+      stale: options.stale ?? false,
+      pin,
+    }),
     signal: AbortSignal.timeout(15_000),
   });
 

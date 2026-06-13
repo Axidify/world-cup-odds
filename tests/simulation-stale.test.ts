@@ -90,6 +90,7 @@ describe("simulation stale", () => {
         analysis: null,
         isCalibrated: 0,
         stale: 0,
+        source: "llm" as const,
         generatedAt: "2026-06-11T12:00:00.000Z",
       })
       .run();

@@ -44,7 +44,7 @@ export default function ChampionPage() {
         {update.after
           ? ` · ${update.after.iterations.toLocaleString()} iterations · ${update.after.model}`
           : " — run simulation after match predictions are cached"}
-        {showBase ? " · Current includes news; Base is Elo model only" : ""}
+        {showBase ? " · Current includes news; Base is AI without news" : ""}
       </p>
 
       <ChampionOddsUpdate context={update} />

@@ -1,9 +1,10 @@
 import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
 import { getModelForProvider } from "@/lib/ai/config";
 import { triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
-import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
+import { buildBulkAnalyzeQueue, buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
 import { isProviderReady, resolveActiveProvider } from "@/lib/ai/settings";
 import { seedMissingPairingsFromElo } from "@/lib/calibration/seed-elo-predictions";
+import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/run-tournament";
@@ -38,6 +39,31 @@ async function waitForBulkJob(timeoutMs = 3_600_000): Promise<void> {
   }
 }
 
+async function ensureStaleReanalyzedIfConfigured(): Promise<boolean> {
+  const config = getPipelineConfig();
+  if (!config.reanalyzeStale) return false;
+
+  const provider = resolveActiveProvider();
+  if (!provider) return false;
+
+  const queue = buildStaleAnalyzeQueue();
+  if (queue.length === 0) return true;
+
+  console.log(`[pipeline] Re-analyzing ${queue.length} stale prediction(s)`);
+
+  if (isBulkJobRunning()) {
+    await waitForBulkJob();
+  }
+
+  if (!isBulkJobRunning()) {
+    writePipelineState({ status: "running", step: "analyze", trigger: "auto_stale" });
+    await triggerBulkAnalyze({ refresh: true, stale: true });
+  }
+
+  await waitForBulkJob();
+  return getBulkJobState().failed === 0;
+}
+
 async function ensurePredictionsIfConfigured(): Promise<boolean> {
   const config = getPipelineConfig();
   if (!config.analyzeMissing) return false;
@@ -47,6 +73,10 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
 
   const queue = buildBulkAnalyzeQueue({ refresh: false, includeGaps: true });
   if (queue.length === 0) return true;
+
+  if (isBulkJobRunning()) {
+    await waitForBulkJob();
+  }
 
   if (!isBulkJobRunning()) {
     writePipelineState({ status: "running", step: "analyze", trigger: "auto" });
@@ -66,8 +96,12 @@ function ensureEloSeedForMissing(
   if (!provider) return false;
 
   const model = getModelForProvider(provider);
-  const seeded = seedMissingPairingsFromElo(missing, provider, model);
-  console.log(`[pipeline] Elo-seeded ${seeded} missing prediction(s) from eloratings.net`);
+  const seeded = seedMissingPairingsFromElo(missing, provider, model, {
+    allowOverwrite: false,
+  });
+  if (seeded > 0) {
+    console.log(`[pipeline] Elo-seeded ${seeded} missing prediction(s) from tournament Elo`);
+  }
   return seeded > 0;
 }
 
@@ -106,15 +140,21 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
 
   try {
     const provider = resolveActiveProvider()!;
-    const store = loadPredictionStore(provider);
-    const missing = collectMissingPairings(store, provider);
+
+    await ensureStaleReanalyzedIfConfigured();
+
+    const confirmed = getConfirmedResults();
+    let store = loadPredictionStore(provider);
+    let missing = collectMissingPairings(store, provider, confirmed);
     if (missing.length > 0) {
-      const analyzed = await ensurePredictionsIfConfigured();
-      const stillMissing = analyzed ? [] : collectMissingPairings(store, provider);
-      if (stillMissing.length > 0) {
-        ensureEloSeedForMissing(stillMissing);
+      await ensurePredictionsIfConfigured();
+      store = loadPredictionStore(provider);
+      missing = collectMissingPairings(store, provider, confirmed);
+      if (missing.length > 0) {
+        ensureEloSeedForMissing(missing);
       }
-      const remaining = collectMissingPairings(loadPredictionStore(provider), provider);
+      store = loadPredictionStore(provider);
+      const remaining = collectMissingPairings(store, provider, confirmed);
       if (remaining.length > 0) {
         writePipelineState({
           status: "skipped",
@@ -199,9 +239,7 @@ export async function runStartupPipeline(): Promise<void> {
   const sim = getLatestSimulation();
   const stale = getSimulationStaleState();
 
-  if (config.analyzeMissing) {
-    await ensurePredictionsIfConfigured();
-  } else if (config.eloSeedMissing) {
+  if (!config.analyzeMissing && config.eloSeedMissing) {
     const provider = resolveActiveProvider();
     if (provider) {
       const reseedPredictions = envFlag("ELO_RESEED_PREDICTIONS", false);
@@ -210,11 +248,12 @@ export async function runStartupPipeline(): Promise<void> {
           "@/lib/calibration/seed-elo-predictions"
         );
         const model = getModelForProvider(provider);
-        const n = seedAllGroupFixturesFromElo(provider, model);
+        const n = seedAllGroupFixturesFromElo(provider, model, { allowOverwrite: true });
         console.log(`[pipeline] Elo-reseeded ${n} group predictions (ELO_RESEED_PREDICTIONS)`);
       }
+      const confirmed = getConfirmedResults();
       const store = loadPredictionStore(provider);
-      const missing = collectMissingPairings(store, provider);
+      const missing = collectMissingPairings(store, provider, confirmed);
       ensureEloSeedForMissing(missing);
     }
   }

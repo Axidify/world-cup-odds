@@ -1,8 +1,9 @@
-import { and, count, desc, eq } from "drizzle-orm";
-import type { ChampionOddsMap, PredictedPath, SimulationExtras, SimulationResult } from "@/lib/types";
+import { and, desc, eq } from "drizzle-orm";
+import type { ChampionOddsMap, LLMProvider, PredictedPath, SimulationExtras, SimulationResult } from "@/lib/types";
 import { getDb } from "@/lib/db";
 import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
+import { listStalePredictionRows } from "@/lib/predictions/lookup";
 import { countConfirmedSince, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
 
 function rowToSimulation(row: typeof simulationCache.$inferSelect): SimulationResult {
@@ -70,13 +71,7 @@ function getLatestPredictionAt(provider: string): string | null {
 }
 
 function hasStalePredictions(provider: string): boolean {
-  const db = getDb();
-  const row = db
-    .select({ n: count() })
-    .from(predictions)
-    .where(and(eq(predictions.provider, provider), eq(predictions.stale, 1)))
-    .get();
-  return (row?.n ?? 0) > 0;
+  return listStalePredictionRows(provider as LLMProvider).length > 0;
 }
 
 export type SimulationStaleState = {

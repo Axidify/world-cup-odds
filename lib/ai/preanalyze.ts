@@ -2,12 +2,13 @@ import { sortTeamPair } from "@/lib/ai/cache-key";
 import { isPredictionExpired } from "@/lib/ai/cache-ttl";
 import { getPredictionForPair } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
-import { getFixtures, getTeams } from "@/lib/data/load";
+import { getAllMatches, getFixtures, getTeams } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import type { MissingPairing } from "@/lib/types";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
+import { listStalePredictionRows } from "@/lib/predictions/lookup";
 import type { LLMProvider } from "@/lib/types";
 
 export type BulkWorkItem =
@@ -49,6 +50,24 @@ export function getTop24TeamIds(): string[] {
 
 function gapPairLabel(g: MissingPairing): string {
   return `${g.homeTeamId} vs ${g.awayTeamId} (${g.stage})`;
+}
+
+function isConfirmedKnockoutPairing(
+  teamA: string,
+  teamB: string,
+  confirmed: Map<string, unknown>,
+): boolean {
+  for (const matchId of confirmed.keys()) {
+    const m = getResolvedMatch(matchId);
+    if (!m || m.stage === "group") continue;
+    if (
+      (m.homeTeamId === teamA && m.awayTeamId === teamB) ||
+      (m.homeTeamId === teamB && m.awayTeamId === teamA)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Knockout bracket gaps carry resolved teams but fixtures may still be TBD — use pair analysis. */
@@ -123,7 +142,7 @@ export function buildBulkAnalyzeQueue(options: {
 
   if (options.includeGaps !== false) {
     const store = loadPredictionStore(provider);
-    const gaps = collectMissingPairings(store, provider);
+    const gaps = collectMissingPairings(store, provider, confirmed);
     for (const g of gaps) {
       const key = pairKey(g.homeTeamId, g.awayTeamId, g.stage);
       if (seen.has(key)) continue;
@@ -131,6 +150,66 @@ export function buildBulkAnalyzeQueue(options: {
       seen.add(key);
       queue.push(workItemForGap(g));
     }
+  }
+
+  return queue;
+}
+
+/** Pairings marked stale in DB — for re-analyze before auto-sim. */
+export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
+  const provider = resolveActiveProvider();
+  if (!provider) return [];
+
+  const staleRows = listStalePredictionRows(provider);
+  const confirmed = getConfirmedResults();
+  const seen = new Set<string>();
+  const queue: BulkWorkItem[] = [];
+
+  for (const row of staleRows) {
+    const key = pairKey(row.teamA, row.teamB, row.stage);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const groupMatch = getFixtures().find(
+      (m) =>
+        m.stage === "group" &&
+        m.homeTeamId !== "TBD" &&
+        m.awayTeamId !== "TBD" &&
+        ((m.homeTeamId === row.teamA && m.awayTeamId === row.teamB) ||
+          (m.homeTeamId === row.teamB && m.awayTeamId === row.teamA)),
+    );
+
+    if (groupMatch) {
+      if (confirmed.has(groupMatch.id)) continue;
+      queue.push({
+        kind: "match",
+        matchId: groupMatch.id,
+        label: `${row.teamA} vs ${row.teamB} (group, stale)`,
+      });
+      continue;
+    }
+
+    if (row.stage === KNOCKOUT_PRECACHE_STAGE) {
+      if (isConfirmedKnockoutPairing(row.teamA, row.teamB, confirmed)) continue;
+    } else {
+      const knockoutMatch = getAllMatches().find(
+        (m) =>
+          m.stage === row.stage &&
+          m.homeTeamId !== "TBD" &&
+          m.awayTeamId !== "TBD" &&
+          ((m.homeTeamId === row.teamA && m.awayTeamId === row.teamB) ||
+            (m.homeTeamId === row.teamB && m.awayTeamId === row.teamA)),
+      );
+      if (knockoutMatch && confirmed.has(knockoutMatch.id)) continue;
+    }
+
+    queue.push({
+      kind: "pair",
+      homeTeamId: row.teamA,
+      awayTeamId: row.teamB,
+      stage: row.stage,
+      label: `${row.teamA} vs ${row.teamB} (${row.stage}, stale)`,
+    });
   }
 
   return queue;

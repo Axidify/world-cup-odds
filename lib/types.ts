@@ -52,6 +52,8 @@ export type BracketTemplate = {
 
 export type LLMProvider = "vllm" | "openai" | "openrouter" | "gemini" | "anthropic";
 
+export type PredictionSource = "llm" | "elo_seed" | "elo_fallback";
+
 export type Prediction = {
   cacheKey: string;
   teamA: string;
@@ -68,6 +70,7 @@ export type Prediction = {
   analysis: string | null;
   isCalibrated: number;
   stale: number;
+  source: PredictionSource;
   generatedAt: string;
 };
 
@@ -157,6 +160,8 @@ export type MatchPredictionView = {
   model: string;
   generatedAt: string;
   stale: boolean;
+  source?: PredictionSource;
+  tier?: "fresh" | "stale" | "elo_fallback";
   fromCache: boolean;
   /** Set when probabilities were shifted by the deterministic news-impact model. */
   newsAdjusted?: boolean;

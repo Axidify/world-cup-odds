@@ -246,10 +246,13 @@ export function applyNewsImpactToView(
   view: MatchPredictionView,
   homeTeamId: string,
   awayTeamId: string,
+  kickoffIso?: string,
 ): MatchPredictionView {
   if (!isNewsImpactEnabled()) return view;
 
-  const { home, away } = getPairNewsImpact(homeTeamId, awayTeamId);
+  const { home, away } = kickoffIso
+    ? getPairNewsImpact(homeTeamId, awayTeamId, kickoffIso)
+    : getPairNewsImpact(homeTeamId, awayTeamId);
   const result = adjustProbabilities(
     view.homeWinPct,
     view.drawPct,

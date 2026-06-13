@@ -1,12 +1,16 @@
 import { getTeam } from "@/lib/data/load";
-import { applyNewsImpactToView } from "@/lib/news/impact";
 import type { MatchPredictionView, Team } from "@/lib/types";
 import type { LLMClient } from "./types";
 import { createLLMClient } from "./llm";
 import { isProviderReady } from "./settings";
 import { parseMatchPrediction } from "./parse-response";
 import { MATCH_ANALYSIS_SYSTEM_PROMPT } from "./prompts";
-import { getPredictionForPair, savePrediction, toMatchView } from "./predictions";
+import {
+  resolveFixtureProbabilities,
+  toMatchPredictionView,
+} from "@/lib/predictions/resolve-fixture-probs";
+import { savePrediction, toMatchView } from "./predictions";
+import { applyNewsImpactToView } from "@/lib/news/impact";
 
 export class AnalyzeMatchError extends Error {
   constructor(
@@ -56,7 +60,7 @@ export async function analyzePairing(
   away: Team,
   stage: string,
   userPrompt: string,
-  options: { refresh?: boolean; maxAttempts?: number } = {},
+  options: { refresh?: boolean; maxAttempts?: number; kickoffIso?: string } = {},
 ): Promise<MatchPredictionView> {
   if (!isProviderReady()) {
     throw new AnalyzeMatchError(
@@ -74,9 +78,12 @@ export async function analyzePairing(
   }
 
   if (!options.refresh) {
-    const cached = getPredictionForPair(home.id, away.id, stage, client.config.provider);
-    if (cached && cached.stale !== 1) {
-      return applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id);
+    const resolved = resolveFixtureProbabilities(home.id, away.id, stage, {
+      provider: client.config.provider,
+      kickoffIso: options.kickoffIso,
+    });
+    if (resolved && resolved.tier !== "elo_fallback") {
+      return toMatchPredictionView(resolved, home.id, away.id, options.kickoffIso);
     }
   }
 
@@ -96,9 +103,10 @@ export async function analyzePairing(
         ...parsed,
       });
       return applyNewsImpactToView(
-        toMatchView(saved, home.id, away.id, false),
+        toMatchView(saved, home.id, away.id, false, "fresh"),
         home.id,
         away.id,
+        options.kickoffIso,
       );
     } catch (err) {
       if (err instanceof AnalyzeMatchError) {

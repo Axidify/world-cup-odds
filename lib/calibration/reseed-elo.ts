@@ -7,6 +7,7 @@ import {
   seedMissingPairingsFromElo,
 } from "@/lib/calibration/seed-elo-predictions";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
+import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import { runTournamentSimulation } from "@/lib/sim/run-tournament";
 
@@ -35,10 +36,12 @@ export async function reseedPredictionsAndSimulate(): Promise<ReseedSummary> {
   }
 
   const model = getModelForProvider(provider);
-  const groupPredictionsSeeded = seedAllGroupFixturesFromElo(provider, model);
+  const groupPredictionsSeeded = seedAllGroupFixturesFromElo(provider, model, {
+    allowOverwrite: true,
+  });
 
   const store = loadPredictionStore(provider);
-  const missing = collectMissingPairings(store, provider);
+  const missing = collectMissingPairings(store, provider, getConfirmedResults());
   const knockoutGapsSeeded = missing.length
     ? seedMissingPairingsFromElo(missing, provider, model)
     : 0;

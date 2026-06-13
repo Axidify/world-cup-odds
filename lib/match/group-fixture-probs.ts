@@ -1,7 +1,6 @@
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getFixtures } from "@/lib/data/load";
-import { orientProbabilities } from "@/lib/sim/match-outcomes";
-import { loadPredictionStore } from "@/lib/sim/prediction-store";
+import { resolveFixtureProbabilities } from "@/lib/predictions/resolve-fixture-probs";
 
 export type FixtureWinProbs = { home: number; draw: number; away: number };
 
@@ -9,27 +8,21 @@ export function buildGroupFixtureProbs(): Record<string, FixtureWinProbs> {
   const provider = resolveActiveProvider();
   if (!provider) return {};
 
-  try {
-    const store = loadPredictionStore(provider);
-    const out: Record<string, FixtureWinProbs> = {};
-    for (const m of getFixtures()) {
-      if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
-      try {
-        const pred = store.get(m.homeTeamId, m.awayTeamId, "group", m.id);
-        const probs = orientProbabilities(pred, m.homeTeamId);
-        out[m.id] = {
-          home: Math.round(probs.homeWinPct),
-          draw: Math.round(probs.drawPct),
-          away: Math.round(probs.awayWinPct),
-        };
-      } catch {
-        // missing prediction
-      }
-    }
-    return out;
-  } catch {
-    return {};
+  const out: Record<string, FixtureWinProbs> = {};
+  for (const m of getFixtures()) {
+    if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
+    const resolved = resolveFixtureProbabilities(m.homeTeamId, m.awayTeamId, "group", {
+      provider,
+      kickoffIso: m.date,
+    });
+    if (!resolved) continue;
+    out[m.id] = {
+      home: Math.round(resolved.homeWinPct),
+      draw: Math.round(resolved.drawPct),
+      away: Math.round(resolved.awayWinPct),
+    };
   }
+  return out;
 }
 
 export function formatFixtureWinProbs(probs: FixtureWinProbs): string {

@@ -5,6 +5,7 @@ import { buildInMemoryPredictionStore } from "@/lib/sim/prediction-store";
 import { getFixtures } from "@/lib/data/load";
 import { runMonteCarlo } from "@/lib/simulator";
 import type { Prediction } from "@/lib/types";
+import { ELO_FALLBACK_MARKER } from "@/lib/predictions/source";
 
 function makePred(teamA: string, teamB: string, stage: string): Prediction {
   return {
@@ -23,6 +24,7 @@ function makePred(teamA: string, teamB: string, stage: string): Prediction {
     analysis: null,
     isCalibrated: 0,
     stale: 0,
+    source: "llm" as const,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -32,7 +34,7 @@ describe("rank-fallback-prediction", () => {
     const pred = buildRankFallbackPrediction("ned", "sco", "r32", "vllm", "test");
     const { homeWinPct, awayWinPct } = orientProbabilities(pred, "ned");
     expect(homeWinPct).toBeGreaterThan(awayWinPct);
-    expect(pred.keyFactors).toContain("World Football Elo fallback");
+    expect(pred.keyFactors).toContain(ELO_FALLBACK_MARKER);
   });
 
   it("lets Monte Carlo finish with only group-stage LLM predictions", () => {

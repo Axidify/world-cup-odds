@@ -46,6 +46,7 @@ describe("news fix verification", () => {
       analysis: null,
       isCalibrated: 0,
       stale: 0,
+      source: "llm" as const,
       generatedAt: "2026-06-01T00:00:00.000Z",
     };
     const homeId = "bra";
@@ -74,6 +75,7 @@ describe("news fix verification", () => {
       analysis: null,
       isCalibrated: 0,
       stale: 0,
+      source: "llm" as const,
       generatedAt: "2026-06-01T00:00:00.000Z",
     };
     const adjusted = applyNewsImpactToStoredPrediction(pred);
@@ -93,10 +95,7 @@ describe("news fix verification", () => {
 
     expect(matchSrc).toContain("analyzePairing(");
     expect(pairSrc).toContain("analyzePairing(");
-    expect(coreSrc).toContain(
-      "applyNewsImpactToView(toMatchView(cached, home.id, away.id, true), home.id, away.id)",
-    );
-    expect(coreSrc).toContain("toMatchView(saved, home.id, away.id, false)");
-    expect(coreSrc).toContain("applyNewsImpactToView(");
+    expect(coreSrc).toContain("resolveFixtureProbabilities");
+    expect(coreSrc).toContain("toMatchPredictionView");
   });
 });

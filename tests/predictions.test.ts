@@ -19,6 +19,7 @@ function makePrediction(overrides: Partial<Prediction> = {}): Prediction {
     analysis: "Brazil favored.",
     isCalibrated: 0,
     stale: 0,
+    source: "llm" as const,
     generatedAt: "2026-06-01T12:00:00.000Z",
     ...overrides,
   };

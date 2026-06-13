@@ -16,5 +16,6 @@ if (!provider) {
 }
 
 const model = getModelForProvider(provider);
-const seeded = seedAllGroupFixturesFromElo(provider, model);
-console.log(JSON.stringify({ seeded, provider, model }, null, 2));
+const force = process.env.FORCE === "1";
+const seeded = seedAllGroupFixturesFromElo(provider, model, { allowOverwrite: force });
+console.log(JSON.stringify({ seeded, provider, model, force }, null, 2));
