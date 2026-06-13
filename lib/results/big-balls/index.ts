@@ -5,6 +5,7 @@ export {
   isBigBallsConfigured,
   isFinishedStatus,
   isLiveStatus,
+  normalizeBigBallsMatchesResponse,
 } from "./client";
 export { pollResultsFromBigBalls } from "./poll";
 export {

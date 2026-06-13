@@ -7,7 +7,7 @@ import {
   parseFinishedBigBallsMatch,
 } from "@/lib/results/big-balls/sync";
 import { resolveTeamIdFromBigBalls } from "@/lib/results/big-balls/team";
-import { isFinishedStatus } from "@/lib/results/big-balls/client";
+import { isFinishedStatus, normalizeBigBallsMatchesResponse } from "@/lib/results/big-balls/client";
 import { resolveResultsProviderChain } from "@/lib/jobs/poll-results";
 
 const korCze: Match = {
@@ -36,17 +36,50 @@ describe("big-balls sync", () => {
   it("maps API team abbreviations to local ids", () => {
     expect(resolveTeamIdFromBigBalls({ abbr: "KOR" })).toBe("kor");
     expect(resolveTeamIdFromBigBalls("Czechia")).toBe("cze");
+    expect(resolveTeamIdFromBigBalls({ team_id: "MEX", team_name: "Mexico" })).toBe("mex");
+  });
+
+  it("normalizes nested WC2026 match list envelopes", () => {
+    const flat = normalizeBigBallsMatchesResponse({
+      data: [apiMatch()],
+    });
+    expect(flat).toHaveLength(1);
+
+    const nested = normalizeBigBallsMatchesResponse({
+      data: {
+        group_stage: [apiMatch()],
+        knockout: [apiMatch({ id: "bb_ko_1", status: "upcoming" })],
+      },
+    });
+    expect(nested).toHaveLength(2);
+
+    const matchesKey = normalizeBigBallsMatchesResponse({
+      data: { matches: [apiMatch()] },
+    });
+    expect(matchesKey).toHaveLength(1);
   });
 
   it("detects finished statuses", () => {
     expect(isFinishedStatus("finished")).toBe(true);
     expect(isFinishedStatus("FINISHED")).toBe(true);
+    expect(isFinishedStatus("final")).toBe(true);
     expect(isFinishedStatus("in_progress")).toBe(false);
   });
 
   it("links local fixtures to API matches", () => {
     expect(linksBigBallsMatchToLocal(apiMatch(), korCze)).toBe(true);
     expect(linksBigBallsMatchToLocal(apiMatch({ status: "in_progress" }), korCze)).toBe(true);
+    expect(
+      linksBigBallsMatchToLocal(
+        apiMatch({
+          home: undefined,
+          away: undefined,
+          home_team: { team_id: "KOR", team_name: "Korea Republic" },
+          away_team: { team_id: "CZE", team_name: "Czechia" },
+        }),
+        korCze,
+      ),
+    ).toBe(true);
   });
 
   it("parses only finished matches", () => {

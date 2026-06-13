@@ -9,15 +9,19 @@ export function resolveTeamIdFromBigBalls(
     return resolveTeamIdFromApi({ name: team });
   }
 
-  const tla = (team.abbr ?? team.short_name)?.trim().toUpperCase();
+  const tla = (team.abbr ?? team.short_name ?? team.team_id ?? team.id)?.trim().toUpperCase();
   if (tla) {
     const byTla = resolveTeamIdFromApi({ tla });
     if (byTla) return byTla;
+    if (tla.length === 3) {
+      const byLower = resolveTeamIdFromApi({ tla, name: team.name ?? team.team_name });
+      if (byLower) return byLower;
+    }
   }
 
   return resolveTeamIdFromApi({
-    name: team.name,
+    name: team.name ?? team.team_name,
     shortName: team.short_name,
-    tla: team.abbr ?? team.short_name,
+    tla: team.abbr ?? team.short_name ?? team.team_id ?? team.id,
   });
 }

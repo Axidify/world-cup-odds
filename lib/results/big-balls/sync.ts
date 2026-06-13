@@ -21,15 +21,20 @@ export function readBigBallsScores(
   return null;
 }
 
+function readSide(api: BigBallsMatch, side: "home" | "away") {
+  if (side === "home") return api.home ?? api.home_team ?? null;
+  return api.away ?? api.away_team ?? null;
+}
+
 function kickoffUtc(api: BigBallsMatch): string | null {
-  return api.kickoff_utc ?? api.kickoff ?? null;
+  return api.kickoff_utc ?? api.kickoff ?? api.start_time ?? null;
 }
 
 export function linksBigBallsMatchToLocal(api: BigBallsMatch, local: Match): boolean {
   if (local.homeTeamId === "TBD" || local.awayTeamId === "TBD") return false;
 
-  const homeId = resolveTeamIdFromBigBalls(api.home);
-  const awayId = resolveTeamIdFromBigBalls(api.away);
+  const homeId = resolveTeamIdFromBigBalls(readSide(api, "home"));
+  const awayId = resolveTeamIdFromBigBalls(readSide(api, "away"));
   if (!homeId || !awayId) return false;
   if (homeId !== local.homeTeamId || awayId !== local.awayTeamId) return false;
 

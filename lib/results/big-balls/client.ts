@@ -26,11 +26,64 @@ function authHeaders(): HeadersInit {
   };
 }
 
+function looksLikeMatch(value: unknown): value is BigBallsMatch {
+  if (!value || typeof value !== "object") return false;
+  const row = value as BigBallsMatch;
+  if (typeof row.id !== "string" || row.id.length === 0) return false;
+  return Boolean(
+    row.home ??
+      row.away ??
+      row.home_team ??
+      row.away_team ??
+      row.kickoff_utc ??
+      row.kickoff ??
+      row.start_time,
+  );
+}
+
+/** WC2026 list responses may be a flat array or nested under data.matches / group buckets. */
+export function normalizeBigBallsMatchesResponse(json: unknown): BigBallsMatch[] {
+  if (!json || typeof json !== "object") return [];
+
+  const root = json as BigBallsMatchesResponse;
+  if (Array.isArray(root)) {
+    return root.filter(looksLikeMatch);
+  }
+
+  if (Array.isArray(root.matches)) {
+    return root.matches.filter(looksLikeMatch);
+  }
+
+  const data = root.data;
+  if (Array.isArray(data)) {
+    return data.filter(looksLikeMatch);
+  }
+
+  if (data && typeof data === "object") {
+    const out: BigBallsMatch[] = [];
+    for (const value of Object.values(data)) {
+      if (Array.isArray(value)) {
+        out.push(...value.filter(looksLikeMatch));
+      }
+    }
+    if (out.length > 0) return out;
+  }
+
+  return [];
+}
+
+function mapStatusQuery(status?: "live" | "finished" | "upcoming"): string | undefined {
+  if (!status) return undefined;
+  if (status === "finished") return "final";
+  return status;
+}
+
 export async function fetchWc2026Matches(options: {
-  status?: "live" | "finished";
+  status?: "live" | "finished" | "upcoming";
 } = {}): Promise<BigBallsMatch[]> {
   const params = new URLSearchParams();
-  if (options.status) params.set("status", options.status);
+  const apiStatus = mapStatusQuery(options.status);
+  if (apiStatus) params.set("status", apiStatus);
   const query = params.toString();
   const url = `${baseUrl()}/v1/wc2026/matches${query ? `?${query}` : ""}`;
   const res = await fetch(url, {
@@ -45,7 +98,11 @@ export async function fetchWc2026Matches(options: {
   }
 
   const json = (await res.json()) as BigBallsMatchesResponse;
-  return json.data ?? [];
+  if (json.error?.message) {
+    throw new Error(`Big Balls: ${json.error.message}`);
+  }
+
+  return normalizeBigBallsMatchesResponse(json);
 }
 
 export async function getBigBallsStatus(): Promise<BigBallsStatus> {
@@ -78,7 +135,12 @@ export async function checkBigBallsHealth(): Promise<boolean> {
 
 export function isFinishedStatus(status: string | undefined): boolean {
   const normalized = (status ?? "").trim().toLowerCase();
-  return normalized === "finished" || normalized === "complete" || normalized === "final";
+  return (
+    normalized === "finished" ||
+    normalized === "final" ||
+    normalized === "complete" ||
+    normalized === "completed"
+  );
 }
 
 export function isLiveStatus(status: string | undefined): boolean {
