@@ -53,6 +53,7 @@ export default function BracketPage() {
       staleMessage={formatSimulationStaleMessage(staleState)}
       modalGroupStandings={simulation?.extras?.modalGroupStandings}
       representativePathNote={simulation?.extras?.representativePathNote}
+      championOdds={simulation?.championOdds}
     />
   );
 }

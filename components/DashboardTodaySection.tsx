@@ -2,20 +2,14 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Flag } from "@/components/Flag";
 import { getAllMatches, getTeam } from "@/lib/data/load";
+import { isDashboardComingUpMatch } from "@/lib/match/dashboard-upcoming";
 import { formatUtcDateTime } from "@/lib/utils/dates";
 
-function isTodayOrTomorrow(iso: string, now = Date.now()): boolean {
-  const kickoff = new Date(iso).getTime();
-  const dayMs = 86_400_000;
-  const startToday = new Date(now).setHours(0, 0, 0, 0);
-  const endTomorrow = startToday + dayMs * 2;
-  return kickoff >= startToday - dayMs && kickoff < endTomorrow;
-}
-
 export function DashboardTodaySection() {
+  const now = Date.now();
   const upcoming = getAllMatches()
     .filter((m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD")
-    .filter((m) => isTodayOrTomorrow(m.date))
+    .filter((m) => isDashboardComingUpMatch(m.date, now))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 8);
 

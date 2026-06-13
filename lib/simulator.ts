@@ -518,6 +518,6 @@ export function buildSimulationExtras(
     survivalOdds,
     modalGroupStandings,
     sanityAlerts: buildSanityAlerts(championOdds, championOddsBase, modalGroupStandings),
-    representativePathNote: `Knockout tree: most common path when ${leaderName} wins the tournament. Group tables below show the most frequent finisher per position across all ${iterations.toLocaleString()} simulations.`,
+    representativePathNote: `Knockout tree: the most common path among runs where ${leaderName} wins the tournament (${(championOdds[leaderTeamId] ?? 0).toFixed(1)}% champion odds). Group tables use the most frequent finisher per position across all ${iterations.toLocaleString()} runs. This is one example story — the chance of this exact bracket is far lower than ${leaderName}'s title odds.`,
   };
 }
