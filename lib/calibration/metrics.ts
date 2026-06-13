@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
-import type { Match, Prediction } from "@/lib/types";
-import { getResolvedMatch } from "@/lib/data/resolved";
+import { getTeam } from "@/lib/data/load";
 import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
 import { listProviderInfos } from "@/lib/ai/config";
 import { getPredictionForPair } from "@/lib/ai/predictions";
 import { fixtureProbabilitiesWithNews } from "@/lib/news/impact";
-import type { LLMProvider } from "@/lib/types";
+import type { LLMProvider, Match, Prediction } from "@/lib/types";
+import { getResolvedMatch } from "@/lib/data/resolved";
 
 export type ActualOutcome = "home" | "draw" | "away";
 
@@ -48,12 +48,46 @@ export type AccuracySummary = {
   calibrationBins: Array<{ bin: string; predicted: number; actual: number; count: number }>;
   worstMisses: Array<{
     matchId: string;
+    matchLabel: string;
     stage: string;
+    stageLabel: string;
     predicted: string;
     actual: string;
     brier: number;
   }>;
 };
+
+const STAGE_LABELS: Record<string, string> = {
+  group: "Group stage",
+  r32: "Round of 32",
+  r16: "Round of 16",
+  qf: "Quarter-finals",
+  sf: "Semi-finals",
+  final: "Final",
+  third_place: "Third place",
+};
+
+export function formatStageLabel(stage: string): string {
+  return STAGE_LABELS[stage] ?? stage.replace(/_/g, " ");
+}
+
+function formatFavoritePick(predicted: StoredPredicted, match: Match): string {
+  const fav = pickFavoriteOutcome(predicted, match.stage);
+  const home = getTeam(match.homeTeamId)?.name ?? "Home";
+  const away = getTeam(match.awayTeamId)?.name ?? "Away";
+  const pct = Math.round(predicted[fav]);
+  if (fav === "home") return `${home} to win (${pct}%)`;
+  if (fav === "away") return `${away} to win (${pct}%)`;
+  return `Draw (${pct}%)`;
+}
+
+function formatActualOutcome(outcome: ActualOutcome, match: Match): string {
+  const home = getTeam(match.homeTeamId)?.name ?? "Home";
+  const away = getTeam(match.awayTeamId)?.name ?? "Away";
+  if (outcome === "home") return `${home} won`;
+  if (outcome === "away") return `${away} won`;
+  return "Draw";
+}
 
 /** Returns null when a knockout winner cannot be determined (level score, no valid winnerTeamId). */
 export function deriveActualOutcome(
@@ -371,12 +405,26 @@ export function getAccuracySummary(): AccuracySummary {
     .slice(0, 10)
     .map((e) => {
       const match = getResolvedMatch(e.matchId);
-      const fav = pickFavoriteOutcome(e.predicted, match?.stage);
+      if (!match) {
+        return {
+          matchId: e.matchId,
+          matchLabel: e.matchId,
+          stage: "?",
+          stageLabel: "Unknown",
+          predicted: "—",
+          actual: e.actual,
+          brier: Math.round(e.brier * 1000) / 1000,
+        };
+      }
+      const home = getTeam(match.homeTeamId)?.name ?? "Home";
+      const away = getTeam(match.awayTeamId)?.name ?? "Away";
       return {
         matchId: e.matchId,
-        stage: match?.stage ?? "?",
-        predicted: `${fav} (${e.predicted.home}/${e.predicted.draw}/${e.predicted.away}%)`,
-        actual: e.actual,
+        matchLabel: `${home} vs ${away}`,
+        stage: match.stage,
+        stageLabel: formatStageLabel(match.stage),
+        predicted: formatFavoritePick(e.predicted, match),
+        actual: formatActualOutcome(e.actual, match),
         brier: Math.round(e.brier * 1000) / 1000,
       };
     });
