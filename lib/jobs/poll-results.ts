@@ -5,6 +5,7 @@ import { getResolvedMatches } from "@/lib/data/resolved";
 import {
   isFootballDataConfigured,
   pollResultsFromFootballData,
+  reconcileFootballDataConfirmedResults,
 } from "@/lib/results/football-data";
 import { snippetsAgreeOnScore } from "@/lib/results/score-agreement";
 import { isSearchConfigured, searchWeb } from "@/lib/search/provider";
@@ -169,6 +170,10 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
   const targets = getMatchesNeedingResults(options);
   const chain = resolveResultsProviderChain();
   let confirmed = 0;
+
+  if (isFootballDataConfigured()) {
+    confirmed += await reconcileFootballDataConfirmedResults();
+  }
   let synced = 0;
   let failed = 0;
   let remaining = targets;

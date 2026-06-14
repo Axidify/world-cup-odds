@@ -1,9 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { getDb } from "@/lib/db";
+import { actualResults } from "@/lib/db/schema";
 import { getDashboardLiveMatches } from "@/lib/match/dashboard-live";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
 import { MATCH_RESULTS_CHECK_MS } from "@/lib/match/lifecycle";
 
 describe("dashboard live matches", () => {
+  beforeEach(() => {
+    getDb().delete(actualResults).run();
+  });
   const haiScoKickoff = Date.parse("2026-06-14T01:00:00.000Z");
 
   it("treats kickoff + 30m as live lifecycle", () => {

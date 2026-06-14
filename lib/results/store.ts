@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Match } from "@/lib/types";
 import { getTeamMap } from "@/lib/data/load";
 import { getResolvedMatch } from "@/lib/data/resolved";
@@ -52,6 +52,16 @@ export function getResult(matchId: string): ResultRow | null {
 
 export function hasStoredResult(matchId: string): boolean {
   return getResult(matchId) !== null;
+}
+
+export function listAutoConfirmedResults(): ResultRow[] {
+  const db = getDb();
+  return db
+    .select()
+    .from(actualResults)
+    .where(and(eq(actualResults.confirmed, 1), eq(actualResults.confirmedBy, "auto")))
+    .all()
+    .map(rowToResult);
 }
 
 export function getPendingResults(): PendingResultView[] {

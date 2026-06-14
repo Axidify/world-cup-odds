@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { FootballDataMatch } from "@/lib/results/football-data/types";
 import {
+  enrichLinkedFinishedMatches,
   indexFinishedMatches,
+  indexFinishedMatchesWithListDetailAgreement,
   kickoffsAlign,
   linksApiMatchToLocal,
   parseFinishedApiMatch,
@@ -71,5 +73,71 @@ describe("football-data sync", () => {
       [korCze],
     );
     expect(index.get("grp-a-2")?.homeScore).toBe(2);
+  });
+
+  it("enriches linked finished matches from detail endpoint", async () => {
+    const qatSui: Match = {
+      id: "grp-b-2",
+      stage: "group",
+      group: "B",
+      homeTeamId: "qat",
+      awayTeamId: "sui",
+      date: "2026-06-13T19:00:00.000Z",
+      venue: "San Francisco",
+    };
+    const listRow = {
+      id: 2001,
+      utcDate: "2026-06-13T19:00:00.000Z",
+      status: "FINISHED" as const,
+      homeTeam: { name: "Qatar", tla: "QAT" },
+      awayTeam: { name: "Switzerland", tla: "SUI" },
+      score: { fullTime: { home: 0, away: 0 } },
+    };
+
+    const enriched = await enrichLinkedFinishedMatches(
+      [listRow],
+      [qatSui],
+      async () => ({
+        ...listRow,
+        score: { fullTime: { home: 1, away: 1 }, winner: "DRAW" as const },
+      }),
+    );
+
+    const index = indexFinishedMatches(enriched, [qatSui]);
+    expect(index.get("grp-b-2")?.homeScore).toBe(1);
+    expect(index.get("grp-b-2")?.awayScore).toBe(1);
+  });
+
+  it("flags list/detail score mismatches", () => {
+    const qatSui: Match = {
+      id: "grp-b-2",
+      stage: "group",
+      group: "B",
+      homeTeamId: "qat",
+      awayTeamId: "sui",
+      date: "2026-06-13T19:00:00.000Z",
+      venue: "San Francisco",
+    };
+    const listRow = {
+      id: 2001,
+      utcDate: "2026-06-13T19:00:00.000Z",
+      status: "FINISHED" as const,
+      homeTeam: { name: "Qatar", tla: "QAT" },
+      awayTeam: { name: "Switzerland", tla: "SUI" },
+      score: { fullTime: { home: 0, away: 0 } },
+    };
+    const detailRow = {
+      ...listRow,
+      score: { fullTime: { home: 1, away: 1 }, winner: "DRAW" as const },
+    };
+
+    const index = indexFinishedMatchesWithListDetailAgreement(
+      [listRow],
+      [detailRow],
+      [qatSui],
+    );
+
+    expect(index.get("grp-b-2")?.homeScore).toBe(1);
+    expect(index.get("grp-b-2")?.listDetailAgree).toBe(false);
   });
 });

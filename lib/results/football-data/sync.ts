@@ -88,6 +88,31 @@ export function indexFinishedMatches(
   return out;
 }
 
+/** Prefer detail scores; flag when WC list and match detail disagree. */
+export function indexFinishedMatchesWithListDetailAgreement(
+  listApiMatches: FootballDataMatch[],
+  detailApiMatches: FootballDataMatch[],
+  localMatches: Match[],
+): Map<string, ParsedFootballDataResult & { listDetailAgree: boolean }> {
+  const listIndex = indexFinishedMatches(listApiMatches, localMatches);
+  const detailIndex = indexFinishedMatches(detailApiMatches, localMatches);
+  const out = new Map<string, ParsedFootballDataResult & { listDetailAgree: boolean }>();
+
+  for (const local of localMatches) {
+    const parsed = detailIndex.get(local.id);
+    if (!parsed) continue;
+
+    const listParsed = listIndex.get(local.id);
+    const listDetailAgree =
+      listParsed == null ||
+      (listParsed.homeScore === parsed.homeScore && listParsed.awayScore === parsed.awayScore);
+
+    out.set(local.id, { ...parsed, listDetailAgree });
+  }
+
+  return out;
+}
+
 export function readLiveFootballDataScores(
   api: FootballDataMatch,
 ): { home: number; away: number } | null {
@@ -111,6 +136,44 @@ export function formatLiveFootballDataMinute(api: FootballDataMatch): string | n
   }
   if (api.status === "PAUSED") return "HT";
   return null;
+}
+
+/** Fetch match detail for FINISHED API rows linked to local fixtures (list scores can lag). */
+export async function enrichLinkedFinishedMatches(
+  apiMatches: FootballDataMatch[],
+  localMatches: Match[],
+  fetchDetail: (apiMatchId: number) => Promise<FootballDataMatch>,
+): Promise<FootballDataMatch[]> {
+  const finished = apiMatches.filter((m) => m.status === "FINISHED");
+  const linkedIds = new Set<number>();
+
+  for (const local of localMatches) {
+    const api = finished.find((candidate) => linksApiMatchToLocal(candidate, local));
+    if (api) linkedIds.add(api.id);
+  }
+
+  if (linkedIds.size === 0) return apiMatches;
+
+  const detailById = new Map<number, FootballDataMatch>();
+  await Promise.all(
+    [...linkedIds].map(async (id) => {
+      try {
+        detailById.set(id, await fetchDetail(id));
+      } catch {
+        // keep list row on detail failure
+      }
+    }),
+  );
+
+  return apiMatches.map((match) => {
+    const detail = detailById.get(match.id);
+    if (!detail) return match;
+    return {
+      ...match,
+      status: detail.status ?? match.status,
+      score: detail.score ?? match.score,
+    };
+  });
 }
 
 /** Fill minute from match detail when the WC list response omits it. */

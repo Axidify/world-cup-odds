@@ -9,11 +9,16 @@ export {
   isLiveFootballDataStatus,
 } from "@/lib/results/football-data/client";
 export type { FootballDataStatus } from "@/lib/results/football-data/client";
-export { pollResultsFromFootballData } from "@/lib/results/football-data/poll";
 export {
+  pollResultsFromFootballData,
+  reconcileFootballDataConfirmedResults,
+} from "@/lib/results/football-data/poll";
+export {
+  enrichLinkedFinishedMatches,
   enrichLiveFootballDataMatches,
   formatLiveFootballDataMinute,
   indexFinishedMatches,
+  indexFinishedMatchesWithListDetailAgreement,
   kickoffsAlign,
   linksApiMatchToLocal,
   mapLiveFootballDataToLocal,

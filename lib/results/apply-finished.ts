@@ -9,7 +9,19 @@ export type ParsedFinishedResult = {
   pens: boolean;
   winnerTeamId: string | null;
   source: string;
+  /** When false, list and detail endpoints disagreed — hold pending. */
+  listDetailAgree?: boolean;
 };
+
+/** Same score must appear on two consecutive polls before auto-confirm. */
+export function hasStablePendingScore(
+  matchId: string,
+  parsed: Pick<ParsedFinishedResult, "homeScore" | "awayScore">,
+): boolean {
+  const existing = getResult(matchId);
+  if (!existing || existing.confirmed) return false;
+  return existing.homeScore === parsed.homeScore && existing.awayScore === parsed.awayScore;
+}
 
 export function applyFinishedResultsToTargets(
   targets: Match[],
@@ -24,6 +36,8 @@ export function applyFinishedResultsToTargets(
     if (!parsed) continue;
 
     try {
+      const scoreStable = hasStablePendingScore(match.id, parsed);
+
       upsertPendingResult({
         matchId: match.id,
         homeScore: parsed.homeScore,
@@ -36,6 +50,19 @@ export function applyFinishedResultsToTargets(
 
       const row = getResult(match.id);
       if (!row || !isResultConfirmable(row)) {
+        synced += 1;
+        continue;
+      }
+
+      if (parsed.listDetailAgree === false) {
+        console.warn(
+          `[poller] results ${match.id}: list/detail score mismatch, holding pending`,
+        );
+        synced += 1;
+        continue;
+      }
+
+      if (!scoreStable) {
         synced += 1;
         continue;
       }
