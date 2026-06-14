@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { liveScores } from "@/lib/db/schema";
+import { getResult } from "@/lib/results/store";
 
 export type LiveScoreRow = {
   matchId: string;
@@ -71,16 +72,27 @@ export function listLiveScores(): LiveScoreRow[] {
   return db.select().from(liveScores).all().map(rowToLiveScore);
 }
 
-export function deleteLiveScoresExcept(matchIds: string[]): void {
+/** Drop live rows no longer in the feed, but keep snapshots until the result is confirmed. */
+export function pruneLiveScores(currentlyLiveMatchIds: string[]): void {
   const db = getDb();
-  const keep = new Set(matchIds);
+  const keep = new Set(currentlyLiveMatchIds);
   const rows = db.select({ matchId: liveScores.matchId }).from(liveScores).all();
-  const remove = rows.map((r) => r.matchId).filter((id) => !keep.has(id));
+
+  const remove = rows
+    .map((row) => row.matchId)
+    .filter((matchId) => {
+      if (keep.has(matchId)) return false;
+      return getResult(matchId)?.confirmed === true;
+    });
+
   if (remove.length === 0) return;
   db.delete(liveScores).where(inArray(liveScores.matchId, remove)).run();
 }
 
+export function deleteLiveScoresExcept(matchIds: string[]): void {
+  pruneLiveScores(matchIds);
+}
+
 export function clearLiveScores(): void {
-  const db = getDb();
-  db.delete(liveScores).run();
+  pruneLiveScores([]);
 }

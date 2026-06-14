@@ -11,6 +11,8 @@ export type ParsedFinishedResult = {
   source: string;
   /** When false, list and detail endpoints disagreed — hold pending. */
   listDetailAgree?: boolean;
+  /** Last in-play snapshot agrees with (or corrected) this FT score. */
+  corroboratedByLive?: boolean;
 };
 
 /** Same score must appear on two consecutive polls before auto-confirm. */
@@ -36,7 +38,8 @@ export function applyFinishedResultsToTargets(
     if (!parsed) continue;
 
     try {
-      const scoreStable = hasStablePendingScore(match.id, parsed);
+      const scoreStable =
+        hasStablePendingScore(match.id, parsed) || parsed.corroboratedByLive === true;
 
       upsertPendingResult({
         matchId: match.id,
@@ -54,7 +57,7 @@ export function applyFinishedResultsToTargets(
         continue;
       }
 
-      if (parsed.listDetailAgree === false) {
+      if (parsed.listDetailAgree === false && parsed.corroboratedByLive !== true) {
         console.warn(
           `[poller] results ${match.id}: list/detail score mismatch, holding pending`,
         );

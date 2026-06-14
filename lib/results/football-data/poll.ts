@@ -10,6 +10,7 @@ import {
   enrichLinkedFinishedMatches,
   indexFinishedMatchesWithListDetailAgreement,
 } from "@/lib/results/football-data/sync";
+import { applyLastLiveScoreToFinishedMap } from "@/lib/results/live-snapshot";
 import {
   finalizeResultConfirmation,
   finalizeResultUnconfirmation,
@@ -44,15 +45,16 @@ export async function pollResultsFromFootballData(
     enriched,
     targets,
   );
+  const withLive = applyLastLiveScoreToFinishedMap(finishedByMatchId);
   const finishedInApi = apiMatches.filter((m) => m.status === "FINISHED").length;
 
-  if (targets.length > 0 && finishedByMatchId.size === 0) {
+  if (targets.length > 0 && withLive.size === 0) {
     console.warn(
       `[poller] football-data: ${targets.length} target(s), ${finishedInApi} FINISHED in API, 0 linked to fixtures`,
     );
   }
 
-  return applyFinishedResultsToTargets(targets, finishedByMatchId);
+  return applyFinishedResultsToTargets(targets, withLive);
 }
 
 /** Re-fetch football-data scores for auto-confirmed results and fix stale goal lines. */
@@ -87,10 +89,11 @@ export async function reconcileFootballDataConfirmedResults(): Promise<number> {
     enriched,
     localMatches,
   );
+  const withLive = applyLastLiveScoreToFinishedMap(finishedByMatchId);
 
   let fixed = 0;
   for (const row of rows) {
-    const parsed = finishedByMatchId.get(row.matchId);
+    const parsed = withLive.get(row.matchId);
     if (!parsed) continue;
     if (row.homeScore === parsed.homeScore && row.awayScore === parsed.awayScore) continue;
 

@@ -123,4 +123,12 @@ describe("applyFinishedResultsToTargets", () => {
     expect(summary.confirmed).toBe(0);
     expect(getResult("grp-b-2")?.confirmed).toBe(false);
   });
+
+  it("confirms on first poll when last live score corroborates the FT line", () => {
+    const map = new Map([["grp-b-2", parsed({ corroboratedByLive: true })]]);
+    const summary = applyFinishedResultsToTargets([qatSui], map);
+
+    expect(summary.confirmed).toBe(1);
+    expect(getResult("grp-b-2")?.confirmed).toBe(true);
+  });
 });
