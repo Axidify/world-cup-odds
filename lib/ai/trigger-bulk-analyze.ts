@@ -1,10 +1,25 @@
 import type { BulkJobState } from "@/lib/ai/bulk-job";
 import { isBulkJobRunning, startBulkAnalyze } from "@/lib/ai/bulk-job";
 
+/** Normalize APP_URL — Railway sometimes omits the scheme. */
+export function normalizeAppBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, "");
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (
+    trimmed.startsWith("localhost") ||
+    trimmed.startsWith("127.0.0.1") ||
+    trimmed.startsWith("[::1]")
+  ) {
+    return `http://${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
 /** Base URL for the running Next.js app (poller must reach this). */
 export function resolveAppBaseUrl(): string {
   const fromEnv = process.env.APP_URL?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (fromEnv) return normalizeAppBaseUrl(fromEnv);
   const port = process.env.PORT?.trim() || "3000";
   return `http://127.0.0.1:${port}`;
 }
