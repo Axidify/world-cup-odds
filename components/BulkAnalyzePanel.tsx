@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toast";
 import type { BulkJobState } from "@/lib/ai/bulk-job";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { Button } from "@/components/ui/Button";
+import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type Targets = {
   total: number;
@@ -17,8 +18,6 @@ type Targets = {
   simulationMissing?: number;
   staleMissing?: number;
 };
-
-type DialogMode = "start" | "cancel" | null;
 
 function optimisticJob(total: number, targets: Targets | null): BulkJobState {
   return {
@@ -45,10 +44,18 @@ export function BulkAnalyzePanel() {
   const progressRef = useRef<HTMLDivElement>(null);
   const [job, setJob] = useState<BulkJobState | null>(null);
   const [targets, setTargets] = useState<Targets | null>(null);
-  const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+  const startPin = useAdminPinGate({
+    title: "Analyze missing predictions",
+    description:
+      "Runs LLM analysis for pairings without a fresh AI prediction (Elo seeds count as missing).",
+    confirmLabel: "Start analysis",
+  });
+  const cancelPin = useAdminPinGate({
+    title: "Cancel bulk analyze",
+    description: "Stop the in-progress analysis run.",
+    confirmLabel: "Cancel run",
+  });
 
   const scrollProgressIntoView = useCallback(() => {
     requestAnimationFrame(() => {
@@ -70,6 +77,7 @@ export function BulkAnalyzePanel() {
 
   const running = job?.status === "running";
   const showProgress = starting || running;
+  const pinLoading = startPin.loading || cancelPin.loading;
 
   useEffect(() => {
     void poll();
@@ -111,66 +119,50 @@ export function BulkAnalyzePanel() {
     return () => clearInterval(id);
   }, [showProgress, poll, router, toast]);
 
-  async function start(pin: string) {
+  const startAction: AdminPinAction = async (pin) => {
     const runTotal = targets?.remaining ?? 0;
-    setError(null);
-    setLoading(true);
+    const res = await fetch("/api/analyze/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh: false, pin }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data.error ?? "Failed to start" };
+    }
 
-    try {
-      const res = await fetch("/api/analyze/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh: false, pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to start");
+    setStarting(true);
+    setJob(optimisticJob(runTotal, targets));
+    scrollProgressIntoView();
 
-      setDialogMode(null);
-      setStarting(true);
-      setJob(optimisticJob(runTotal, targets));
+    setJob(data.job);
+    if (data.job?.status === "running") {
+      setStarting(false);
       scrollProgressIntoView();
-
-      setJob(data.job);
-      if (data.job?.status === "running") {
-        setStarting(false);
-        scrollProgressIntoView();
-      } else {
-        setStarting(false);
-        if (data.job?.status === "completed" && data.job.total === 0) {
-          toast("All predictions are up to date");
-        }
+    } else {
+      setStarting(false);
+      if (data.job?.status === "completed" && data.job.total === 0) {
+        toast("All predictions are up to date");
       }
-      void poll();
-    } catch (err) {
-      setStarting(false);
-      setJob(null);
-      setError(err instanceof Error ? err.message : "Failed to start");
-      setDialogMode("start");
-    } finally {
-      setLoading(false);
     }
-  }
+    void poll();
+    return { ok: true };
+  };
 
-  async function cancel(pin: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/analyze/bulk", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
-      setDialogMode(null);
-      setStarting(false);
-      await poll();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel");
-    } finally {
-      setLoading(false);
+  const cancelAction: AdminPinAction = async (pin) => {
+    const res = await fetch("/api/analyze/bulk", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: data.error ?? "Failed to cancel" };
     }
-  }
+    setStarting(false);
+    await poll();
+    return { ok: true };
+  };
 
   const pending = targets?.remaining ?? null;
   const simMissing = targets?.simulationMissing ?? null;
@@ -195,8 +187,8 @@ export function BulkAnalyzePanel() {
           <AnalysisProgress
             job={{ ...job, status: "running" }}
             onCancel={() => {
-              setError(null);
-              setDialogMode("cancel");
+              cancelPin.setError(null);
+              void cancelPin.request(cancelAction);
             }}
           />
         </div>
@@ -204,13 +196,13 @@ export function BulkAnalyzePanel() {
 
       <Button
         variant="primary"
-        disabled={loading || running || starting || pending === 0}
+        disabled={pinLoading || running || starting || pending === 0}
         onClick={() => {
-          setError(null);
-          setDialogMode("start");
+          startPin.setError(null);
+          void startPin.request(startAction);
         }}
       >
-        {loading && dialogMode === "start" ? (
+        {startPin.loading ? (
           <RefreshCw size={16} className="animate-spin" />
         ) : (
           <Play size={16} />
@@ -220,31 +212,8 @@ export function BulkAnalyzePanel() {
           : "All analyzed"}
       </Button>
 
-      <AdminPinDialog
-        open={dialogMode === "start"}
-        onClose={() => {
-          if (!loading && !starting) setDialogMode(null);
-        }}
-        title="Analyze missing predictions"
-        description="Runs LLM analysis for pairings without a fresh AI prediction (Elo seeds count as missing)."
-        confirmLabel="Start analysis"
-        loading={loading}
-        error={error}
-        onSubmit={start}
-      />
-
-      <AdminPinDialog
-        open={dialogMode === "cancel"}
-        onClose={() => {
-          if (!loading) setDialogMode(null);
-        }}
-        title="Cancel bulk analyze"
-        description="Stop the in-progress analysis run."
-        confirmLabel="Cancel run"
-        loading={loading}
-        error={error}
-        onSubmit={cancel}
-      />
+      <AdminPinDialog {...startPin.dialogProps} />
+      <AdminPinDialog {...cancelPin.dialogProps} />
 
       <p className="text-xs text-text-muted">
         Skips fixtures that already have a fresh LLM prediction. Elo-seeded rows and bracket-path

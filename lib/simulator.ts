@@ -425,38 +425,75 @@ function recordGroupHistogram(hist: GroupPosHistogram, standings: GroupStanding[
   }
 }
 
-export function buildModalGroupStandings(hist: GroupPosHistogram): Record<string, GroupStanding[]> {
-  const out: Record<string, GroupStanding[]> = {};
-  for (const [group, posMap] of hist) {
-    const rows: GroupStanding[] = [];
-    for (let position = 1; position <= 4; position += 1) {
-      const teamCounts = posMap.get(position);
-      if (!teamCounts || teamCounts.size === 0) continue;
-      let bestTeam = "";
-      let bestCount = -1;
-      for (const [teamId, count] of teamCounts) {
-        if (count > bestCount) {
-          bestCount = count;
-          bestTeam = teamId;
-        }
-      }
-      rows.push({
-        teamId: bestTeam,
-        group,
-        played: 3,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        goalDifference: 0,
-        points: position <= 2 ? 6 : position === 3 ? 3 : 0,
-        position,
-      });
+function modalPointsForPosition(position: number): number {
+  if (position <= 2) return 6;
+  if (position === 3) return 3;
+  return 0;
+}
+
+function modalStandingRow(group: string, teamId: string, position: number): GroupStanding {
+  return {
+    teamId,
+    group,
+    played: 3,
+    won: 0,
+    drawn: 0,
+    lost: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    points: modalPointsForPosition(position),
+    position,
+  };
+}
+
+/** Best team at this position not already assigned to another slot. */
+function pickModalTeamAtPosition(
+  teamCounts: Map<string, number> | undefined,
+  used: Set<string>,
+): string | null {
+  if (!teamCounts || teamCounts.size === 0) return null;
+  let bestTeam: string | null = null;
+  let bestCount = -1;
+  for (const [teamId, count] of teamCounts) {
+    if (used.has(teamId)) continue;
+    if (count > bestCount) {
+      bestCount = count;
+      bestTeam = teamId;
     }
-    rows.sort((a, b) => a.position - b.position);
-    out[group] = rows;
   }
+  return bestTeam;
+}
+
+export function buildModalGroupStandings(hist: GroupPosHistogram): Record<string, GroupStanding[]> {
+  const rosterByGroup = new Map(getGroups().map((g) => [g.group, g.teamIds]));
+  const out: Record<string, GroupStanding[]> = {};
+
+  for (const [group, posMap] of hist) {
+    const roster = rosterByGroup.get(group) ?? [];
+    const used = new Set<string>();
+    const rows: GroupStanding[] = [];
+
+    for (let position = 1; position <= 4; position += 1) {
+      const teamId =
+        pickModalTeamAtPosition(posMap.get(position), used) ??
+        roster.find((id) => !used.has(id)) ??
+        null;
+      if (!teamId) continue;
+      used.add(teamId);
+      rows.push(modalStandingRow(group, teamId, position));
+    }
+
+    for (const teamId of roster) {
+      if (used.has(teamId)) continue;
+      rows.push(modalStandingRow(group, teamId, rows.length + 1));
+      used.add(teamId);
+    }
+
+    rows.sort((a, b) => a.position - b.position);
+    out[group] = rows.slice(0, 4);
+  }
+
   return out;
 }
 

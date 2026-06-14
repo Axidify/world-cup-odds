@@ -6,6 +6,7 @@ import { Loader2, Trophy } from "lucide-react";
 import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type Props = {
   hasSimulation: boolean;
@@ -15,11 +16,14 @@ type Props = {
 export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [missingCount, setMissingCount] = useState<number | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const pinGate = useAdminPinGate({
+    title: hasSimulation ? "Re-run simulation" : "Run simulation",
+    description:
+      "Monte Carlo champion odds and bracket projections. Stale predictions are re-analyzed automatically before simulating.",
+    confirmLabel: hasSimulation ? "Re-run" : "Run simulation",
+  });
 
   useEffect(() => {
     let active = true;
@@ -38,49 +42,38 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
     };
   }, []);
 
-  async function runSimulation(pin: string) {
-    setError(null);
+  const runSimulation: AdminPinAction = async (pin) => {
     setMissingCount(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/analyze/tournament", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (Array.isArray(data.missing) && data.missing.length > 0) {
-          setMissingCount(data.missing.length);
-        }
-        throw new Error(data.error ?? "Simulation failed");
+    const res = await fetch("/api/analyze/tournament", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (Array.isArray(data.missing) && data.missing.length > 0) {
+        setMissingCount(data.missing.length);
       }
-
-      setDialogOpen(false);
-      toast(hasSimulation ? "Simulation updated" : "Simulation complete");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed");
-      setDialogOpen(true);
-      router.refresh();
-    } finally {
-      setLoading(false);
+      return { ok: false, status: res.status, error: data.error ?? "Simulation failed" };
     }
-  }
+
+    toast(hasSimulation ? "Simulation updated" : "Simulation complete");
+    router.refresh();
+    return { ok: true };
+  };
 
   return (
     <div className="space-y-2">
       <Button
         variant="primary"
         onClick={() => {
-          setError(null);
+          pinGate.setError(null);
           setMissingCount(null);
-          setDialogOpen(true);
+          void pinGate.request(runSimulation);
         }}
-        disabled={loading || bulkRunning}
+        disabled={pinGate.loading || bulkRunning}
       >
-        {loading && dialogOpen ? (
+        {pinGate.loading ? (
           <Loader2 size={16} className="animate-spin" />
         ) : (
           <Trophy size={16} />
@@ -89,16 +82,9 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
       </Button>
 
       <AdminPinDialog
-        open={dialogOpen}
-        onClose={() => {
-          if (!loading) setDialogOpen(false);
-        }}
+        {...pinGate.dialogProps}
         title={hasSimulation ? "Re-run simulation" : "Run simulation"}
-        description="Monte Carlo champion odds and bracket projections. Stale predictions are re-analyzed automatically before simulating."
         confirmLabel={hasSimulation ? "Re-run" : "Run simulation"}
-        loading={loading}
-        error={error}
-        onSubmit={runSimulation}
       />
 
       {lastRunAt && (
