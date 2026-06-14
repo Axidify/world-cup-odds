@@ -1,6 +1,11 @@
-import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
+import { getBulkJobState } from "@/lib/ai/bulk-job";
+import { ownsBulkJobWorkers } from "@/lib/ai/bulk-job-owner";
 import { getModelForProvider } from "@/lib/ai/config";
-import { triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
+import {
+  fetchBulkJobRemote,
+  isBulkJobActive,
+  triggerBulkAnalyze,
+} from "@/lib/ai/trigger-bulk-analyze";
 import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
 import { isProviderReady, resolveActiveProvider } from "@/lib/ai/settings";
 import { seedMissingPairingsFromElo } from "@/lib/calibration/seed-elo-predictions";
@@ -58,11 +63,11 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
   const queue = buildBulkAnalyzeQueue({ refresh: false, includeGaps: true });
   if (queue.length === 0) return true;
 
-  if (isBulkJobRunning()) {
+  if (await isBulkJobActive()) {
     await waitForBulkJobCompletion();
   }
 
-  if (!isBulkJobRunning()) {
+  if (!(await isBulkJobActive())) {
     writePipelineState({
       status: "running",
       step: "analyze",
@@ -74,7 +79,10 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
     await triggerBulkAnalyze({ refresh: false });
   }
   await waitForBulkJobCompletion();
-  return getBulkJobState().failed === 0;
+  const failed = ownsBulkJobWorkers()
+    ? getBulkJobState().failed
+    : (await fetchBulkJobRemote()).job.failed;
+  return failed === 0;
 }
 
 function ensureEloSeedForMissing(
@@ -111,7 +119,7 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
     return;
   }
 
-  if (isBulkJobRunning()) {
+  if (await isBulkJobActive()) {
     scheduleAutoSimulation(trigger);
     return;
   }

@@ -94,6 +94,17 @@ export function buildTop24Pairings(): Array<{ homeTeamId: string; awayTeamId: st
   return pairs;
 }
 
+function workItemKey(item: BulkWorkItem): string {
+  if (item.kind === "match") {
+    const m = getResolvedMatch(item.matchId);
+    if (m && m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD") {
+      return pairKey(m.homeTeamId, m.awayTeamId, m.stage);
+    }
+    return `match|${item.matchId}`;
+  }
+  return pairKey(item.homeTeamId, item.awayTeamId, item.stage);
+}
+
 export function buildBulkAnalyzeQueue(options: {
   refresh?: boolean;
   includeGaps?: boolean;
@@ -147,16 +158,11 @@ export function buildBulkAnalyzeQueue(options: {
     }
   }
 
-  if (!refresh) {
-    for (const item of buildStaleAnalyzeQueue()) {
-      const key =
-        item.kind === "match"
-          ? `match|${item.matchId}`
-          : pairKey(item.homeTeamId, item.awayTeamId, item.stage);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      queue.push(item);
-    }
+  for (const item of buildStaleAnalyzeQueue()) {
+    const key = workItemKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    queue.push(item);
   }
 
   return queue;
@@ -262,42 +268,21 @@ function computeBulkTargets(refresh = false): {
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
   const simulationMissing = countSimulationMissing();
   const staleMissing = refresh ? 0 : buildStaleAnalyzeQueue().length;
-  // What bulk analyze POST actually queues (includes bracket-path gaps + stale).
-  const queueRemaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
-  const remaining = Math.max(queueRemaining, simulationMissing, staleMissing);
+  const remaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
   return { total, cached, remaining, baselineMissing, simulationMissing, staleMissing };
 }
 
-let targetsCache: {
-  at: number;
-  refresh: boolean;
-  value: ReturnType<typeof computeBulkTargets>;
-} | null = null;
-const TARGETS_CACHE_MS = 30_000;
-
 export function countBulkTargetsLight(refresh = false): ReturnType<typeof computeBulkTargets> {
-  if (!refresh) {
-    const now = Date.now();
-    if (targetsCache && !targetsCache.refresh && now - targetsCache.at < TARGETS_CACHE_MS) {
-      return targetsCache.value;
-    }
-    const value = computeBulkTargets(false);
-    targetsCache = { at: now, refresh, value };
-    return value;
-  }
   return computeBulkTargets(refresh);
 }
 
 export function countBulkTargets(refresh = false): ReturnType<typeof computeBulkTargets> {
-  if (!refresh) {
-    return countBulkTargetsLight(false);
-  }
-  return computeBulkTargets(true);
+  return computeBulkTargets(refresh);
 }
 
 export function invalidateBulkTargetsCache(): void {
-  targetsCache = null;
+  // no-op — targets are always computed fresh
 }
 
 /** Cheap target snapshot while a bulk job is running (avoids gap-analysis on every poll). */

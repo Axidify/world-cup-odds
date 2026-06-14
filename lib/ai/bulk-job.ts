@@ -14,6 +14,7 @@ import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
 import { getLlmConcurrency, runPool } from "@/lib/utils/concurrency";
 import { logBulkLlmSummary, type BulkLlmSummary } from "@/lib/ai/llm-log";
+import { ownsBulkJobWorkers } from "@/lib/ai/bulk-job-owner";
 
 export type BulkJobStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 
@@ -61,6 +62,7 @@ let runId = 0;
 
 /** After dev hot-reload or process restart, DB may still say "running" with no workers. */
 function reconcileOrphanedJob(graceMs = 120_000): void {
+  if (!ownsBulkJobWorkers()) return;
   const state = readStateRaw();
   if (state.status !== "running" || runningPromise) return;
   const started = state.startedAt ? Date.parse(state.startedAt) : 0;
@@ -435,7 +437,9 @@ async function runBulkQueue(
 }
 
 try {
-  reconcileOrphanedJob(0);
+  if (ownsBulkJobWorkers()) {
+    reconcileOrphanedJob(0);
+  }
 } catch {
   // DB may not be ready during import in some build phases.
 }

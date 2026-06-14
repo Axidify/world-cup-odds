@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -6,10 +5,14 @@ import {
   getBulkJobState,
   isBulkJobRunning,
   resetBulkJobState,
-  runBulkAnalyzeAfterPost,
-  writeProvisionalBulkJob,
+  startBulkAnalyzeWithQueue,
 } from "@/lib/ai/bulk-job";
-import { bulkTargetsWhileRunning, countBulkTargetsLight } from "@/lib/ai/preanalyze";
+import {
+  buildBulkAnalyzeQueue,
+  buildStaleAnalyzeQueue,
+  bulkTargetsWhileRunning,
+  countBulkTargetsLight,
+} from "@/lib/ai/preanalyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { isAdminConfigured, verifyAdminPin } from "@/lib/utils/admin";
@@ -75,13 +78,19 @@ export async function POST(request: Request) {
   try {
     const refresh = parsed.data.refresh ?? false;
     const stale = parsed.data.stale ?? false;
-    const job = writeProvisionalBulkJob(refresh);
+    const queue = stale
+      ? buildStaleAnalyzeQueue()
+      : buildBulkAnalyzeQueue({ refresh, includeGaps: true });
 
-    after(() => {
-      void runBulkAnalyzeAfterPost({ refresh, stale });
+    const job = await startBulkAnalyzeWithQueue(queue, { refresh });
+    const targets =
+      job.status === "running" ? bulkTargetsWhileRunning(job) : countBulkTargetsLight(false);
+
+    return NextResponse.json({
+      job,
+      targets,
+      active: job.status === "running",
     });
-
-    return NextResponse.json({ job, active: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to start bulk analyze";
     const status = msg.includes("configured") ? 503 : 400;

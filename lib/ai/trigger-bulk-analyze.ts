@@ -1,5 +1,6 @@
 import type { BulkJobState } from "@/lib/ai/bulk-job";
 import { isBulkJobRunning, startBulkAnalyze } from "@/lib/ai/bulk-job";
+import { ownsBulkJobWorkers } from "@/lib/ai/bulk-job-owner";
 
 /** Normalize APP_URL — Railway sometimes omits the scheme. */
 export function normalizeAppBaseUrl(raw: string): string {
@@ -24,6 +25,34 @@ export function resolveAppBaseUrl(): string {
   return `http://127.0.0.1:${port}`;
 }
 
+export async function fetchBulkJobRemote(): Promise<{
+  active: boolean;
+  job: BulkJobState;
+}> {
+  const res = await fetch(`${resolveAppBaseUrl()}/api/analyze/bulk`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    throw new Error(`Bulk status failed (${res.status})`);
+  }
+  return res.json() as Promise<{ active: boolean; job: BulkJobState }>;
+}
+
+export async function isBulkJobActiveRemote(): Promise<boolean> {
+  try {
+    const data = await fetchBulkJobRemote();
+    return Boolean(data.active) || data.job?.status === "running";
+  } catch {
+    return false;
+  }
+}
+
+/** In-process on Next.js; HTTP status on poller / other workers. */
+export async function isBulkJobActive(): Promise<boolean> {
+  if (ownsBulkJobWorkers()) return isBulkJobRunning();
+  return isBulkJobActiveRemote();
+}
+
 /**
  * Start bulk analyze in the Next.js process.
  * Poller and other workers must use HTTP so in-memory job state stays in one place.
@@ -31,7 +60,7 @@ export function resolveAppBaseUrl(): string {
 export async function triggerBulkAnalyze(
   options: { refresh?: boolean; stale?: boolean } = {},
 ): Promise<BulkJobState | null> {
-  if (isBulkJobRunning()) return null;
+  if (await isBulkJobActive()) return null;
 
   const base = resolveAppBaseUrl();
   const pin = process.env.ADMIN_PIN?.trim();
@@ -43,7 +72,7 @@ export async function triggerBulkAnalyze(
       stale: options.stale ?? false,
       pin,
     }),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (res.status === 429) return null;

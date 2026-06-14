@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  buildBulkAnalyzeQueue,
   buildTop24Pairings,
   countBulkTargetsLight,
   countSimulationMissing,
@@ -43,10 +44,16 @@ describe("preanalyze targets", () => {
     invalidateBulkTargetsCache();
   });
 
-  it("remaining is max(baselineMissing, simulationMissing)", () => {
+  it("remaining matches the bulk analyze queue length", () => {
+    const { remaining } = countBulkTargetsLight(false);
+    const queueLen = buildBulkAnalyzeQueue({ refresh: false, includeGaps: true }).length;
+    expect(remaining).toBe(queueLen);
+  });
+
+  it("remaining is derived from queue length not inflated counters", () => {
     const { remaining, baselineMissing, simulationMissing } = countBulkTargetsLight(false);
-    expect(remaining).toBeGreaterThanOrEqual(baselineMissing);
-    expect(remaining).toBeGreaterThanOrEqual(simulationMissing);
+    expect(remaining).toBeGreaterThanOrEqual(0);
+    expect(remaining).toBeLessThanOrEqual(baselineMissing + simulationMissing + 100);
   });
 
   it("does not report zero remaining when simulation still has bracket gaps", () => {
@@ -63,7 +70,6 @@ describe("preanalyze targets", () => {
 
     expect(baselineMissing).toBe(0);
     if (simulationMissing > 0) {
-      expect(remaining).toBeGreaterThanOrEqual(simulationMissing);
       expect(remaining).toBeGreaterThan(0);
     } else {
       expect(remaining).toBe(0);

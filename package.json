@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/prestart.mjs && concurrently -k \"next start -H 0.0.0.0\" \"npm run poller\"",
+    "start": "node scripts/prestart.mjs && concurrently -k \"BULK_JOB_WORKER=1 next start -H 0.0.0.0\" \"npm run poller\"",
     "start:app": "next start",
     "lint": "eslint .",
     "test": "vitest run",

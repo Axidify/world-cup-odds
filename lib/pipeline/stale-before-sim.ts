@@ -1,6 +1,9 @@
-import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
-import { buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
-import { resolveAppBaseUrl, triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
+import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
+import {
+  fetchBulkJobRemote,
+  isBulkJobActive,
+  triggerBulkAnalyze,
+} from "@/lib/ai/trigger-bulk-analyze";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { writePipelineState } from "@/lib/pipeline/pipeline-state";
 
@@ -12,29 +15,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function isBulkJobActiveRemote(): Promise<boolean> {
-  try {
-    const res = await fetch(`${resolveAppBaseUrl()}/api/analyze/bulk`, {
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { active?: boolean; job?: { status?: string } };
-    return Boolean(data.active) || data.job?.status === "running";
-  } catch {
-    return false;
-  }
-}
-
-async function isAnyBulkJobActive(): Promise<boolean> {
-  if (isBulkJobRunning() || getBulkJobState().status === "running") return true;
-  return isBulkJobActiveRemote();
-}
-
-/** Wait for in-process or HTTP-triggered bulk analyze (poller + Next.js). */
+/** Wait for bulk analyze on the Next.js worker (poller polls over HTTP). */
 export async function waitForBulkJobCompletion(timeoutMs = BULK_WAIT_MS): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    if (!(await isAnyBulkJobActive())) return;
+    if (!(await isBulkJobActive())) return;
     await sleep(BULK_POLL_MS);
   }
   throw new Error("Timed out waiting for bulk analyze");
@@ -44,14 +29,14 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
   const provider = resolveActiveProvider();
   if (!provider) return true;
 
-  const queue = buildStaleAnalyzeQueue();
+  const queue = buildBulkAnalyzeQueue({ refresh: true, includeGaps: true });
   if (queue.length === 0) return true;
 
-  console.log(`[pipeline] Re-analyzing ${queue.length} stale prediction(s) before simulation`);
+  console.log(`[pipeline] Re-analyzing ${queue.length} stale/outdated prediction(s) before simulation`);
 
-  if (await isAnyBulkJobActive()) {
+  if (await isBulkJobActive()) {
     await waitForBulkJobCompletion();
-    return buildStaleAnalyzeQueue().length === 0;
+    return buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0;
   }
 
   writePipelineState({
@@ -63,9 +48,9 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
     error: null,
   });
 
-  const job = await triggerBulkAnalyze({ refresh: true, stale: true });
+  const job = await triggerBulkAnalyze({ refresh: true, stale: false });
   if (job === null) {
-    if (await isAnyBulkJobActive()) {
+    if (await isBulkJobActive()) {
       await waitForBulkJobCompletion();
     } else {
       return false;
@@ -74,8 +59,8 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
     await waitForBulkJobCompletion();
   }
 
-  const { failed, completed } = getBulkJobState();
-  if (failed > 0 && completed === 0) return false;
+  const { job: finalJob } = await fetchBulkJobRemote();
+  if (finalJob.failed > 0 && finalJob.completed === 0) return false;
   return true;
 }
 
@@ -87,11 +72,11 @@ export async function ensureStaleQueueClearedBeforeSim(trigger = "pre_sim"): Pro
   if (!resolveActiveProvider()) return true;
 
   for (let pass = 0; pass < MAX_STALE_PASSES; pass++) {
-    if (buildStaleAnalyzeQueue().length === 0) return true;
+    if (buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0) return true;
     const passTrigger = pass === 0 ? trigger : `${trigger}_retry_${pass}`;
     const ok = await runStaleReanalyzePass(passTrigger);
     if (!ok) return false;
   }
 
-  return buildStaleAnalyzeQueue().length === 0;
+  return buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0;
 }
