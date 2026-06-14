@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   buildBulkAnalyzeQueue,
+  buildStaleAnalyzeQueue,
   buildTop24Pairings,
   countBulkTargetsLight,
   countSimulationMissing,
@@ -103,6 +104,61 @@ describe("preanalyze targets", () => {
     const { remaining, staleMissing } = countBulkTargetsLight(false);
     expect(staleMissing).toBeGreaterThan(0);
     expect(remaining).toBeGreaterThan(0);
+  });
+
+  it("routes stale knockout precache rows through pair analyze, not group match", () => {
+    const fixture = getFixtures().find((m) => m.id === "grp-b-1");
+    expect(fixture).toBeTruthy();
+
+    savePrediction({
+      homeTeamId: fixture!.homeTeamId,
+      awayTeamId: fixture!.awayTeamId,
+      stage: "group",
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 50,
+      drawPct: 25,
+      awayWinPct: 25,
+      predictedScore: "1-0",
+      keyFactors: [],
+      analysis: "fresh group",
+      source: "llm",
+    });
+    savePrediction({
+      homeTeamId: fixture!.homeTeamId,
+      awayTeamId: fixture!.awayTeamId,
+      stage: KNOCKOUT_PRECACHE_STAGE,
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 52,
+      drawPct: 24,
+      awayWinPct: 24,
+      predictedScore: "2-1",
+      keyFactors: [],
+      analysis: "stale knockout",
+      source: "llm",
+    });
+    const db = getDb();
+    const koRow = db
+      .select()
+      .from(predictions)
+      .where(eq(predictions.stage, KNOCKOUT_PRECACHE_STAGE))
+      .get();
+    db.update(predictions).set({ stale: 1 }).where(eq(predictions.cacheKey, koRow!.cacheKey)).run();
+    invalidateBulkTargetsCache();
+
+    const queue = buildStaleAnalyzeQueue();
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toMatchObject({
+      kind: "pair",
+      stage: KNOCKOUT_PRECACHE_STAGE,
+      needsRefresh: true,
+    });
+    if (queue[0].kind === "pair") {
+      expect([queue[0].homeTeamId, queue[0].awayTeamId].sort()).toEqual(
+        [fixture!.homeTeamId, fixture!.awayTeamId].sort(),
+      );
+    }
   });
 
   it("ignores stale rows from retired models when a fresh active-model row exists", () => {
