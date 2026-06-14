@@ -1,63 +1,38 @@
-import Link from "next/link";
-import { Card } from "@/components/ui/Card";
-import { Flag } from "@/components/Flag";
-import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction";
-import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { getAllMatches, getTeam } from "@/lib/data/load";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
-import { isDashboardComingUpMatch } from "@/lib/match/dashboard-upcoming";
-import { formatLocalDateTime } from "@/lib/utils/dates";
+import {
+  DashboardTodaySectionClient,
+  type DashboardUpcomingItem,
+} from "@/components/DashboardTodaySectionClient";
+
+/** Wide enough to include today/tomorrow in any viewer timezone before client filter. */
+const COMING_UP_HORIZON_MS = 48 * 60 * 60 * 1000;
 
 export function DashboardTodaySection() {
   const now = Date.now();
-  const upcoming = getAllMatches()
-    .filter((m) => m.homeTeamId !== "TBD" && m.awayTeamId !== "TBD")
-    .filter((m) => isDashboardComingUpMatch(m.date, now))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 8);
+  const horizonEnd = now + COMING_UP_HORIZON_MS;
 
-  if (upcoming.length === 0) return null;
+  const candidates: DashboardUpcomingItem[] = [];
 
-  return (
-    <Card className="p-5">
-      <h2 className="font-[family-name:var(--font-archivo)] text-base font-bold">Coming up</h2>
-      <p className="mt-1 text-xs text-text-muted">Today and tomorrow</p>
-      <ul className="mt-4 space-y-2">
-        {upcoming.map((m) => {
-          const home = getTeam(m.homeTeamId);
-          const away = getTeam(m.awayTeamId);
-          if (!home || !away) return null;
-          const probs = resolveFixtureWinProbs(m.homeTeamId, m.awayTeamId, m.stage, m.date);
-          return (
-            <li key={m.id}>
-              <Link
-                href={`/match/${m.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-2"
-              >
-                <span className="flex min-w-0 items-center gap-2 font-semibold">
-                  <Flag code={home.flagCode} alt={home.name} size="sm" />
-                  {home.name}
-                  <span className="text-text-muted">vs</span>
-                  <Flag code={away.flagCode} alt={away.name} size="sm" />
-                  {away.name}
-                </span>
-                <span className="flex flex-wrap items-center justify-end gap-3">
-                  <DashboardMatchPrediction
-                    probs={probs}
-                    homeLabel={home.name}
-                    awayLabel={away.name}
-                  />
-                  <LiveMatchBadge matchId={m.id} kickoffIso={m.date} />
-                  <span className="num text-xs text-text-muted" suppressHydrationWarning>
-                    {formatLocalDateTime(m.date)}
-                    {m.group ? ` · Gp ${m.group}` : ""}
-                  </span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
+  for (const m of getAllMatches()) {
+    if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
+
+    const kickoffMs = new Date(m.date).getTime();
+    if (kickoffMs <= now || kickoffMs > horizonEnd) continue;
+
+    const home = getTeam(m.homeTeamId);
+    const away = getTeam(m.awayTeamId);
+    if (!home || !away) continue;
+
+    candidates.push({
+      id: m.id,
+      date: m.date,
+      group: m.group,
+      home: { name: home.name, flagCode: home.flagCode },
+      away: { name: away.name, flagCode: away.flagCode },
+      probs: resolveFixtureWinProbs(m.homeTeamId, m.awayTeamId, m.stage, m.date),
+    });
+  }
+
+  return <DashboardTodaySectionClient candidates={candidates} />;
 }
