@@ -10,6 +10,7 @@ import {
   formatLifecycleLabelLocal,
   getMatchLifecycle,
 } from "@/lib/match/lifecycle";
+import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
 import { formatLocalDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
 
 type StatusResponse = {
@@ -116,6 +117,7 @@ export function MatchStatusCard({
   const highlight = getKickoffHighlight(kickoffIso, lifecycle, now);
   const intervalMinutes = poll?.intervalMinutes ?? 15;
   const liveScore = live != null ? { home: live.homeScore, away: live.awayScore } : null;
+  const minuteLabel = formatLiveMinuteDisplay(live, kickoffIso, now);
 
   const hasTeams = Boolean(home && away);
   const showScore =
@@ -151,8 +153,8 @@ export function MatchStatusCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={`text-xs font-semibold uppercase tracking-wider ${statusTone}`}>
           {statusLabel}
-          {lifecycle === "live" && live?.minute ? (
-            <span className="ml-1.5 normal-case tracking-normal text-text">· {live.minute}</span>
+          {lifecycle === "live" && minuteLabel ? (
+            <span className="ml-1.5 normal-case tracking-normal text-text">· {minuteLabel}</span>
           ) : null}
           {lifecycle === "confirmed" && confirmed?.et ? (
             <span className="ml-1.5 font-normal normal-case tracking-normal">· AET</span>

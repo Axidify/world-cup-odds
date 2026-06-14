@@ -1,5 +1,7 @@
 import { listMatchesInLiveWindow, msUntilNextLiveWindow } from "@/lib/match/live-window";
 import {
+  enrichLiveFootballDataMatches,
+  fetchFootballDataMatch,
   fetchLiveWorldCupMatches,
   isFootballDataConfigured,
   mapLiveFootballDataToLocal,
@@ -50,7 +52,8 @@ export async function runLiveScoresPollJob(now = Date.now()): Promise<{
     return { polled: true, synced: 0, localLive: localLive.length, configured: true };
   }
 
-  const mapped = mapLiveFootballDataToLocal(apiMatches, localLive);
+  const enriched = await enrichLiveFootballDataMatches(apiMatches, fetchFootballDataMatch);
+  const mapped = mapLiveFootballDataToLocal(enriched, localLive);
   for (const row of mapped) {
     upsertLiveScore(row);
   }

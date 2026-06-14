@@ -102,9 +102,43 @@ export function readLiveFootballDataScores(
 }
 
 export function formatLiveFootballDataMinute(api: FootballDataMatch): string | null {
-  if (api.minute != null && Number.isFinite(api.minute)) return String(api.minute);
+  if (api.minute != null && Number.isFinite(api.minute)) {
+    const injury =
+      api.injuryTime != null && Number.isFinite(api.injuryTime) && api.injuryTime > 0
+        ? `+${api.injuryTime}`
+        : "";
+    return `${api.minute}${injury}`;
+  }
   if (api.status === "PAUSED") return "HT";
   return null;
+}
+
+/** Fill minute from match detail when the WC list response omits it. */
+export async function enrichLiveFootballDataMatches(
+  matches: FootballDataMatch[],
+  fetchDetail: (apiMatchId: number) => Promise<FootballDataMatch>,
+): Promise<FootballDataMatch[]> {
+  return Promise.all(
+    matches.map(async (match) => {
+      if (formatLiveFootballDataMinute(match) != null) return match;
+      if (match.status !== "IN_PLAY" && match.status !== "LIVE" && match.status !== "PAUSED") {
+        return match;
+      }
+
+      try {
+        const detail = await fetchDetail(match.id);
+        return {
+          ...match,
+          status: detail.status ?? match.status,
+          minute: detail.minute ?? match.minute,
+          injuryTime: detail.injuryTime ?? match.injuryTime,
+          score: detail.score ?? match.score,
+        };
+      } catch {
+        return match;
+      }
+    }),
+  );
 }
 
 export function mapLiveFootballDataToLocal(

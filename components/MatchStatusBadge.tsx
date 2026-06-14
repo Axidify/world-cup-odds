@@ -11,6 +11,7 @@ import {
   type MatchLifecycle,
 } from "@/lib/match/lifecycle";
 import { formatUpcomingKickoffCompact } from "@/lib/utils/dates";
+import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
 import { useLiveScore } from "@/components/LiveScoresProvider";
 
 type ScoreLine = { homeGoals: number; awayGoals: number };
@@ -54,6 +55,7 @@ export function MatchStatusBadge({
   const lifecycle = getMatchLifecycle(kickoffIso, Boolean(confirmed), now);
   const liveScore =
     live != null ? { home: live.homeScore, away: live.awayScore } : null;
+  const minuteLabel = formatLiveMinuteDisplay(live, kickoffIso, now);
 
   if (lifecycle === "confirmed" && confirmed) {
     return (
@@ -72,9 +74,9 @@ export function MatchStatusBadge({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-loss" />
         </span>
         {liveScore.home}–{liveScore.away}
-        {live?.minute ? (
+        {minuteLabel ? (
           <span className="text-[10px] font-normal uppercase tracking-wide text-text-muted">
-            {live.minute}
+            {minuteLabel}
           </span>
         ) : null}
       </span>

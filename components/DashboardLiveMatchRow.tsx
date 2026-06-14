@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Flag } from "@/components/Flag";
+import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
 import { useLiveScore } from "@/components/LiveScoresProvider";
 
 export type DashboardLiveMatch = {
@@ -22,7 +24,14 @@ type Props = {
 };
 
 export function DashboardLiveMatchRow({ match, prominent = false }: Props) {
+  const [now, setNow] = useState(() => Date.now());
   const live = useLiveScore(match.matchId);
+  const minuteLabel = formatLiveMinuteDisplay(live, match.kickoffIso, now);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <Link
@@ -55,9 +64,9 @@ export function DashboardLiveMatchRow({ match, prominent = false }: Props) {
               <span className="mx-1.5 text-text-muted">–</span>
               {live.awayScore}
             </span>
-            {live.minute ? (
+            {minuteLabel ? (
               <span className="num text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {live.minute}
+                {minuteLabel}
               </span>
             ) : null}
           </>

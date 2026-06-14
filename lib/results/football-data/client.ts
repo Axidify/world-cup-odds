@@ -30,15 +30,19 @@ export type FootballDataStatus = {
 export async function fetchWorldCupMatches(
   options: { status?: string } = {},
 ): Promise<FootballDataMatch[]> {
-  const token = process.env.FOOTBALL_DATA_API_TOKEN?.trim();
-  if (!token) {
-    throw new Error("FOOTBALL_DATA_API_TOKEN is not configured");
-  }
-
   const season = getFootballDataSeason();
   const params = new URLSearchParams({ season });
   if (options.status) params.set("status", options.status);
   const url = `${baseUrl()}/v4/competitions/WC/matches?${params.toString()}`;
+  const json = await fetchFootballDataJson<{ matches?: FootballDataMatch[] }>(url);
+  return json.matches ?? [];
+}
+
+async function fetchFootballDataJson<T>(url: string): Promise<T> {
+  const token = process.env.FOOTBALL_DATA_API_TOKEN?.trim();
+  if (!token) {
+    throw new Error("FOOTBALL_DATA_API_TOKEN is not configured");
+  }
 
   const res = await fetch(url, {
     headers: {
@@ -54,8 +58,13 @@ export async function fetchWorldCupMatches(
     throw new Error(`football-data.org ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
   }
 
-  const json = (await res.json()) as { matches?: FootballDataMatch[] };
-  return json.matches ?? [];
+  return (await res.json()) as T;
+}
+
+/** Single-match detail — includes minute when the competition list omits it. */
+export async function fetchFootballDataMatch(apiMatchId: number): Promise<FootballDataMatch> {
+  const url = `${baseUrl()}/v4/matches/${apiMatchId}`;
+  return fetchFootballDataJson<FootballDataMatch>(url);
 }
 
 export async function getFootballDataStatus(): Promise<FootballDataStatus> {

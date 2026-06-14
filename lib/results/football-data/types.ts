@@ -27,6 +27,7 @@ export type FootballDataMatch = {
     penalties?: Record<string, number | null> | null;
   } | null;
   minute?: number | null;
+  injuryTime?: number | null;
 };
 
 export type ParsedFootballDataResult = {

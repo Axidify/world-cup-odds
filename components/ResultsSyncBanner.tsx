@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Radio } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
 import { useLiveScores } from "@/components/LiveScoresProvider";
 
 type StatusResponse = {
@@ -13,6 +14,7 @@ type StatusResponse = {
       matchId: string;
       label: string;
       lifecycle: "live" | "awaiting_result";
+      kickoff: string;
       resultsCheckAt: string;
     }>;
   };
@@ -72,6 +74,7 @@ export function ResultsSyncBanner() {
             <ul className="space-y-1 text-xs text-text-muted">
               {activity.matches.map((m) => {
                 const live = scores[m.matchId];
+                const minuteLabel = formatLiveMinuteDisplay(live, m.kickoff);
                 return (
                   <li key={m.matchId}>
                     <a href={`/match/${m.matchId}`} className="font-semibold text-brand hover:underline">
@@ -79,7 +82,7 @@ export function ResultsSyncBanner() {
                     </a>
                     {" — "}
                     {m.lifecycle === "live" && live
-                      ? `live ${live.homeScore}–${live.awayScore}${live.minute ? ` (${live.minute})` : ""}`
+                      ? `live ${live.homeScore}–${live.awayScore}${minuteLabel ? ` (${minuteLabel})` : ""}`
                       : m.lifecycle === "live"
                         ? "live · waiting for score feed"
                         : "awaiting full-time confirm"}

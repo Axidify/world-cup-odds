@@ -1,5 +1,6 @@
 export {
   checkFootballDataHealth,
+  fetchFootballDataMatch,
   fetchLiveWorldCupMatches,
   fetchWorldCupMatches,
   getFootballDataSeason,
@@ -10,6 +11,8 @@ export {
 export type { FootballDataStatus } from "@/lib/results/football-data/client";
 export { pollResultsFromFootballData } from "@/lib/results/football-data/poll";
 export {
+  enrichLiveFootballDataMatches,
+  formatLiveFootballDataMinute,
   indexFinishedMatches,
   kickoffsAlign,
   linksApiMatchToLocal,
