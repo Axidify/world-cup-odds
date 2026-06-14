@@ -185,41 +185,19 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    // Stale knockout precache rows must refresh that stage — not a group fixture with the same teams.
-    if (row.stage === KNOCKOUT_PRECACHE_STAGE) {
+    if (row.stage === "group") {
+      const groupMatch = getFixtures().find(
+        (m) =>
+          m.stage === "group" &&
+          m.homeTeamId !== "TBD" &&
+          m.awayTeamId !== "TBD" &&
+          ((m.homeTeamId === row.teamA && m.awayTeamId === row.teamB) ||
+            (m.homeTeamId === row.teamB && m.awayTeamId === row.teamA)),
+      );
+      if (groupMatch && confirmed.has(groupMatch.id)) continue;
+    } else if (row.stage === KNOCKOUT_PRECACHE_STAGE) {
       if (isConfirmedKnockoutPairing(row.teamA, row.teamB, confirmed)) continue;
-      queue.push({
-        kind: "pair",
-        homeTeamId: row.teamA,
-        awayTeamId: row.teamB,
-        stage: row.stage,
-        label: `${row.teamA} vs ${row.teamB} (${row.stage}, stale)`,
-        needsRefresh: true,
-      });
-      continue;
-    }
-
-    const groupMatch = getFixtures().find(
-      (m) =>
-        m.stage === "group" &&
-        m.homeTeamId !== "TBD" &&
-        m.awayTeamId !== "TBD" &&
-        ((m.homeTeamId === row.teamA && m.awayTeamId === row.teamB) ||
-          (m.homeTeamId === row.teamB && m.awayTeamId === row.teamA)),
-    );
-
-    if (groupMatch) {
-      if (confirmed.has(groupMatch.id)) continue;
-      queue.push({
-        kind: "match",
-        matchId: groupMatch.id,
-        label: `${row.teamA} vs ${row.teamB} (group, stale)`,
-        needsRefresh: true,
-      });
-      continue;
-    }
-
-    {
+    } else {
       const knockoutMatch = getAllMatches().find(
         (m) =>
           m.stage === row.stage &&

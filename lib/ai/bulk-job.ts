@@ -12,6 +12,8 @@ import {
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
+import { getResolvedMatch } from "@/lib/data/resolved";
+import { clearStaleForFixture } from "@/lib/results/on-confirm";
 import { getLlmConcurrency, runPool } from "@/lib/utils/concurrency";
 import { logBulkLlmSummary, type BulkLlmSummary } from "@/lib/ai/llm-log";
 import { ownsBulkJobWorkers } from "@/lib/ai/bulk-job-owner";
@@ -346,9 +348,16 @@ async function runBulkQueue(
   const runItem = async (item: BulkWorkItem) => {
     const refresh = state.refresh || item.needsRefresh === true;
     if (item.kind === "match") {
+      const match = getResolvedMatch(item.matchId);
       await analyzeMatch(item.matchId, { refresh });
+      if (match && refresh) {
+        clearStaleForFixture(match.homeTeamId, match.awayTeamId, match.stage);
+      }
     } else {
       await analyzePair(item.homeTeamId, item.awayTeamId, item.stage, { refresh });
+      if (refresh) {
+        clearStaleForFixture(item.homeTeamId, item.awayTeamId, item.stage);
+      }
     }
   };
 

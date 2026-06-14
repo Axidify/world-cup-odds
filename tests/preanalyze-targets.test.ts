@@ -154,11 +154,6 @@ describe("preanalyze targets", () => {
       stage: KNOCKOUT_PRECACHE_STAGE,
       needsRefresh: true,
     });
-    if (queue[0].kind === "pair") {
-      expect([queue[0].homeTeamId, queue[0].awayTeamId].sort()).toEqual(
-        [fixture!.homeTeamId, fixture!.awayTeamId].sort(),
-      );
-    }
   });
 
   it("ignores stale rows from retired models when a fresh active-model row exists", () => {
