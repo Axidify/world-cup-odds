@@ -58,10 +58,11 @@ export function AdminPinDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!pin.trim() || busy) return;
+    const normalized = pin.trim();
+    if (!normalized || busy) return;
     setSubmitting(true);
     try {
-      await onSubmit(pin);
+      await onSubmit(normalized);
     } finally {
       setSubmitting(false);
     }

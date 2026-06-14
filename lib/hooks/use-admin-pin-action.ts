@@ -28,12 +28,15 @@ export function useAdminPinGate(config: {
     const action = actionRef.current;
     if (!action) return false;
 
+    const normalized = pin.trim();
+    if (!normalized) return false;
+
     setError(null);
     setLoading(true);
     try {
-      const result = await action(pin);
+      const result = await action(normalized);
       if (result.ok) {
-        setAdminPinSession(pin);
+        setAdminPinSession(normalized);
         setOpen(false);
         return true;
       }
@@ -48,10 +51,12 @@ export function useAdminPinGate(config: {
 
   const request = useCallback(async (action: AdminPinAction) => {
     actionRef.current = action;
-    const cached = getAdminPinSession();
+    const cached = getAdminPinSession()?.trim();
     if (cached) {
       const ok = await attempt(cached);
       if (ok) return true;
+      // attempt already surfaced the error and opened the dialog
+      return false;
     }
     setError(null);
     setOpen(true);

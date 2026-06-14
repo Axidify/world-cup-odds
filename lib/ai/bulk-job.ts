@@ -64,7 +64,25 @@ function reconcileOrphanedJob(graceMs = 120_000): void {
   const state = readStateRaw();
   if (state.status !== "running" || runningPromise) return;
   const started = state.startedAt ? Date.parse(state.startedAt) : 0;
-  if (graceMs > 0 && started && Date.now() - started < graceMs) return;
+  const age = started ? Date.now() - started : 0;
+
+  if (
+    state.total === 0 &&
+    state.current === "Preparing queue…" &&
+    age > 30_000
+  ) {
+    writeState({
+      ...state,
+      status: "failed",
+      current: null,
+      finishedAt: new Date().toISOString(),
+      error:
+        "Bulk analyze did not start — try again. If this keeps happening, refresh the page.",
+    });
+    return;
+  }
+
+  if (graceMs > 0 && started && age < graceMs) return;
   writeState({
     ...state,
     status: "cancelled",
