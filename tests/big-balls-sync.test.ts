@@ -7,7 +7,7 @@ import {
   parseFinishedBigBallsMatch,
 } from "@/lib/results/big-balls/sync";
 import { resolveTeamIdFromBigBalls } from "@/lib/results/big-balls/team";
-import { isFinishedStatus, normalizeBigBallsMatchesResponse } from "@/lib/results/big-balls/client";
+import { isFinishedStatus, isLiveStatus, normalizeBigBallsMatchesResponse } from "@/lib/results/big-balls/client";
 import { resolveResultsProviderChain } from "@/lib/jobs/poll-results";
 
 const korCze: Match = {
@@ -64,6 +64,14 @@ describe("big-balls sync", () => {
     expect(isFinishedStatus("FINISHED")).toBe(true);
     expect(isFinishedStatus("final")).toBe(true);
     expect(isFinishedStatus("in_progress")).toBe(false);
+  });
+
+  it("detects live statuses", () => {
+    expect(isLiveStatus("live")).toBe(true);
+    expect(isLiveStatus("in_progress")).toBe(true);
+    expect(isLiveStatus("in play")).toBe(true);
+    expect(isLiveStatus("half-time")).toBe(true);
+    expect(isLiveStatus("finished")).toBe(false);
   });
 
   it("links local fixtures to API matches", () => {

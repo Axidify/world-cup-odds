@@ -1,6 +1,6 @@
 import type { Match } from "@/lib/types";
 import { listMatchesInLiveWindow, msUntilNextLiveWindow } from "@/lib/match/live-window";
-import { fetchWc2026Matches, isBigBallsConfigured } from "@/lib/results/big-balls/client";
+import { fetchWc2026Matches, isBigBallsConfigured, isLiveStatus } from "@/lib/results/big-balls/client";
 import { linksBigBallsMatchToLocal, readBigBallsScores } from "@/lib/results/big-balls/sync";
 import type { BigBallsMatch } from "@/lib/results/big-balls/types";
 import {
@@ -50,6 +50,31 @@ export function mapLiveApiToLocal(
   return out;
 }
 
+/** Big Balls may tag in-play rows as in_progress; status=live alone can return empty. */
+export async function fetchLiveBigBallsMatches(): Promise<BigBallsMatch[]> {
+  const byId = new Map<string, BigBallsMatch>();
+
+  const ingest = (rows: BigBallsMatch[]) => {
+    for (const row of rows) {
+      if (!isLiveStatus(row.status)) continue;
+      if (!readBigBallsScores(row)) continue;
+      byId.set(row.id, row);
+    }
+  };
+
+  try {
+    ingest(await fetchWc2026Matches({ status: "live" }));
+  } catch {
+    // fall through to full list
+  }
+
+  if (byId.size === 0) {
+    ingest(await fetchWc2026Matches());
+  }
+
+  return [...byId.values()];
+}
+
 export async function runLiveScoresPollJob(now = Date.now()): Promise<{
   polled: boolean;
   synced: number;
@@ -72,7 +97,7 @@ export async function runLiveScoresPollJob(now = Date.now()): Promise<{
 
   let apiMatches: BigBallsMatch[];
   try {
-    apiMatches = await fetchWc2026Matches({ status: "live" });
+    apiMatches = await fetchLiveBigBallsMatches();
   } catch (err) {
     console.warn("[poller] live-scores:", err instanceof Error ? err.message : err);
     return { polled: true, synced: 0, localLive: localLive.length, configured: true };

@@ -47,4 +47,30 @@ describe("live score mapping", () => {
       },
     ]);
   });
+
+  it("maps in_progress API rows when live filter is empty", () => {
+    const haiSco: Match = {
+      id: "grp-c-2",
+      stage: "group",
+      group: "C",
+      homeTeamId: "hai",
+      awayTeamId: "sco",
+      date: "2026-06-14T01:00:00.000Z",
+      venue: "Boston",
+    };
+    const api: BigBallsMatch = {
+      id: "bb_hai_sco",
+      kickoff_utc: "2026-06-14T01:00:00.000Z",
+      status: "in_progress",
+      home_team: { team_name: "Haiti", abbr: "HAI" },
+      away_team: { team_name: "Scotland", abbr: "SCO" },
+      score: { home: 0, away: 1 },
+      minute: 52,
+    };
+
+    const mapped = mapLiveApiToLocal([api], [haiSco]);
+    expect(mapped[0]?.matchId).toBe("grp-c-2");
+    expect(mapped[0]?.homeScore).toBe(0);
+    expect(mapped[0]?.awayScore).toBe(1);
+  });
 });

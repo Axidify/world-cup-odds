@@ -217,23 +217,26 @@ export function TournamentBracket({
           ? ` · ${confirmedKnockoutCount} confirmed knockout result${confirmedKnockoutCount === 1 ? "" : "s"}`
           : ""}
         {champion ? (
-          <>
-            {" "}
-            · {view === "official"
-              ? "Champion"
-              : storyMode === "sample"
-                ? "Simulated champion"
-                : storyMode === "consensus"
-                  ? "Consensus champion"
-                  : "Example champion"}:{" "}
-            <span className="inline-flex items-center gap-1 font-semibold text-text">
+          <span className="mt-2 block sm:mt-0 sm:inline">
+            <span className="sm:mr-1">
+              ·{" "}
+              {view === "official"
+                ? "Champion"
+                : storyMode === "sample"
+                  ? "Simulated champion"
+                  : storyMode === "consensus"
+                    ? "Consensus champion"
+                    : "Example champion"}
+              :
+            </span>
+            <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold text-text">
               {champion.flagCode && <Flag code={champion.flagCode} alt="" size="sm" />}
-              {champion.name}
+              <span>{champion.name}</span>
               {view === "projected" && championWinPct != null ? (
                 <span className="num text-brand">({championWinPct.toFixed(1)}% title odds)</span>
               ) : null}
             </span>
-          </>
+          </span>
         ) : null}
       </p>
       <p className="mt-1 text-xs text-text-muted" suppressHydrationWarning>
@@ -269,19 +272,24 @@ export function TournamentBracket({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {(
             [
-              { id: "consensus" as const, label: "Consensus" },
-              { id: "representative" as const, label: leaderName ? `If ${leaderName} wins` : "Leader path" },
-              { id: "sample" as const, label: "Random draw" },
+              { id: "consensus" as const, label: "Consensus", title: "Consensus bracket path" },
+              {
+                id: "representative" as const,
+                label: leaderName ? `If ${leaderName} wins` : "Leader path",
+                title: leaderName ? `Example path if ${leaderName} wins the tournament` : "Leader path",
+              },
+              { id: "sample" as const, label: "Random draw", title: "One random simulated tournament" },
             ] as const
-          ).map(({ id, label }) => (
+          ).map(({ id, label, title }) => (
             <button
               key={id}
               type="button"
+              title={title}
               onClick={() => {
                 setStoryMode(id);
                 if (id === "sample" && !sample) void loadSample();
               }}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+              className={`max-w-full rounded-lg border px-3 py-1.5 text-xs font-semibold leading-snug whitespace-normal sm:max-w-none ${
                 storyMode === id
                   ? "border-brand bg-brand-tint/30 text-text"
                   : "border-border bg-surface text-text-muted hover:text-text"
@@ -334,7 +342,7 @@ export function TournamentBracket({
               ) : null}
             </p>
           ) : storyMode === "consensus" ? (
-            <p>
+            <p className="leading-relaxed">
               <strong className="font-semibold text-text">Consensus</strong> — modal group
               finishers plus the model&apos;s most likely knockout winner at each slot. Still one
               story, not a joint probability.
@@ -393,10 +401,10 @@ export function TournamentBracket({
               view === "official"
                 ? "Champion"
                 : storyMode === "sample"
-                  ? "Simulated champion"
+                  ? "Sim champion"
                   : storyMode === "consensus"
-                    ? "Consensus champion"
-                    : "Example champion"
+                    ? "Consensus"
+                    : "Example"
             }
           />
         </div>

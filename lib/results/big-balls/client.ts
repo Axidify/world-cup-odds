@@ -144,12 +144,16 @@ export function isFinishedStatus(status: string | undefined): boolean {
 }
 
 export function isLiveStatus(status: string | undefined): boolean {
-  const normalized = (status ?? "").trim().toLowerCase();
+  const normalized = (status ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
   return (
     normalized === "live" ||
     normalized === "in_progress" ||
-    normalized === "in play" ||
+    normalized === "inplay" ||
+    normalized === "in_play" ||
     normalized === "halftime" ||
-    normalized === "paused"
+    normalized === "half_time" ||
+    normalized === "paused" ||
+    normalized === "extra_time" ||
+    normalized === "extratime"
   );
 }

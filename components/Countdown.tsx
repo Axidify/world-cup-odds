@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction";
+import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { Flag } from "@/components/Flag";
 import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { formatUtcDateTime } from "@/lib/utils/dates";
@@ -105,6 +106,7 @@ export function Countdown({ matches }: { matches: CountdownMatch[] }) {
                   homeLabel={m.homeName}
                   awayLabel={m.awayName}
                 />
+                <LiveMatchBadge matchId={m.matchId} kickoffIso={m.kickoffIso} />
                 <span className="num text-[10px] uppercase text-text-muted">
                   {m.group ? `Gp ${m.group}` : m.stage}
                 </span>

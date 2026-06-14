@@ -9,6 +9,7 @@ import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kick
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
 import { MATCH_CARD_HEIGHT } from "@/lib/bracket/tree-layout";
 import { formatLocalDate } from "@/lib/utils/dates";
+import { teamAbbrev } from "@/lib/match/fixture-probs-display";
 
 type Props = {
   match: BracketMatchDisplay;
@@ -20,11 +21,13 @@ function TeamRow({
   isWinner,
   goals,
   advancePct,
+  compactTeams,
 }: {
   line: { name: string; flagCode: string };
   isWinner: boolean;
   goals: number | null;
   advancePct?: number | null;
+  compactTeams: boolean;
 }) {
   return (
     <div
@@ -33,8 +36,11 @@ function TeamRow({
       }`}
     >
       <Flag code={line.flagCode} alt={line.name} size="sm" />
-      <span className={`truncate text-xs ${isWinner ? "font-bold" : "font-semibold"}`}>
-        {line.name}
+      <span
+        className={`truncate text-xs ${isWinner ? "font-bold" : "font-semibold"}`}
+        title={compactTeams ? line.name : undefined}
+      >
+        {compactTeams ? teamAbbrev(line.name) : line.name}
       </span>
       {goals != null ? (
         <span className="num ml-auto shrink-0 text-xs font-bold tabular-nums">{goals}</span>
@@ -63,6 +69,8 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
   const lifecycle = getMatchLifecycle(match.date, hasScore, now);
   const highlight = getKickoffHighlight(match.date, lifecycle, now);
   const highlightClass = !match.projected ? kickoffHighlightCardClass(highlight) : "";
+  const compactTeams = columnWidth < 148;
+  const showLiveStatus = lifecycle === "live" || lifecycle === "awaiting_result";
 
   return (
     <Link
@@ -85,6 +93,8 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
           )}
           {hasScore ? (
             <span className="text-win">FT</span>
+          ) : showLiveStatus ? (
+            <MatchStatusBadge matchId={match.matchId} kickoffIso={match.date} compact />
           ) : match.projected ? (
             <span className="text-brand">model</span>
           ) : (
@@ -99,12 +109,14 @@ export function BracketMatchNode({ match, columnWidth }: Props) {
               isWinner={match.winnerId === match.home.teamId}
               goals={match.score ? match.score.home : null}
               advancePct={match.advancePct?.home}
+              compactTeams={compactTeams}
             />
             <TeamRow
               line={match.away}
               isWinner={match.winnerId === match.away.teamId}
               goals={match.score ? match.score.away : null}
               advancePct={match.advancePct?.away}
+              compactTeams={compactTeams}
             />
           </div>
         ) : (

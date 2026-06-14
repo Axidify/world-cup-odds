@@ -118,17 +118,17 @@ export function KnockoutBracketTree({ knockout, displays, champion, championLabe
                 width: metrics.columnWidth,
               }}
             >
-              <div className="flex items-center gap-2 rounded-lg border border-brand/40 bg-brand-tint/30 px-3 py-2">
-                <Trophy size={16} className="shrink-0 text-brand" />
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-widest text-text-muted">
+              <div className="flex items-start gap-2 rounded-lg border border-brand/40 bg-brand-tint/30 px-3 py-2">
+                <Trophy size={16} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-semibold uppercase leading-snug tracking-wide text-text-muted sm:tracking-widest">
                     {championLabel}
                   </p>
-                  <p className="flex items-center gap-1.5 truncate text-sm font-bold text-text">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-bold leading-snug text-text">
                     <Flag code={champion.flagCode} alt="" size="sm" />
-                    {champion.name}
+                    <span className="min-w-0 break-words">{champion.name}</span>
                     {champion.winPct != null ? (
-                      <span className="num text-xs font-semibold text-brand">
+                      <span className="num shrink-0 text-xs font-semibold text-brand">
                         {champion.winPct.toFixed(1)}%
                       </span>
                     ) : null}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Flag } from "@/components/Flag";
 import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction";
+import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { getAllMatches, getTeam } from "@/lib/data/load";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { isDashboardComingUpMatch } from "@/lib/match/dashboard-upcoming";
@@ -46,6 +47,7 @@ export function DashboardTodaySection() {
                     homeLabel={home.name}
                     awayLabel={away.name}
                   />
+                  <LiveMatchBadge matchId={m.id} kickoffIso={m.date} />
                   <span className="num text-xs text-text-muted">
                     {formatUtcDateTime(m.date)} UTC
                     {m.group ? ` · Gp ${m.group}` : ""}

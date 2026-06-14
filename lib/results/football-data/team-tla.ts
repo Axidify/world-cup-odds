@@ -79,6 +79,8 @@ const NAME_ALIASES: Record<string, string> = {
   "curacao": "cuw",
   "curaçao": "cuw",
   "saudi arabia": "ksa",
+  haiti: "hai",
+  scotland: "sco",
 };
 
 export type FootballDataTeamRef = {
@@ -93,7 +95,10 @@ export function teamIdToTla(teamId: string): string | null {
 
 export function resolveTeamIdFromApi(team: FootballDataTeamRef): string | null {
   const tla = team.tla?.trim().toUpperCase();
-  if (tla && TLA_TO_TEAM_ID[tla]) return TLA_TO_TEAM_ID[tla];
+  if (tla) {
+    if (TLA_TO_TEAM_ID[tla]) return TLA_TO_TEAM_ID[tla];
+    if (tla === "HTI") return "hai";
+  }
 
   const candidates = [team.shortName, team.name].filter(Boolean) as string[];
   for (const raw of candidates) {
