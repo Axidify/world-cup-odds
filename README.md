@@ -79,11 +79,11 @@ For how predictions, simulation, Elo, and the poller fit together, see **[docs/A
 
 **Simulation** (dashboard / champion → “Run simulation”): requires cached predictions; 5,000-iteration Monte Carlo by default. Requires `ADMIN_PIN`.
 
-**Poller** (separate process): `npm run poller` — syncs match results (every 15 min) and squad news (every 6 h). Results auto-confirm when a structured API reports a finished match (football-data.org `FINISHED`, or Big Balls `finished`), with web search + 2-snippet agreement as last resort. Requires `TAVILY_API_KEY` (or `SERPER_API_KEY`) for news. Production: `npm run start:all`.
+**Poller** (separate process): `npm run poller` — syncs match results (every 15 min) and squad news (every 6 h). Results auto-confirm when football-data.org reports a `FINISHED` match, with web search + 2-snippet agreement as last resort. Requires `TAVILY_API_KEY` (or `SERPER_API_KEY`) for news. Production: `npm run start:all`.
 
-**Results provider chain:** football-data.org (if `FOOTBALL_DATA_API_TOKEN`) → Big Balls finished fallback (if `BBS_API_KEY`) → Tavily/Serper search.
+**Results provider chain:** football-data.org (if `FOOTBALL_DATA_API_TOKEN`) → Tavily/Serper search.
 
-**Live scores:** Requires `BBS_API_KEY`. Poller calls `GET /v1/wc2026/matches?status=live` every ~60s only while matches are in the kickoff→2h window. UI reads `/api/live/scores` (cached in SQLite).
+**Live scores:** Requires `FOOTBALL_DATA_API_TOKEN`. Poller polls football-data.org `LIVE`/`IN_PLAY` every ~60s while matches are in the kickoff→2h window. UI reads `/api/live/scores` (cached in SQLite).
 
 **Auto-pipeline** (poller, on by default): when results confirm, re-runs simulation automatically (debounced). Dashboard shows “Auto-updating odds and bracket…”. Env: `AUTO_PIPELINE_ENABLED`, `AUTO_SIMULATE_ON_RESULTS`, `AUTO_PIPELINE_ON_START`, `AUTO_ANALYZE_MISSING` (optional LLM gap-fill).
 

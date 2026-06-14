@@ -6,10 +6,6 @@ import {
   isFootballDataConfigured,
   pollResultsFromFootballData,
 } from "@/lib/results/football-data";
-import {
-  isBigBallsConfigured,
-  pollResultsFromBigBalls,
-} from "@/lib/results/big-balls";
 import { snippetsAgreeOnScore } from "@/lib/results/score-agreement";
 import { isSearchConfigured, searchWeb } from "@/lib/search/provider";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
@@ -18,18 +14,16 @@ import { getResult, isResultConfirmable, upsertPendingResult } from "@/lib/resul
 
 export { RESULT_POLL_START_AFTER_MS };
 
-export type ResultsProvider = "football-data" | "big-balls" | "search";
+export type ResultsProvider = "football-data" | "search";
 
 export function resolveResultsProvider(): ResultsProvider {
   if (isFootballDataConfigured()) return "football-data";
-  if (isBigBallsConfigured()) return "big-balls";
   return "search";
 }
 
 export function resolveResultsProviderChain(): ResultsProvider[] {
   const chain: ResultsProvider[] = [];
   if (isFootballDataConfigured()) chain.push("football-data");
-  if (isBigBallsConfigured()) chain.push("big-balls");
   if (isSearchConfigured()) chain.push("search");
   return chain.length > 0 ? chain : ["search"];
 }
@@ -152,14 +146,10 @@ export async function pollMatchResult(matchId: string): Promise<"synced" | "conf
   const chain = resolveResultsProviderChain().filter((p) => p !== "search");
 
   for (const provider of chain) {
-    const summary =
-      provider === "football-data"
-        ? await pollResultsFromFootballData(
-            getMatchesNeedingResults().filter((m) => m.id === matchId),
-          )
-        : await pollResultsFromBigBalls(
-            getMatchesNeedingResults().filter((m) => m.id === matchId),
-          );
+    if (provider !== "football-data") continue;
+    const summary = await pollResultsFromFootballData(
+      getMatchesNeedingResults().filter((m) => m.id === matchId),
+    );
 
     if (summary.confirmed > 0) return "confirmed";
     if (summary.synced > 0) return "synced";
@@ -189,14 +179,6 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
 
     if (provider === "football-data") {
       const summary = await pollResultsFromFootballData(remaining);
-      confirmed += summary.confirmed;
-      synced += summary.synced;
-      failed += summary.failed;
-      continue;
-    }
-
-    if (provider === "big-balls") {
-      const summary = await pollResultsFromBigBalls(remaining);
       confirmed += summary.confirmed;
       synced += summary.synced;
       failed += summary.failed;

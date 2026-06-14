@@ -27,14 +27,18 @@ export type FootballDataStatus = {
   error?: string;
 };
 
-export async function fetchWorldCupMatches(): Promise<FootballDataMatch[]> {
+export async function fetchWorldCupMatches(
+  options: { status?: string } = {},
+): Promise<FootballDataMatch[]> {
   const token = process.env.FOOTBALL_DATA_API_TOKEN?.trim();
   if (!token) {
     throw new Error("FOOTBALL_DATA_API_TOKEN is not configured");
   }
 
   const season = getFootballDataSeason();
-  const url = `${baseUrl()}/v4/competitions/WC/matches?season=${encodeURIComponent(season)}`;
+  const params = new URLSearchParams({ season });
+  if (options.status) params.set("status", options.status);
+  const url = `${baseUrl()}/v4/competitions/WC/matches?${params.toString()}`;
 
   const res = await fetch(url, {
     headers: {
@@ -83,4 +87,22 @@ export async function getFootballDataStatus(): Promise<FootballDataStatus> {
 export async function checkFootballDataHealth(): Promise<boolean> {
   const status = await getFootballDataStatus();
   return status.ok;
+}
+
+export function isLiveFootballDataStatus(status: string | undefined): boolean {
+  const normalized = (status ?? "").trim().toUpperCase();
+  return normalized === "LIVE" || normalized === "IN_PLAY" || normalized === "PAUSED";
+}
+
+/** LIVE filter first; fall back to scanning all WC matches for in-play rows. */
+export async function fetchLiveWorldCupMatches(): Promise<FootballDataMatch[]> {
+  try {
+    const live = await fetchWorldCupMatches({ status: "LIVE" });
+    if (live.length > 0) return live;
+  } catch {
+    // fall through
+  }
+
+  const all = await fetchWorldCupMatches();
+  return all.filter((m) => isLiveFootballDataStatus(m.status));
 }

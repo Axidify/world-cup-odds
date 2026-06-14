@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isBigBallsConfigured } from "@/lib/results/big-balls";
+import { isFootballDataConfigured } from "@/lib/results/football-data";
 import { listLiveScores } from "@/lib/results/live-scores/store";
 import { getDb } from "@/lib/db";
 
@@ -10,7 +10,7 @@ export async function GET() {
   const scores = listLiveScores();
 
   return NextResponse.json({
-    configured: isBigBallsConfigured(),
+    configured: isFootballDataConfigured(),
     scores: Object.fromEntries(
       scores.map((row) => [
         row.matchId,

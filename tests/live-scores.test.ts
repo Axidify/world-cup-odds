@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Match } from "@/lib/types";
-import { listMatchesInLiveWindow } from "@/lib/match/live-window";
+import type { FootballDataMatch } from "@/lib/results/football-data/types";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
-import { mapLiveApiToLocal } from "@/lib/jobs/poll-live-scores";
-import type { BigBallsMatch } from "@/lib/results/big-balls/types";
+import { mapLiveFootballDataToLocal } from "@/lib/results/football-data";
 
 const mexRsa: Match = {
   id: "grp-a-1",
@@ -16,39 +15,37 @@ const mexRsa: Match = {
 };
 
 describe("live window", () => {
-  it("includes unconfirmed matches within 2h of kickoff", () => {
+  it("treats kickoff + 30m as live before results check window", () => {
     const kickoff = new Date("2026-06-11T19:00:00.000Z").getTime();
-    const during = listMatchesInLiveWindow(kickoff + 30 * 60_000);
-    expect(during.some((m) => m.id === "grp-a-1")).toBe(true);
     expect(getMatchLifecycle(mexRsa.date, false, kickoff + 30 * 60_000)).toBe("live");
   });
 });
 
 describe("live score mapping", () => {
-  it("maps Big Balls live rows to local fixtures", () => {
-    const api: BigBallsMatch = {
-      id: "bb_mex_rsa",
-      kickoff_utc: "2026-06-11T19:00:00.000Z",
-      status: "live",
-      home: { name: "Mexico", abbr: "MEX" },
-      away: { name: "South Africa", abbr: "RSA" },
-      score: { home: 1, away: 0 },
+  it("maps football-data live rows to local fixtures", () => {
+    const api: FootballDataMatch = {
+      id: 1001,
+      utcDate: "2026-06-11T19:00:00.000Z",
+      status: "IN_PLAY",
+      homeTeam: { name: "Mexico", tla: "MEX" },
+      awayTeam: { name: "South Africa", tla: "RSA" },
+      score: { fullTime: { home: 1, away: 0 } },
       minute: 37,
     };
 
-    const mapped = mapLiveApiToLocal([api], [mexRsa]);
+    const mapped = mapLiveFootballDataToLocal([api], [mexRsa]);
     expect(mapped).toEqual([
       {
         matchId: "grp-a-1",
         homeScore: 1,
         awayScore: 0,
-        status: "live",
+        status: "IN_PLAY",
         minute: "37",
       },
     ]);
   });
 
-  it("maps in_progress API rows when live filter is empty", () => {
+  it("maps PAUSED rows with HT minute label", () => {
     const haiSco: Match = {
       id: "grp-c-2",
       stage: "group",
@@ -58,19 +55,19 @@ describe("live score mapping", () => {
       date: "2026-06-14T01:00:00.000Z",
       venue: "Boston",
     };
-    const api: BigBallsMatch = {
-      id: "bb_hai_sco",
-      kickoff_utc: "2026-06-14T01:00:00.000Z",
-      status: "in_progress",
-      home_team: { team_name: "Haiti", abbr: "HAI" },
-      away_team: { team_name: "Scotland", abbr: "SCO" },
-      score: { home: 0, away: 1 },
-      minute: 52,
+    const api: FootballDataMatch = {
+      id: 1002,
+      utcDate: "2026-06-14T01:00:00.000Z",
+      status: "PAUSED",
+      homeTeam: { name: "Haiti", tla: "HAI" },
+      awayTeam: { name: "Scotland", tla: "SCO" },
+      score: { halfTime: { home: 0, away: 1 } },
     };
 
-    const mapped = mapLiveApiToLocal([api], [haiSco]);
+    const mapped = mapLiveFootballDataToLocal([api], [haiSco]);
     expect(mapped[0]?.matchId).toBe("grp-c-2");
     expect(mapped[0]?.homeScore).toBe(0);
     expect(mapped[0]?.awayScore).toBe(1);
+    expect(mapped[0]?.minute).toBe("HT");
   });
 });

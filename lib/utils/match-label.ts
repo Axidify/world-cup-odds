@@ -1,6 +1,6 @@
 import type { Match, Team } from "@/lib/types";
 import { formatBracketSlot } from "@/lib/utils/slots";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { formatLocalDate } from "@/lib/utils/dates";
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Group stage",
@@ -42,6 +42,6 @@ export function formatMatchLabel(match: Match, teamMap: Map<string, Team>): stri
 export function formatMatchPickerLabel(match: Match, teamMap: Map<string, Team>): string {
   const teams = formatMatchTeams(match, teamMap);
   const stage = formatStageLabel(match.stage, match.group);
-  const date = formatUtcDate(match.date);
+  const date = formatLocalDate(match.date);
   return `${teams} (${stage}, ${date})`;
 }

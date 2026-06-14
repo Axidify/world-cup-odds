@@ -1,8 +1,9 @@
-import type { Match } from "@/lib/types";
 import { listMatchesInLiveWindow, msUntilNextLiveWindow } from "@/lib/match/live-window";
-import { fetchWc2026Matches, isBigBallsConfigured, isLiveStatus } from "@/lib/results/big-balls/client";
-import { linksBigBallsMatchToLocal, readBigBallsScores } from "@/lib/results/big-balls/sync";
-import type { BigBallsMatch } from "@/lib/results/big-balls/types";
+import {
+  fetchLiveWorldCupMatches,
+  isFootballDataConfigured,
+  mapLiveFootballDataToLocal,
+} from "@/lib/results/football-data";
 import {
   clearLiveScores,
   deleteLiveScoresExcept,
@@ -19,62 +20,6 @@ export function getLiveScoresPollIntervalMs(): number {
   return getLiveScoresPollIntervalSeconds() * 1000;
 }
 
-export function mapLiveApiToLocal(
-  apiMatches: BigBallsMatch[],
-  localMatches: Match[],
-): Array<{ matchId: string; homeScore: number; awayScore: number; status: string | null; minute: string | null }> {
-  const out: Array<{
-    matchId: string;
-    homeScore: number;
-    awayScore: number;
-    status: string | null;
-    minute: string | null;
-  }> = [];
-
-  for (const local of localMatches) {
-    const api = apiMatches.find((candidate) => linksBigBallsMatchToLocal(candidate, local));
-    if (!api) continue;
-
-    const scores = readBigBallsScores(api);
-    if (!scores) continue;
-
-    out.push({
-      matchId: local.id,
-      homeScore: scores.home,
-      awayScore: scores.away,
-      status: api.status ?? null,
-      minute: api.minute != null ? String(api.minute) : api.period ?? null,
-    });
-  }
-
-  return out;
-}
-
-/** Big Balls may tag in-play rows as in_progress; status=live alone can return empty. */
-export async function fetchLiveBigBallsMatches(): Promise<BigBallsMatch[]> {
-  const byId = new Map<string, BigBallsMatch>();
-
-  const ingest = (rows: BigBallsMatch[]) => {
-    for (const row of rows) {
-      if (!isLiveStatus(row.status)) continue;
-      if (!readBigBallsScores(row)) continue;
-      byId.set(row.id, row);
-    }
-  };
-
-  try {
-    ingest(await fetchWc2026Matches({ status: "live" }));
-  } catch {
-    // fall through to full list
-  }
-
-  if (byId.size === 0) {
-    ingest(await fetchWc2026Matches());
-  }
-
-  return [...byId.values()];
-}
-
 export async function runLiveScoresPollJob(now = Date.now()): Promise<{
   polled: boolean;
   synced: number;
@@ -83,9 +28,11 @@ export async function runLiveScoresPollJob(now = Date.now()): Promise<{
 }> {
   const localLive = listMatchesInLiveWindow(now);
 
-  if (!isBigBallsConfigured()) {
+  if (!isFootballDataConfigured()) {
     if (localLive.length > 0) {
-      console.warn("[poller] live-scores: BBS_API_KEY not set — live scores unavailable");
+      console.warn(
+        "[poller] live-scores: FOOTBALL_DATA_API_TOKEN not set — live scores unavailable",
+      );
     }
     return { polled: false, synced: 0, localLive: localLive.length, configured: false };
   }
@@ -95,15 +42,15 @@ export async function runLiveScoresPollJob(now = Date.now()): Promise<{
     return { polled: false, synced: 0, localLive: 0, configured: true };
   }
 
-  let apiMatches: BigBallsMatch[];
+  let apiMatches;
   try {
-    apiMatches = await fetchLiveBigBallsMatches();
+    apiMatches = await fetchLiveWorldCupMatches();
   } catch (err) {
     console.warn("[poller] live-scores:", err instanceof Error ? err.message : err);
     return { polled: true, synced: 0, localLive: localLive.length, configured: true };
   }
 
-  const mapped = mapLiveApiToLocal(apiMatches, localLive);
+  const mapped = mapLiveFootballDataToLocal(apiMatches, localLive);
   for (const row of mapped) {
     upsertLiveScore(row);
   }
@@ -115,7 +62,7 @@ export async function runLiveScoresPollJob(now = Date.now()): Promise<{
 
   if (mapped.length === 0 && localLive.length > 0) {
     console.warn(
-      `[poller] live-scores: ${localLive.length} local live match(es), 0 linked from Big Balls`,
+      `[poller] live-scores: ${localLive.length} local live match(es), 0 linked from football-data`,
     );
   }
 

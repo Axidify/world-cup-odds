@@ -34,7 +34,6 @@ flowchart TB
   subgraph external [External services]
     LLM[LLM provider]
     FD[football-data.org]
-    BB[Big Balls API]
     Search[Tavily / Serper]
     EloNet[eloratings.net]
   end
@@ -44,7 +43,7 @@ flowchart TB
   poller --> DB
   poller --> API
   ResultsPoll --> FD
-  ResultsPoll --> BB
+  LivePoll --> FD
   ResultsPoll --> Search
   NewsPoll --> Search
   NewsPoll --> LLM
@@ -172,8 +171,7 @@ Output is cached in `simulation_cache`. The UI reads cache; simulation does **no
 Provider chain (`lib/jobs/poll-results.ts`):
 
 1. **football-data.org** — `FINISHED` matches (`FOOTBALL_DATA_API_TOKEN`)
-2. **Big Balls** — `?status=finished` fallback (`BBS_API_KEY`)
-3. **Web search** — regex + 2-snippet agreement first; LLM extraction if ambiguous (`TAVILY_API_KEY` or `SERPER_API_KEY`)
+2. **Web search** — regex + 2-snippet agreement first; LLM extraction if ambiguous (`TAVILY_API_KEY` or `SERPER_API_KEY`)
 
 Scores are stored as **pending** until confirmed.
 
@@ -184,7 +182,7 @@ Scores are stored as **pending** until confirmed.
 
 ### Live scores
 
-Big Balls `?status=live` every ~60 s while matches are in the kickoff window. Cached in SQLite; UI reads `/api/live/scores`.
+football-data.org `LIVE`/`IN_PLAY` every ~60 s while matches are in the kickoff window. Cached in SQLite; UI reads `/api/live/scores`.
 
 ### On every confirmation (`lib/results/on-confirm.ts`)
 

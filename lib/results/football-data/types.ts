@@ -22,9 +22,11 @@ export type FootballDataMatch = {
     winner?: "HOME_TEAM" | "AWAY_TEAM" | "DRAW" | null;
     duration?: string | null;
     fullTime?: Record<string, number | null> | null;
+    halfTime?: Record<string, number | null> | null;
     extraTime?: Record<string, number | null> | null;
     penalties?: Record<string, number | null> | null;
   } | null;
+  minute?: number | null;
 };
 
 export type ParsedFootballDataResult = {

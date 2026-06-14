@@ -5,7 +5,7 @@ describe("results store", () => {
   it("rejects negative pending scores", () => {
     expect(() =>
       upsertPendingResult({
-        matchId: "grp-a-1",
+        matchId: "test-unconfirmed-fixture",
         homeScore: -1,
         awayScore: 0,
       }),

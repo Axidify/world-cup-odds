@@ -13,24 +13,15 @@ async function main() {
   await refreshWorldFootballEloOnStartup();
 
   const { isFootballDataConfigured } = await import("@/lib/results/football-data");
-  const { isBigBallsConfigured } = await import("@/lib/results/big-balls");
   const { isSearchConfigured } = await import("@/lib/search/provider");
-  if (isBigBallsConfigured()) {
-    console.log("[poller] Live scores: Big Balls (?status=live, only while matches are on)");
-  }
   if (isFootballDataConfigured()) {
-    console.log("[poller] Final results: football-data.org (FINISHED)");
-    if (isBigBallsConfigured()) {
-      console.log("[poller] Final results fallback: Big Balls (?status=finished)");
-    }
-  } else if (isBigBallsConfigured()) {
-    console.log("[poller] Final results: Big Balls (?status=finished)");
+    console.log("[poller] Results + live scores: football-data.org");
   } else if (!isSearchConfigured()) {
     console.warn(
-      "[poller] No final results source — set FOOTBALL_DATA_API_TOKEN, BBS_API_KEY, or TAVILY_API_KEY.",
+      "[poller] No results source — set FOOTBALL_DATA_API_TOKEN or TAVILY_API_KEY.",
     );
   } else {
-    console.warn("[poller] Final results via web search — set a scores API for reliable sync.");
+    console.warn("[poller] Final results via web search — set FOOTBALL_DATA_API_TOKEN for reliable sync.");
   }
 
   const intervalMin = Number(process.env.RESULTS_POLL_INTERVAL_MINUTES ?? 15);

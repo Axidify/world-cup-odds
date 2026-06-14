@@ -1,14 +1,18 @@
-function utcDayStartMs(ms: number): number {
-  const d = new Date(ms);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+import { localCalendarDateKey } from "@/lib/utils/dates";
+
+function nextCalendarDateKey(nowMs: number, timeZone?: string): string {
+  const today = localCalendarDateKey(nowMs, timeZone);
+  const [y, m, d] = today.split("-").map(Number);
+  return localCalendarDateKey(Date.UTC(y, m - 1, d + 1, 12, 0, 0), timeZone);
 }
 
-/** Kickoff falls on today or tomorrow, UTC calendar days. */
-export function isKickoffTodayOrTomorrowUtc(kickoffIso: string, now = Date.now()): boolean {
-  const kickoff = new Date(kickoffIso).getTime();
-  const startToday = utcDayStartMs(now);
-  const endTomorrow = startToday + 2 * 86_400_000;
-  return kickoff >= startToday && kickoff < endTomorrow;
+/** Kickoff falls on today or tomorrow in the viewer's local calendar. */
+export function isKickoffTodayOrTomorrow(kickoffIso: string, now = Date.now(), timeZone?: string): boolean {
+  const kickoffMs = new Date(kickoffIso).getTime();
+  const kickoffDay = localCalendarDateKey(kickoffMs, timeZone);
+  const today = localCalendarDateKey(now, timeZone);
+  const tomorrow = nextCalendarDateKey(now, timeZone);
+  return kickoffDay === today || kickoffDay === tomorrow;
 }
 
 export function isUpcomingKickoff(kickoffIso: string, now = Date.now()): boolean {
@@ -16,5 +20,5 @@ export function isUpcomingKickoff(kickoffIso: string, now = Date.now()): boolean
 }
 
 export function isDashboardComingUpMatch(kickoffIso: string, now = Date.now()): boolean {
-  return isUpcomingKickoff(kickoffIso, now) && isKickoffTodayOrTomorrowUtc(kickoffIso, now);
+  return isUpcomingKickoff(kickoffIso, now) && isKickoffTodayOrTomorrow(kickoffIso, now);
 }

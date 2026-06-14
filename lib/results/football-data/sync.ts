@@ -87,3 +87,53 @@ export function indexFinishedMatches(
 
   return out;
 }
+
+export function readLiveFootballDataScores(
+  api: FootballDataMatch,
+): { home: number; away: number } | null {
+  const home =
+    readScoreSide(api.score?.fullTime ?? null, "home") ??
+    readScoreSide(api.score?.halfTime ?? null, "home");
+  const away =
+    readScoreSide(api.score?.fullTime ?? null, "away") ??
+    readScoreSide(api.score?.halfTime ?? null, "away");
+  if (home == null || away == null) return null;
+  return { home, away };
+}
+
+export function formatLiveFootballDataMinute(api: FootballDataMatch): string | null {
+  if (api.minute != null && Number.isFinite(api.minute)) return String(api.minute);
+  if (api.status === "PAUSED") return "HT";
+  return null;
+}
+
+export function mapLiveFootballDataToLocal(
+  apiMatches: FootballDataMatch[],
+  localMatches: Match[],
+): Array<{ matchId: string; homeScore: number; awayScore: number; status: string | null; minute: string | null }> {
+  const out: Array<{
+    matchId: string;
+    homeScore: number;
+    awayScore: number;
+    status: string | null;
+    minute: string | null;
+  }> = [];
+
+  for (const local of localMatches) {
+    const api = apiMatches.find((candidate) => linksApiMatchToLocal(candidate, local));
+    if (!api) continue;
+
+    const scores = readLiveFootballDataScores(api);
+    if (!scores) continue;
+
+    out.push({
+      matchId: local.id,
+      homeScore: scores.home,
+      awayScore: scores.away,
+      status: api.status ?? null,
+      minute: formatLiveFootballDataMinute(api),
+    });
+  }
+
+  return out;
+}

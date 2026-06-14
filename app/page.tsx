@@ -3,6 +3,7 @@ import { BulkAnalyzePanel } from "@/components/BulkAnalyzePanel";
 import { Countdown } from "@/components/Countdown";
 import { ChampionOddsBars } from "@/components/ChampionOddsBars";
 import { DashboardTodaySection } from "@/components/DashboardTodaySection";
+import { DashboardLiveSection } from "@/components/DashboardLiveSection";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { SimulationStaleAlert } from "@/components/SimulationStaleAlert";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
@@ -11,9 +12,10 @@ import { countPredictions } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
 import { getNextUpcomingMatches } from "@/lib/match/next-upcoming";
+import { getDashboardLiveMatches } from "@/lib/match/dashboard-live";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { getTeams, getFixtures, getEarliestKickoff, getAllMatches, getTeam } from "@/lib/data/load";
-import { formatUtcDate } from "@/lib/utils/dates";
+import { formatLocalDate } from "@/lib/utils/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const predictionCount = countPredictions({ provider, nonStale: true });
   const simulation = getLatestSimulation();
   const staleState = getSimulationStaleState();
+  const liveMatches = getDashboardLiveMatches();
   const nextMatches = getNextUpcomingMatches().flatMap((m) => {
     const home = getTeam(m.homeTeamId);
     const away = getTeam(m.awayTeamId);
@@ -55,6 +58,7 @@ export default function DashboardPage() {
       <ResultsSyncBanner />
       <TournamentStatusBanner />
 
+      <DashboardLiveSection matches={liveMatches} />
       <DashboardTodaySection />
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
@@ -64,14 +68,14 @@ export default function DashboardPage() {
             48 nations. 104 matches. One AI verdict.
           </h1>
           <div className="mt-4 flex flex-wrap gap-4 text-sm font-semibold text-text-muted">
-            <span>Kickoff <b className="text-text">{formatUtcDate(kickoff)}</b></span>
+            <span>Kickoff <b className="text-text" suppressHydrationWarning>{formatLocalDate(kickoff)}</b></span>
             {finalDate && (
-              <span>Final <b className="text-text">{formatUtcDate(finalDate)}</b></span>
+              <span>Final <b className="text-text" suppressHydrationWarning>{formatLocalDate(finalDate)}</b></span>
             )}
             <span><b className="text-text">USA · Canada · Mexico</b></span>
           </div>
           <div className="mt-8">
-            <Countdown matches={nextMatches} />
+            <Countdown matches={nextMatches} liveInProgress={liveMatches.length > 0} />
           </div>
         </Card>
 

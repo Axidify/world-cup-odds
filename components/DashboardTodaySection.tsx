@@ -6,7 +6,7 @@ import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { getAllMatches, getTeam } from "@/lib/data/load";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import { isDashboardComingUpMatch } from "@/lib/match/dashboard-upcoming";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatLocalDateTime } from "@/lib/utils/dates";
 
 export function DashboardTodaySection() {
   const now = Date.now();
@@ -21,7 +21,7 @@ export function DashboardTodaySection() {
   return (
     <Card className="p-5">
       <h2 className="font-[family-name:var(--font-archivo)] text-base font-bold">Coming up</h2>
-      <p className="mt-1 text-xs text-text-muted">Today and tomorrow (UTC kickoffs)</p>
+      <p className="mt-1 text-xs text-text-muted">Today and tomorrow</p>
       <ul className="mt-4 space-y-2">
         {upcoming.map((m) => {
           const home = getTeam(m.homeTeamId);
@@ -48,8 +48,8 @@ export function DashboardTodaySection() {
                     awayLabel={away.name}
                   />
                   <LiveMatchBadge matchId={m.id} kickoffIso={m.date} />
-                  <span className="num text-xs text-text-muted">
-                    {formatUtcDateTime(m.date)} UTC
+                  <span className="num text-xs text-text-muted" suppressHydrationWarning>
+                    {formatLocalDateTime(m.date)}
                     {m.group ? ` · Gp ${m.group}` : ""}
                   </span>
                 </span>

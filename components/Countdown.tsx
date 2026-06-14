@@ -7,7 +7,7 @@ import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction"
 import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { Flag } from "@/components/Flag";
 import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
-import { formatUtcDateTime } from "@/lib/utils/dates";
+import { formatLocalDateTime } from "@/lib/utils/dates";
 
 export type CountdownMatch = {
   matchId: string;
@@ -35,7 +35,14 @@ function parts(ms: number) {
 
 const labels = ["Days", "Hours", "Mins", "Secs"] as const;
 
-export function Countdown({ matches }: { matches: CountdownMatch[] }) {
+export function Countdown({
+  matches,
+  liveInProgress = false,
+}: {
+  matches: CountdownMatch[];
+  /** When true, empty upcoming list is expected (live section covers in-play fixtures). */
+  liveInProgress?: boolean;
+}) {
   const router = useRouter();
   const refreshed = useRef(false);
   const [mounted, setMounted] = useState(false);
@@ -66,7 +73,11 @@ export function Countdown({ matches }: { matches: CountdownMatch[] }) {
 
   if (matches.length === 0) {
     return (
-      <p className="text-sm text-text-muted">No upcoming fixtures with confirmed teams.</p>
+      <p className="text-sm text-text-muted">
+        {liveInProgress
+          ? "Waiting for the next scheduled kickoff."
+          : "No upcoming fixtures with confirmed teams."}
+      </p>
     );
   }
 
@@ -81,8 +92,8 @@ export function Countdown({ matches }: { matches: CountdownMatch[] }) {
     <div suppressHydrationWarning>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
         {simultaneous ? "Next kickoffs" : "Next match"}
-        <span className="num ml-2 font-normal normal-case">
-          · {formatUtcDateTime(targetISO)} UTC
+        <span className="num ml-2 font-normal normal-case" suppressHydrationWarning>
+          · {formatLocalDateTime(targetISO)}
         </span>
       </p>
 

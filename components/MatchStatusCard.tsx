@@ -194,7 +194,7 @@ export function MatchStatusCard({
 
       {lifecycle === "live" && live ? (
         <p className="mt-2 text-center text-[11px] text-text-muted">
-          Updated {new Date(live.syncedAt).toLocaleTimeString()} · Big Balls live feed
+          Updated {new Date(live.syncedAt).toLocaleTimeString()} · football-data.org live feed
         </p>
       ) : lifecycle !== "confirmed" ? (
         <p className="mt-2 text-center text-xs text-text-muted">
