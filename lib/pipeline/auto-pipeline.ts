@@ -141,17 +141,19 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
   try {
     const provider = resolveActiveProvider()!;
 
-    const staleCleared = await ensureStaleQueueClearedBeforeSim(trigger);
-    if (!staleCleared) {
-      writePipelineState({
-        status: "skipped",
-        trigger,
-        step: null,
-        finishedAt: new Date().toISOString(),
-        error:
-          "Stale predictions remain after re-analyze — check bulk analyze logs and retry simulation",
-      });
-      return;
+    if (config.reanalyzeStale) {
+      const staleCleared = await ensureStaleQueueClearedBeforeSim(trigger);
+      if (!staleCleared) {
+        writePipelineState({
+          status: "skipped",
+          trigger,
+          step: null,
+          finishedAt: new Date().toISOString(),
+          error:
+            "Stale predictions remain after re-analyze — check bulk analyze logs and retry simulation",
+        });
+        return;
+      }
     }
 
     const confirmed = getConfirmedResults();

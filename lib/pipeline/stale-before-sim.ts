@@ -1,4 +1,4 @@
-import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
+import { buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
 import {
   fetchBulkJobRemote,
   isBulkJobActive,
@@ -29,14 +29,14 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
   const provider = resolveActiveProvider();
   if (!provider) return true;
 
-  const queue = buildBulkAnalyzeQueue({ refresh: true, includeGaps: true });
+  const queue = buildStaleAnalyzeQueue();
   if (queue.length === 0) return true;
 
-  console.log(`[pipeline] Re-analyzing ${queue.length} stale/outdated prediction(s) before simulation`);
+  console.log(`[pipeline] Re-analyzing ${queue.length} stale prediction(s) before simulation`);
 
   if (await isBulkJobActive()) {
     await waitForBulkJobCompletion();
-    return buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0;
+    return buildStaleAnalyzeQueue().length === 0;
   }
 
   writePipelineState({
@@ -48,7 +48,7 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
     error: null,
   });
 
-  const job = await triggerBulkAnalyze({ refresh: true, stale: false });
+  const job = await triggerBulkAnalyze({ refresh: true, stale: true });
   if (job === null) {
     if (await isBulkJobActive()) {
       await waitForBulkJobCompletion();
@@ -65,18 +65,17 @@ async function runStaleReanalyzePass(trigger: string): Promise<boolean> {
 }
 
 /**
- * Re-analyze actionable stale predictions before simulation.
- * Loops when new stale rows appear mid-run (e.g. another result confirms during bulk).
+ * Re-analyze stale LLM predictions before simulation (stale rows only — not the full catalog).
  */
 export async function ensureStaleQueueClearedBeforeSim(trigger = "pre_sim"): Promise<boolean> {
   if (!resolveActiveProvider()) return true;
 
   for (let pass = 0; pass < MAX_STALE_PASSES; pass++) {
-    if (buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0) return true;
+    if (buildStaleAnalyzeQueue().length === 0) return true;
     const passTrigger = pass === 0 ? trigger : `${trigger}_retry_${pass}`;
     const ok = await runStaleReanalyzePass(passTrigger);
     if (!ok) return false;
   }
 
-  return buildBulkAnalyzeQueue({ refresh: true, includeGaps: true }).length === 0;
+  return buildStaleAnalyzeQueue().length === 0;
 }

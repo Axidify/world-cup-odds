@@ -159,6 +159,7 @@ export function buildBulkAnalyzeQueue(options: {
   }
 
   for (const item of buildStaleAnalyzeQueue()) {
+    if (refresh) continue;
     const key = workItemKey(item);
     if (seen.has(key)) continue;
     seen.add(key);

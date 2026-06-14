@@ -416,9 +416,14 @@ async function runBulkQueue(
     invalidateBulkTargetsCache();
 
     if (completed > 0) {
-      void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulationAfterBulkAnalyze }) => {
-        scheduleAutoSimulationAfterBulkAnalyze();
-      });
+      void import("@/lib/pipeline/auto-pipeline").then(
+        ({ scheduleAutoSimulationAfterBulkAnalyze, isPipelineActive }) => {
+          // Pipeline-initiated bulk already continues into sim — do not re-schedule.
+          if (!isPipelineActive()) {
+            scheduleAutoSimulationAfterBulkAnalyze();
+          }
+        },
+      );
     }
   } catch (err) {
     if (isActive()) {
