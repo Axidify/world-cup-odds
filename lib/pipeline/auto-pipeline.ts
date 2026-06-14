@@ -1,7 +1,7 @@
 import { getBulkJobState, isBulkJobRunning } from "@/lib/ai/bulk-job";
 import { getModelForProvider } from "@/lib/ai/config";
 import { triggerBulkAnalyze } from "@/lib/ai/trigger-bulk-analyze";
-import { buildBulkAnalyzeQueue, buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
+import { buildBulkAnalyzeQueue } from "@/lib/ai/preanalyze";
 import { isProviderReady, resolveActiveProvider } from "@/lib/ai/settings";
 import { seedMissingPairingsFromElo } from "@/lib/calibration/seed-elo-predictions";
 import { getConfirmedResults } from "@/lib/sim/actual-results";
@@ -12,6 +12,10 @@ import { getSimulationStaleState, getLatestSimulation } from "@/lib/sim/simulati
 import { tryAcquireTournamentLock, releaseTournamentLock } from "@/lib/sim/tournament-lock";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 import { getPipelineState, writePipelineState, type PipelineState } from "@/lib/pipeline/pipeline-state";
+import {
+  ensureStaleQueueClearedBeforeSim,
+  waitForBulkJobCompletion,
+} from "@/lib/pipeline/stale-before-sim";
 
 const DEBOUNCE_MS = 5_000;
 
@@ -44,52 +48,6 @@ function reconcileOrphanedPipeline(graceMs = 120_000): void {
   });
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForBulkJob(timeoutMs = 3_600_000): Promise<void> {
-  const started = Date.now();
-  while (isBulkJobRunning() || getBulkJobState().status === "running") {
-    if (Date.now() - started > timeoutMs) {
-      throw new Error("Timed out waiting for bulk analyze");
-    }
-    await sleep(2_000);
-  }
-}
-
-async function ensureStaleReanalyzedIfConfigured(): Promise<boolean> {
-  const config = getPipelineConfig();
-  if (!config.reanalyzeStale) return false;
-
-  const provider = resolveActiveProvider();
-  if (!provider) return false;
-
-  const queue = buildStaleAnalyzeQueue();
-  if (queue.length === 0) return true;
-
-  console.log(`[pipeline] Re-analyzing ${queue.length} stale prediction(s)`);
-
-  if (isBulkJobRunning()) {
-    await waitForBulkJob();
-  }
-
-  if (!isBulkJobRunning()) {
-    writePipelineState({
-      status: "running",
-      step: "analyze",
-      trigger: "auto_stale",
-      startedAt: new Date().toISOString(),
-      finishedAt: null,
-      error: null,
-    });
-    await triggerBulkAnalyze({ refresh: true, stale: true });
-  }
-
-  await waitForBulkJob();
-  return getBulkJobState().failed === 0;
-}
-
 async function ensurePredictionsIfConfigured(): Promise<boolean> {
   const config = getPipelineConfig();
   if (!config.analyzeMissing) return false;
@@ -101,7 +59,7 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
   if (queue.length === 0) return true;
 
   if (isBulkJobRunning()) {
-    await waitForBulkJob();
+    await waitForBulkJobCompletion();
   }
 
   if (!isBulkJobRunning()) {
@@ -115,7 +73,7 @@ async function ensurePredictionsIfConfigured(): Promise<boolean> {
     });
     await triggerBulkAnalyze({ refresh: false });
   }
-  await waitForBulkJob();
+  await waitForBulkJobCompletion();
   return getBulkJobState().failed === 0;
 }
 
@@ -175,7 +133,18 @@ export async function runAutoSimulation(trigger: string): Promise<void> {
   try {
     const provider = resolveActiveProvider()!;
 
-    await ensureStaleReanalyzedIfConfigured();
+    const staleCleared = await ensureStaleQueueClearedBeforeSim(trigger);
+    if (!staleCleared) {
+      writePipelineState({
+        status: "skipped",
+        trigger,
+        step: null,
+        finishedAt: new Date().toISOString(),
+        error:
+          "Stale predictions remain after re-analyze — check bulk analyze logs and retry simulation",
+      });
+      return;
+    }
 
     const confirmed = getConfirmedResults();
     let store = loadPredictionStore(provider);

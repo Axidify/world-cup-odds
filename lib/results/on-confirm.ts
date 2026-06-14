@@ -59,6 +59,7 @@ export function finalizeResultConfirmation(
 
   if (match && match.homeTeamId !== "TBD" && match.awayTeamId !== "TBD") {
     markTeamsStale(match.homeTeamId, match.awayTeamId);
+    clearStaleForFixture(match.homeTeamId, match.awayTeamId, match.stage);
   }
 
   void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {

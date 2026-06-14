@@ -8,6 +8,9 @@ type Props = {
 };
 
 function segmentBarClass(side: "home" | "draw" | "away", favoriteSide: "home" | "draw" | "away"): string {
+  if (side === "draw") {
+    return favoriteSide === "draw" ? "bg-brand" : "bg-draw";
+  }
   return side === favoriteSide ? "bg-brand" : "bg-text-muted/45";
 }
 

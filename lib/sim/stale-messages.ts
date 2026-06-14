@@ -13,10 +13,7 @@ export function formatSimulationStaleMessage(state: SimulationStaleState): strin
   }
 
   if (state.stalePredictionsExist) {
-    if (state.resultsConfirmedSinceRun > 0) {
-      return "Stale predictions and new results — re-analyze affected matches, then re-run simulation.";
-    }
-    return "Some predictions are stale — re-analyze, then re-run simulation.";
+    return "Predictions are outdated after recent results — re-run simulation to refresh odds and bracket.";
   }
 
   if (state.predictionsNewerThanRun) {

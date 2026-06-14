@@ -94,7 +94,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
           if (!loading) setDialogOpen(false);
         }}
         title={hasSimulation ? "Re-run simulation" : "Run simulation"}
-        description="Monte Carlo champion odds and bracket projections. Requires fresh LLM predictions — run Analyze missing first if needed."
+        description="Monte Carlo champion odds and bracket projections. Stale predictions are re-analyzed automatically before simulating."
         confirmLabel={hasSimulation ? "Re-run" : "Run simulation"}
         loading={loading}
         error={error}
