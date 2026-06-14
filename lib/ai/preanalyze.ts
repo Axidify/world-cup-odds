@@ -10,13 +10,14 @@ import { isFreshLlmCachedPair, listStalePredictionRows } from "@/lib/predictions
 import type { LLMProvider } from "@/lib/types";
 
 export type BulkWorkItem =
-  | { kind: "match"; matchId: string; label: string }
+  | { kind: "match"; matchId: string; label: string; needsRefresh?: boolean }
   | {
       kind: "pair";
       homeTeamId: string;
       awayTeamId: string;
       stage: string;
       label: string;
+      needsRefresh?: boolean;
     };
 
 export const KNOCKOUT_PRECACHE_STAGE = "knockout";
@@ -199,6 +200,7 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
         kind: "match",
         matchId: groupMatch.id,
         label: `${row.teamA} vs ${row.teamB} (group, stale)`,
+        needsRefresh: true,
       });
       continue;
     }
@@ -223,6 +225,7 @@ export function buildStaleAnalyzeQueue(): BulkWorkItem[] {
       awayTeamId: row.teamB,
       stage: row.stage,
       label: `${row.teamA} vs ${row.teamB} (${row.stage}, stale)`,
+      needsRefresh: true,
     });
   }
 

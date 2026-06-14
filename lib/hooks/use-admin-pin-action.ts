@@ -44,6 +44,11 @@ export function useAdminPinGate(config: {
       setError(result.error);
       setOpen(true);
       return false;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Request failed";
+      setError(message);
+      setOpen(true);
+      return false;
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import { getFixtures } from "@/lib/data/load";
 import { getDb } from "@/lib/db";
 import { appSettings, predictions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { listStalePredictionRows } from "@/lib/predictions/lookup";
 
 function seedFreshLlm(homeTeamId: string, awayTeamId: string, stage: string) {
   savePrediction({
@@ -102,5 +103,56 @@ describe("preanalyze targets", () => {
     const { remaining, staleMissing } = countBulkTargetsLight(false);
     expect(staleMissing).toBeGreaterThan(0);
     expect(remaining).toBeGreaterThan(0);
+  });
+
+  it("ignores stale rows from retired models when a fresh active-model row exists", () => {
+    const fixture = getFixtures().find((m) => m.id === "grp-b-1");
+    expect(fixture).toBeTruthy();
+
+    for (const m of getFixtures()) {
+      if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
+      seedFreshLlm(m.homeTeamId, m.awayTeamId, "group");
+    }
+    for (const p of buildTop24Pairings()) {
+      seedFreshLlm(p.homeTeamId, p.awayTeamId, KNOCKOUT_PRECACHE_STAGE);
+    }
+
+    savePrediction({
+      homeTeamId: fixture!.homeTeamId,
+      awayTeamId: fixture!.awayTeamId,
+      stage: "group",
+      provider: "vllm",
+      model: "retired-model",
+      homeWinPct: 40,
+      drawPct: 30,
+      awayWinPct: 30,
+      predictedScore: "1-1",
+      keyFactors: [],
+      analysis: "old",
+      source: "llm",
+    });
+    const db = getDb();
+    const oldRow = db
+      .select()
+      .from(predictions)
+      .where(eq(predictions.model, "retired-model"))
+      .get();
+    db.update(predictions).set({ stale: 1 }).where(eq(predictions.cacheKey, oldRow!.cacheKey)).run();
+
+    invalidateBulkTargetsCache();
+
+    expect(listStalePredictionRows("vllm")).toHaveLength(0);
+    const { staleMissing, baselineMissing } = countBulkTargetsLight(false);
+    expect(staleMissing).toBe(0);
+    expect(baselineMissing).toBe(0);
+    const queue = buildBulkAnalyzeQueue({ refresh: false, includeGaps: false });
+    expect(
+      queue.some(
+        (q) =>
+          q.kind === "match" &&
+          q.matchId === fixture!.id &&
+          q.label.includes("stale"),
+      ),
+    ).toBe(false);
   });
 });

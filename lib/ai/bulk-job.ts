@@ -344,12 +344,11 @@ async function runBulkQueue(
   };
 
   const runItem = async (item: BulkWorkItem) => {
+    const refresh = state.refresh || item.needsRefresh === true;
     if (item.kind === "match") {
-      await analyzeMatch(item.matchId, { refresh: state.refresh });
+      await analyzeMatch(item.matchId, { refresh });
     } else {
-      await analyzePair(item.homeTeamId, item.awayTeamId, item.stage, {
-        refresh: state.refresh,
-      });
+      await analyzePair(item.homeTeamId, item.awayTeamId, item.stage, { refresh });
     }
   };
 

@@ -195,6 +195,7 @@ export function shouldProtectFromEloSeed(existing: Prediction | null): boolean {
 /** LLM rows that should be re-analyzed: explicitly stale or TTL-expired. */
 export function listStalePredictionRows(provider: LLMProvider): Prediction[] {
   const db = getDb();
+  const model = getModelForProvider(provider);
   const rows = db
     .select()
     .from(predictions)
@@ -202,8 +203,12 @@ export function listStalePredictionRows(provider: LLMProvider): Prediction[] {
     .all();
   return rows
     .map(rowToPrediction)
-    .filter(
-      (row) =>
-        row.stale === 1 || (row.source === "llm" && isPredictionExpired(row.generatedAt)),
-    );
+    .filter((row) => {
+      const markedStale =
+        row.stale === 1 || (row.source === "llm" && isPredictionExpired(row.generatedAt));
+      if (!markedStale) return false;
+      // Ignore stale rows from retired models — analyze only targets the active model key.
+      const expectedKey = buildCacheKey(row.teamA, row.teamB, row.stage, provider, model);
+      return row.cacheKey === expectedKey;
+    });
 }

@@ -69,7 +69,7 @@ export function BulkAnalyzePanel() {
       const data = await res.json();
       setJob(data.job);
       setTargets(data.targets);
-      return data.job as BulkJobState;
+      return data as { job: BulkJobState; targets: Targets };
     } catch {
       return null;
     }
@@ -91,7 +91,8 @@ export function BulkAnalyzePanel() {
     if (!showProgress) return;
 
     const id = setInterval(async () => {
-      const next = await poll();
+      const data = await poll();
+      const next = data?.job;
       if (!next) return;
 
       if (next.status === "running") {
@@ -108,6 +109,9 @@ export function BulkAnalyzePanel() {
             ? "All predictions are up to date"
             : `Analyzed ${next.completed} matchup${next.completed === 1 ? "" : "s"}`,
         );
+        if ((data?.targets?.remaining ?? 0) > 0) {
+          toast("Some pairings still need analysis — try again");
+        }
         router.refresh();
       } else if (next.status === "failed") {
         toast(next.error ?? "Bulk analyze failed");
@@ -121,12 +125,28 @@ export function BulkAnalyzePanel() {
 
   const startAction: AdminPinAction = async (pin) => {
     const runTotal = targets?.remaining ?? 0;
-    const res = await fetch("/api/analyze/bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh: false, pin }),
-    });
-    const data = await res.json();
+    let res: Response;
+    try {
+      res = await fetch("/api/analyze/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh: false, pin }),
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        status: 0,
+        error: err instanceof Error ? err.message : "Network error",
+      };
+    }
+
+    let data: { job?: BulkJobState; error?: string; targets?: Targets };
+    try {
+      data = await res.json();
+    } catch {
+      return { ok: false, status: res.status, error: "Invalid server response" };
+    }
+
     if (!res.ok) {
       return { ok: false, status: res.status, error: data.error ?? "Failed to start" };
     }
@@ -135,14 +155,29 @@ export function BulkAnalyzePanel() {
     setJob(optimisticJob(runTotal, targets));
     scrollProgressIntoView();
 
-    setJob(data.job);
+    setJob(data.job ?? null);
+    if (data.targets) setTargets(data.targets);
+
     if (data.job?.status === "running") {
       setStarting(false);
       scrollProgressIntoView();
     } else {
       setStarting(false);
-      if (data.job?.status === "completed" && data.job.total === 0) {
-        toast("All predictions are up to date");
+      if (data.job?.status === "completed") {
+        if (data.job.total === 0) {
+          toast("All predictions are up to date");
+        } else {
+          toast(
+            `Analyzed ${data.job.completed} matchup${data.job.completed === 1 ? "" : "s"}`,
+          );
+        }
+        const latest = await poll();
+        if ((latest?.targets?.remaining ?? 0) > 0) {
+          toast("Some pairings still need analysis — try again");
+        }
+        router.refresh();
+      } else if (data.job?.status === "failed") {
+        toast(data.job.error ?? "Bulk analyze failed");
       }
     }
     void poll();
