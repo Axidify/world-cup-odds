@@ -7,6 +7,10 @@ type Props = {
   awayLabel: string;
 };
 
+function segmentBarClass(side: "home" | "draw" | "away", favoriteSide: "home" | "draw" | "away"): string {
+  return side === favoriteSide ? "bg-brand" : "bg-text-muted/45";
+}
+
 export function FixtureProbsBadge({ probs, homeLabel, awayLabel }: Props) {
   const favorite = favoriteFixtureOutcome(probs);
   const homeShort = teamAbbrev(homeLabel);
@@ -30,9 +34,18 @@ export function FixtureProbsBadge({ probs, homeLabel, awayLabel }: Props) {
         className="flex h-1.5 w-14 overflow-hidden rounded-full bg-surface-2 sm:w-16"
         aria-hidden
       >
-        <span className="h-full bg-brand" style={{ width: `${probs.home}%` }} />
-        <span className="h-full bg-text-muted/35" style={{ width: `${probs.draw}%` }} />
-        <span className="h-full bg-text-muted/60" style={{ width: `${probs.away}%` }} />
+        <span
+          className={`h-full ${segmentBarClass("home", favorite.side)}`}
+          style={{ width: `${probs.home}%` }}
+        />
+        <span
+          className={`h-full ${segmentBarClass("draw", favorite.side)}`}
+          style={{ width: `${probs.draw}%` }}
+        />
+        <span
+          className={`h-full ${segmentBarClass("away", favorite.side)}`}
+          style={{ width: `${probs.away}%` }}
+        />
       </span>
       <span className="num text-[10px] font-bold leading-none text-brand sm:text-xs">
         {favoriteLabel} {favorite.pct}%
