@@ -3,7 +3,7 @@ import type { ChampionOddsMap, LLMProvider, PredictedPath, SimulationExtras, Sim
 import { getDb } from "@/lib/db";
 import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
-import { listStalePredictionRows } from "@/lib/predictions/lookup";
+import { buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
 import { countConfirmedSince, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
 
 function rowToSimulation(row: typeof simulationCache.$inferSelect): SimulationResult {
@@ -70,8 +70,9 @@ function getLatestPredictionAt(provider: string): string | null {
   return row?.generatedAt ?? null;
 }
 
-function hasStalePredictions(provider: string): boolean {
-  return listStalePredictionRows(provider as LLMProvider).length > 0;
+/** Actionable stale rows only — excludes confirmed fixtures (same rules as bulk stale queue). */
+function hasStalePredictions(provider: LLMProvider): boolean {
+  return buildStaleAnalyzeQueue().length > 0;
 }
 
 export type SimulationStaleState = {

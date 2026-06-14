@@ -11,6 +11,7 @@ import { setActiveProvider } from "@/lib/ai/settings";
 import { getFixtures } from "@/lib/data/load";
 import { getDb } from "@/lib/db";
 import { appSettings, predictions } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 function seedFreshLlm(homeTeamId: string, awayTeamId: string, stage: string) {
   savePrediction({
@@ -67,5 +68,33 @@ describe("preanalyze targets", () => {
     } else {
       expect(remaining).toBe(0);
     }
+  });
+
+  it("counts stale rows in remaining when they still need refresh", () => {
+    const fixture = getFixtures().find((m) => m.id === "grp-b-1");
+    expect(fixture).toBeTruthy();
+
+    savePrediction({
+      homeTeamId: fixture!.homeTeamId,
+      awayTeamId: fixture!.awayTeamId,
+      stage: "group",
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 50,
+      drawPct: 25,
+      awayWinPct: 25,
+      predictedScore: "1-0",
+      keyFactors: [],
+      analysis: "stale",
+      source: "llm",
+    });
+    const db = getDb();
+    const row = db.select().from(predictions).get();
+    db.update(predictions).set({ stale: 1 }).where(eq(predictions.cacheKey, row!.cacheKey)).run();
+    invalidateBulkTargetsCache();
+
+    const { remaining, staleMissing } = countBulkTargetsLight(false);
+    expect(staleMissing).toBeGreaterThan(0);
+    expect(remaining).toBeGreaterThan(0);
   });
 });

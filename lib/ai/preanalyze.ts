@@ -147,6 +147,18 @@ export function buildBulkAnalyzeQueue(options: {
     }
   }
 
+  if (!refresh) {
+    for (const item of buildStaleAnalyzeQueue()) {
+      const key =
+        item.kind === "match"
+          ? `match|${item.matchId}`
+          : pairKey(item.homeTeamId, item.awayTeamId, item.stage);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      queue.push(item);
+    }
+  }
+
   return queue;
 }
 
@@ -223,6 +235,7 @@ function computeBulkTargets(refresh = false): {
   remaining: number;
   baselineMissing: number;
   simulationMissing: number;
+  staleMissing: number;
 } {
   const pairCount = buildTop24Pairings().length;
   const provider = resolveActiveProvider();
@@ -236,16 +249,24 @@ function computeBulkTargets(refresh = false): {
   const total = groupCount + pairCount;
 
   if (!provider) {
-    return { total, cached: 0, remaining: total, baselineMissing: total, simulationMissing: total };
+    return {
+      total,
+      cached: 0,
+      remaining: total,
+      baselineMissing: total,
+      simulationMissing: total,
+      staleMissing: 0,
+    };
   }
 
   const baselineMissing = buildBulkAnalyzeQueue({ refresh, includeGaps: false }).length;
   const simulationMissing = countSimulationMissing();
-  // What bulk analyze POST actually queues (includes bracket-path gaps).
+  const staleMissing = refresh ? 0 : buildStaleAnalyzeQueue().length;
+  // What bulk analyze POST actually queues (includes bracket-path gaps + stale).
   const queueRemaining = buildBulkAnalyzeQueue({ refresh, includeGaps: true }).length;
-  const remaining = Math.max(queueRemaining, simulationMissing);
+  const remaining = Math.max(queueRemaining, simulationMissing, staleMissing);
   const cached = refresh ? 0 : Math.max(0, total - baselineMissing);
-  return { total, cached, remaining, baselineMissing, simulationMissing };
+  return { total, cached, remaining, baselineMissing, simulationMissing, staleMissing };
 }
 
 let targetsCache: {
@@ -294,5 +315,6 @@ export function bulkTargetsWhileRunning(job: {
     remaining,
     baselineMissing: remaining,
     simulationMissing: remaining,
+    staleMissing: 0,
   };
 }

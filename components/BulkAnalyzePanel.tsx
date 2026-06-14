@@ -15,6 +15,7 @@ type Targets = {
   remaining?: number;
   baselineMissing?: number;
   simulationMissing?: number;
+  staleMissing?: number;
 };
 
 type DialogMode = "start" | "cancel" | null;
@@ -174,10 +175,18 @@ export function BulkAnalyzePanel() {
   const pending = targets?.remaining ?? null;
   const simMissing = targets?.simulationMissing ?? null;
   const baselineMissing = targets?.baselineMissing ?? null;
+  const staleMissing = targets?.staleMissing ?? null;
   const gapOnly =
     pending != null &&
     pending > 0 &&
-    baselineMissing === 0;
+    baselineMissing === 0 &&
+    (staleMissing ?? 0) === 0;
+  const staleOnly =
+    pending != null &&
+    pending > 0 &&
+    baselineMissing === 0 &&
+    (simMissing ?? 0) === 0 &&
+    (staleMissing ?? 0) > 0;
 
   return (
     <div className="space-y-3">
@@ -246,9 +255,11 @@ export function BulkAnalyzePanel() {
           {targets.cached} / {targets.total} core pairings have fresh LLM predictions
           {pending === 0
             ? " · up to date"
-            : gapOnly
-              ? ` · ${simMissing ?? pending} bracket-path pairing${(simMissing ?? pending) === 1 ? "" : "s"} needed before simulation`
-              : ` · ${pending} to analyze this run`}
+            : staleOnly
+              ? ` · ${staleMissing} stale prediction${staleMissing === 1 ? "" : "s"} to refresh`
+              : gapOnly
+                ? ` · ${simMissing ?? pending} bracket-path pairing${(simMissing ?? pending) === 1 ? "" : "s"} needed before simulation`
+                : ` · ${pending} to analyze this run`}
         </p>
       )}
       {!showProgress && job?.error && job.status !== "idle" && (
