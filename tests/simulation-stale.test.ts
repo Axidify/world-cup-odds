@@ -63,6 +63,41 @@ describe("simulation stale", () => {
     expect(countConfirmedSince(runAt)).toBe(1);
   });
 
+  it("uses analyze wording when predictions still need LLM refresh", () => {
+    const db = getDb();
+    db.insert(simulationCache)
+      .values({
+        provider: "vllm",
+        model: "test",
+        iterations: 100,
+        championOdds: "{}",
+        predictedPath: "{}",
+        runAt: "2026-06-14T01:00:00.000Z",
+      })
+      .run();
+
+    savePrediction({
+      homeTeamId: "bra",
+      awayTeamId: "mex",
+      stage: "group",
+      provider: "vllm",
+      model: "test",
+      homeWinPct: 50,
+      drawPct: 25,
+      awayWinPct: 25,
+      predictedScore: "1-0",
+      keyFactors: [],
+      analysis: "stale",
+      source: "llm",
+    });
+    const row = db.select().from(predictions).get();
+    db.update(predictions).set({ stale: 1 }).where(eq(predictions.cacheKey, row!.cacheKey)).run();
+
+    const state = getSimulationStaleState();
+    expect(state.stalePredictionsExist).toBe(true);
+    expect(formatSimulationStaleMessage(state)).toContain("Analyze missing");
+  });
+
   it("marks stale when predictions are newer than simulation", () => {
     const db = getDb();
     db.insert(simulationCache)

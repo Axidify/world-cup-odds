@@ -11,6 +11,7 @@ import { TournamentStatusBanner } from "@/components/TournamentStatusBanner";
 import { countPredictions } from "@/lib/ai/predictions";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getLatestSimulation, getSimulationStaleState } from "@/lib/sim/simulation-cache";
+import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
 import { getNextUpcomingMatches } from "@/lib/match/next-upcoming";
 import { getDashboardLiveMatches } from "@/lib/match/dashboard-live";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
@@ -86,7 +87,11 @@ export default function DashboardPage() {
               ? `Monte Carlo · ${simulation.iterations.toLocaleString()} iters`
               : "Run simulation after match predictions are cached"}
           </p>
-          <SimulationStaleAlert hasSimulation={Boolean(simulation)} className="mt-1" />
+          <SimulationStaleAlert
+            hasSimulation={Boolean(simulation)}
+            initialMessage={formatSimulationStaleMessage(staleState)}
+            className="mt-1"
+          />
           <div className="mt-5">
             <ChampionOddsBars
               teams={teams}

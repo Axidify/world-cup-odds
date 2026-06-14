@@ -13,7 +13,7 @@ export function formatSimulationStaleMessage(state: SimulationStaleState): strin
   }
 
   if (state.stalePredictionsExist) {
-    return "Predictions are outdated after recent results — re-run simulation to refresh odds and bracket.";
+    return "Some predictions still need LLM analysis — use Analyze missing below, then re-run simulation.";
   }
 
   if (state.predictionsNewerThanRun) {

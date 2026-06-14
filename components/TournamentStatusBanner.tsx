@@ -6,7 +6,13 @@ import { Card } from "@/components/ui/Card";
 
 type StatusResponse = {
   simulation: { runAt: string } | null;
-  stale: { stale: boolean; resultsConfirmedSinceRun: number };
+  stale: {
+    stale: boolean;
+    stalePredictionsExist: boolean;
+    predictionsNewerThanRun: boolean;
+    resultsConfirmedSinceRun: number;
+    providerMismatch: boolean;
+  };
   staleMessage: string | null;
   pendingResults: number;
   poller: { lastResultsPollAt: string | null; lastNewsPollAt: string | null };
@@ -43,7 +49,14 @@ export function TournamentStatusBanner() {
   if (!status) return null;
 
   const pipelineActive = status.pipeline?.active;
-  const showStale = status.stale.stale && status.staleMessage && !pipelineActive;
+  const showStale =
+    status.staleMessage &&
+    !pipelineActive &&
+    (status.stale.stalePredictionsExist ||
+      status.stale.providerMismatch ||
+      (status.stale.resultsConfirmedSinceRun > 0 &&
+        !status.stale.predictionsNewerThanRun &&
+        !status.stale.stalePredictionsExist));
   const showPending = status.pendingResults > 0;
   const showPoller = !status.poller.lastResultsPollAt;
   const showPipeline = pipelineActive || status.pipeline?.state.status === "failed";
