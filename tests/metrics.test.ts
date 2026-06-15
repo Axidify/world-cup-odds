@@ -10,7 +10,6 @@ import {
   deriveActualOutcome,
   getAccuracySummary,
   isDirectionCorrect,
-  logPredictionAccuracy,
   orientProbabilities,
   pickFavoriteOutcome,
   storedPredictedToProbs,
@@ -257,63 +256,5 @@ describe("backfillPredictionAccuracyLogs", () => {
 
     const summary = getAccuracySummary();
     expect(summary.worstMisses.some((m) => m.matchId === matchId)).toBe(true);
-  });
-
-  it("does not overwrite an existing row when logPredictionAccuracy runs again", () => {
-    const db = getDb();
-    db.insert(actualResults)
-      .values({
-        matchId,
-        homeScore: 2,
-        awayScore: 0,
-        et: 0,
-        pens: 0,
-        winnerTeamId: "mex",
-        confirmed: 1,
-        source: "test",
-        confirmedAt: "2026-06-11T22:00:00.000Z",
-        confirmedBy: "auto",
-      })
-      .run();
-
-    savePrediction({
-      homeTeamId: "mex",
-      awayTeamId: "rsa",
-      stage: "group",
-      provider: "vllm",
-      model: "test-model",
-      homeWinPct: 62,
-      drawPct: 22,
-      awayWinPct: 16,
-      predictedScore: "2-0",
-      keyFactors: ["form"],
-      analysis: "Original",
-      source: "llm",
-    });
-
-    const first = logPredictionAccuracy(matchId);
-    expect(first).not.toBeNull();
-    const firstBrier = first!.brier;
-
-    savePrediction({
-      homeTeamId: "mex",
-      awayTeamId: "rsa",
-      stage: "group",
-      provider: "vllm",
-      model: "test-model",
-      homeWinPct: 90,
-      drawPct: 5,
-      awayWinPct: 5,
-      predictedScore: "3-0",
-      keyFactors: ["form"],
-      analysis: "Re-analyzed later",
-      source: "llm",
-    });
-
-    const second = logPredictionAccuracy(matchId);
-    expect(second?.brier).toBe(firstBrier);
-
-    const row = db.select().from(predictionLog).where(eq(predictionLog.matchId, matchId)).get();
-    expect(row?.brier).toBe(firstBrier);
   });
 });

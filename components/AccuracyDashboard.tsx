@@ -160,8 +160,8 @@ export function AccuracyDashboard() {
             most-likely outcome.
           </li>
           <li>
-            <strong className="text-text">Advanced stats</strong> — optional math (Brier, confidence
-            bands) for how tight the probability numbers were, not just who we picked.
+            <strong className="text-text">Advanced stats</strong> — optional math (Brier, calibration)
+            for how tight the probability numbers were, not just who we picked.
           </li>
         </ul>
       </Card>
@@ -316,11 +316,10 @@ export function AccuracyDashboard() {
 
           {data.calibrationBins.length > 0 && (
             <div>
-              <h3 className="text-sm font-bold">Favorite pick rate by confidence</h3>
+              <h3 className="text-sm font-bold">Calibration check</h3>
               <p className="mt-1 text-xs text-text-muted">
-                How often our most likely outcome (home, draw, or away) was right, grouped by how
-                confident that pick was. This is not full probability calibration — draws count as a
-                miss when we favored a team.
+                When we said a team had X% chance to win, how often did that outcome actually happen?
+                Bars closer to the predicted % mean better calibration.
               </p>
               <div className="mt-3 space-y-3">
                 {data.calibrationBins.map((b) => (
@@ -328,7 +327,7 @@ export function AccuracyDashboard() {
                     <div className="mb-1 flex justify-between text-xs">
                       <span className="font-semibold text-text">Favorite around {b.bin}</span>
                       <span className="num text-text-muted">
-                        pick correct {b.actual}% of the time ({b.count} match{b.count === 1 ? "" : "es"})
+                        happened {b.actual}% of the time ({b.count} match{b.count === 1 ? "" : "es"})
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-surface-2">

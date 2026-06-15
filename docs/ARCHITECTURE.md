@@ -220,13 +220,11 @@ News “Elo delta” on probabilities is separate from `elo_ratings` — it only
 
 After each confirm, `logPredictionAccuracy` (`lib/calibration/metrics.ts`) writes to `prediction_log`:
 
-- Predicted probabilities (news-adjusted at kickoff, with AI baseline stored for comparison)
+- Predicted probabilities (news-adjusted, with AI baseline stored for comparison)
 - Actual outcome (home / draw / away)
 - Brier score, log loss, direction correct
 
-Grading uses the **active LLM provider** (same as sim/UI) and news overlay evaluated **at kickoff**, not at confirm time. Log rows are frozen after first write.
-
-The `/accuracy` page and `GET /api/accuracy` aggregate: pick accuracy %, favorite pick rate by confidence band, biggest surprises, news vs baseline Brier.
+The `/accuracy` page and `GET /api/accuracy` aggregate: pick accuracy %, calibration bins, biggest surprises, news vs baseline Brier.
 
 ### How it improves future predictions
 

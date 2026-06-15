@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm";
 import { getTeam } from "@/lib/data/load";
 import { getDb } from "@/lib/db";
 import { actualResults, predictionLog } from "@/lib/db/schema";
+import { listProviderInfos } from "@/lib/ai/config";
 import { getPredictionForPair } from "@/lib/ai/predictions";
-import { resolveActiveProvider } from "@/lib/ai/settings";
 import { fixtureProbabilitiesWithNews } from "@/lib/news/impact";
-import type { Match, Prediction } from "@/lib/types";
+import type { LLMProvider, Match, Prediction } from "@/lib/types";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { formatStageLabel } from "@/lib/utils/match-label";
 
@@ -221,9 +221,14 @@ export function pickFavoriteOutcome(
 }
 
 function findPredictionForLogging(match: Match): Prediction | null {
-  const provider = resolveActiveProvider();
-  if (!provider) return null;
-  return getPredictionForPair(match.homeTeamId, match.awayTeamId, match.stage, provider);
+  const providers = listProviderInfos()
+    .filter((p) => p.configured)
+    .map((p) => p.id as LLMProvider);
+  for (const provider of providers) {
+    const prediction = getPredictionForPair(match.homeTeamId, match.awayTeamId, match.stage, provider);
+    if (prediction) return prediction;
+  }
+  return null;
 }
 
 function parseLogRow(row: typeof predictionLog.$inferSelect): PredictionLogEntry {
@@ -268,11 +273,11 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
   if (!prediction) return existing ? parseLogRow(existing) : null;
 
   const baselineProbs = orientProbabilities(prediction, match.homeTeamId);
-  const kickoffMs = new Date(match.date).getTime();
-  const adjusted = fixtureProbabilitiesWithNews(prediction, match.homeTeamId, match.awayTeamId, {
-    kickoffIso: match.date,
-    referenceTimeMs: kickoffMs,
-  });
+  const adjusted = fixtureProbabilitiesWithNews(
+    prediction,
+    match.homeTeamId,
+    match.awayTeamId,
+  );
   const probs = {
     home: adjusted.home,
     draw: adjusted.draw,
@@ -292,7 +297,11 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
   });
 
   if (existing) {
-    return parseLogRow(existing);
+    db.update(predictionLog)
+      .set({ predicted: predictedJson, actual, brier, logLoss })
+      .where(eq(predictionLog.id, existing.id))
+      .run();
+    return parseLogRow(db.select().from(predictionLog).where(eq(predictionLog.id, existing.id)).get()!);
   }
 
   const id = `log-${matchId}`;
