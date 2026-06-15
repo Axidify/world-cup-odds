@@ -424,6 +424,9 @@ async function runBulkQueue(
     invalidateBulkTargetsCache();
 
     if (completed > 0) {
+      void import("@/lib/calibration/metrics").then(({ backfillPredictionAccuracyLogs }) => {
+        backfillPredictionAccuracyLogs();
+      });
       void import("@/lib/pipeline/auto-pipeline").then(
         ({ scheduleAutoSimulationAfterBulkAnalyze, isPipelineActive }) => {
           // Pipeline-initiated bulk already continues into sim — do not re-schedule.

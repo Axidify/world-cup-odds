@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { AccuracySummary } from "@/lib/calibration/metrics";
 import { formatStageLabel } from "@/lib/utils/match-label";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+
+const MATCHES_PAGE_SIZE = 10;
+
+type GradedMatch = AccuracySummary["worstMisses"][number];
 
 function StatCard({
   label,
@@ -28,9 +34,54 @@ function StatCard({
   );
 }
 
+function GradedMatchRow({ match }: { match: GradedMatch }) {
+  const success = match.directionCorrect;
+
+  return (
+    <li
+      className={`rounded-lg border p-3 ${
+        success ? "border-win/40 bg-win/5" : "border-loss/40 bg-loss/5"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <Link
+            href={`/match/${match.matchId}`}
+            className="font-semibold text-brand hover:underline"
+          >
+            {match.matchLabel}
+          </Link>
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+            {match.stageLabel}
+          </p>
+        </div>
+        <span
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+            success ? "bg-win/15 text-win" : "bg-loss/15 text-loss"
+          }`}
+        >
+          {success ? <Check size={12} aria-hidden /> : <X size={12} aria-hidden />}
+          {success ? "Correct pick" : "Missed pick"}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+        <p>
+          <span className="text-text-muted">We picked: </span>
+          <span className="font-medium text-text">{match.predicted}</span>
+        </p>
+        <p>
+          <span className="text-text-muted">What happened: </span>
+          <span className={`font-medium ${success ? "text-win" : "text-text"}`}>{match.actual}</span>
+        </p>
+      </div>
+    </li>
+  );
+}
+
 export function AccuracyDashboard() {
   const [data, setData] = useState<AccuracySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [matchPage, setMatchPage] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +98,10 @@ export function AccuracyDashboard() {
     const id = setInterval(() => void load(), 60_000);
     return () => clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    setMatchPage(0);
+  }, [data?.count]);
 
   if (error) {
     return <p className="text-sm text-loss">{error}</p>;
@@ -82,6 +137,13 @@ export function AccuracyDashboard() {
   const directionPct = data.directionAccuracy != null ? `${data.directionAccuracy}%` : "—";
   const newsHelped =
     data.newsImpact?.brierImprovement != null && data.newsImpact.brierImprovement > 0;
+  const gradedMatches = data.worstMisses;
+  const matchPageCount = Math.max(1, Math.ceil(gradedMatches.length / MATCHES_PAGE_SIZE));
+  const safeMatchPage = Math.min(matchPage, matchPageCount - 1);
+  const pagedMatches = gradedMatches.slice(
+    safeMatchPage * MATCHES_PAGE_SIZE,
+    safeMatchPage * MATCHES_PAGE_SIZE + MATCHES_PAGE_SIZE,
+  );
 
   return (
     <div className="space-y-6">
@@ -93,8 +155,9 @@ export function AccuracyDashboard() {
             (home win, draw, or away win) match the result?
           </li>
           <li>
-            <strong className="text-text">Biggest surprises</strong> — games where our probabilities
-            were furthest from reality.
+            <strong className="text-text">Graded matches</strong> — every confirmed game with stored
+            odds, sorted biggest miss first. Green = favorite pick right; red = we called the wrong
+            most-likely outcome.
           </li>
           <li>
             <strong className="text-text">Advanced stats</strong> — optional math (Brier, calibration)
@@ -117,38 +180,58 @@ export function AccuracyDashboard() {
         />
       </div>
 
-      {data.worstMisses.length > 0 && (
+      {gradedMatches.length > 0 && (
         <Card className="p-5">
-          <h2 className="text-sm font-bold">Biggest surprises</h2>
-          <p className="mt-1 text-xs text-text-muted">
-            Matches where our pre-game odds missed the most — not necessarily wrong winner, but
-            confidently off.
-          </p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold">Graded matches</h2>
+              <p className="mt-1 text-xs text-text-muted">
+                {gradedMatches.length} confirmed match{gradedMatches.length === 1 ? "" : "es"} · sorted
+                by probability error (worst first)
+              </p>
+            </div>
+            {matchPageCount > 1 && (
+              <p className="num text-xs font-semibold text-text-muted">
+                Page {safeMatchPage + 1} of {matchPageCount}
+              </p>
+            )}
+          </div>
           <ul className="mt-4 space-y-3">
-            {data.worstMisses.map((m) => (
-              <li key={m.matchId} className="rounded-lg border border-border bg-surface-2/50 p-3">
-                <Link
-                  href={`/match/${m.matchId}`}
-                  className="font-semibold text-brand hover:underline"
-                >
-                  {m.matchLabel}
-                </Link>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  {m.stageLabel}
-                </p>
-                <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-                  <p>
-                    <span className="text-text-muted">We picked: </span>
-                    <span className="font-medium text-text">{m.predicted}</span>
-                  </p>
-                  <p>
-                    <span className="text-text-muted">What happened: </span>
-                    <span className="font-medium text-text">{m.actual}</span>
-                  </p>
-                </div>
-              </li>
+            {pagedMatches.map((m) => (
+              <GradedMatchRow key={m.matchId} match={m} />
             ))}
           </ul>
+          {matchPageCount > 1 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <p className="text-xs text-text-muted">
+                Showing {safeMatchPage * MATCHES_PAGE_SIZE + 1}–
+                {Math.min((safeMatchPage + 1) * MATCHES_PAGE_SIZE, gradedMatches.length)} of{" "}
+                {gradedMatches.length}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 min-h-9 px-3"
+                  disabled={safeMatchPage === 0}
+                  onClick={() => setMatchPage(safeMatchPage - 1)}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 min-h-9 px-3"
+                  disabled={safeMatchPage >= matchPageCount - 1}
+                  onClick={() => setMatchPage(safeMatchPage + 1)}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

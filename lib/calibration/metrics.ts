@@ -55,6 +55,7 @@ export type AccuracySummary = {
     predicted: string;
     actual: string;
     brier: number;
+    directionCorrect: boolean;
   }>;
 };
 
@@ -322,7 +323,36 @@ export function logPredictionAccuracy(matchId: string): PredictionLogEntry | nul
   return parseLogRow(db.select().from(predictionLog).where(eq(predictionLog.id, id)).get()!);
 }
 
+/** Grade confirmed matches that were logged before a prediction existed. Skips existing rows. */
+export function backfillPredictionAccuracyLogs(): { attempted: number; added: number } {
+  const db = getDb();
+  const confirmed = db
+    .select({ matchId: actualResults.matchId })
+    .from(actualResults)
+    .where(eq(actualResults.confirmed, 1))
+    .all();
+  const loggedIds = new Set(
+    db.select({ matchId: predictionLog.matchId }).from(predictionLog).all().map((r) => r.matchId),
+  );
+
+  let attempted = 0;
+  let added = 0;
+  for (const { matchId } of confirmed) {
+    if (loggedIds.has(matchId)) continue;
+    attempted += 1;
+    const entry = logPredictionAccuracy(matchId);
+    if (entry) {
+      added += 1;
+      loggedIds.add(matchId);
+    }
+  }
+
+  return { attempted, added };
+}
+
 export function getAccuracySummary(): AccuracySummary {
+  backfillPredictionAccuracyLogs();
+
   const db = getDb();
   const rows = db.select().from(predictionLog).all();
   const entries = rows.map(parseLogRow);
@@ -389,7 +419,6 @@ export function getAccuracySummary(): AccuracySummary {
 
   const worstMisses = [...entries]
     .sort((a, b) => b.brier - a.brier)
-    .slice(0, 10)
     .map((e) => {
       const match = getResolvedMatch(e.matchId);
       if (!match) {
@@ -401,6 +430,7 @@ export function getAccuracySummary(): AccuracySummary {
           predicted: "—",
           actual: e.actual,
           brier: Math.round(e.brier * 1000) / 1000,
+          directionCorrect: e.directionCorrect,
         };
       }
       const home = getTeam(match.homeTeamId)?.name ?? "Home";
@@ -413,6 +443,7 @@ export function getAccuracySummary(): AccuracySummary {
         predicted: formatFavoritePick(e.predicted, match),
         actual: formatActualOutcome(e.actual, match),
         brier: Math.round(e.brier * 1000) / 1000,
+        directionCorrect: e.directionCorrect,
       };
     });
 

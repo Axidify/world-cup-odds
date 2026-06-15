@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
+import { buildCacheKey } from "@/lib/ai/cache-key";
+import { savePrediction } from "@/lib/ai/predictions";
+import { setActiveProvider } from "@/lib/ai/settings";
 import {
+  backfillPredictionAccuracyLogs,
   computeBrier,
   computeLogLoss,
   deriveActualOutcome,
@@ -9,6 +14,8 @@ import {
   pickFavoriteOutcome,
   storedPredictedToProbs,
 } from "@/lib/calibration/metrics";
+import { getDb } from "@/lib/db";
+import { actualResults, predictionLog } from "@/lib/db/schema";
 import type { Match, Prediction } from "@/lib/types";
 
 const groupMatch: Match = {
@@ -103,5 +110,151 @@ describe("calibration metrics", () => {
       expect(summary.newsImpact.avgBaselineBrier).not.toBeNull();
       expect(summary.newsImpact.avgNewsBrier).not.toBeNull();
     }
+  });
+});
+
+describe("backfillPredictionAccuracyLogs", () => {
+  const matchId = "grp-a-1";
+
+  beforeEach(() => {
+    process.env.LLM_PROVIDER = "vllm";
+    process.env.VLLM_BASE_URL = "http://127.0.0.1:8001/v1";
+    process.env.VLLM_MODEL = "test-model";
+    setActiveProvider("vllm");
+
+    const db = getDb();
+    db.delete(predictionLog).where(eq(predictionLog.matchId, matchId)).run();
+    db.delete(actualResults).where(eq(actualResults.matchId, matchId)).run();
+  });
+
+  it("creates a log row when a confirmed result predates its prediction", () => {
+    const db = getDb();
+    db.insert(actualResults)
+      .values({
+        matchId,
+        homeScore: 2,
+        awayScore: 0,
+        et: 0,
+        pens: 0,
+        winnerTeamId: "mex",
+        confirmed: 1,
+        source: "test",
+        confirmedAt: "2026-06-11T22:00:00.000Z",
+        confirmedBy: "auto",
+      })
+      .run();
+
+    savePrediction({
+      homeTeamId: "mex",
+      awayTeamId: "rsa",
+      stage: "group",
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 62,
+      drawPct: 22,
+      awayWinPct: 16,
+      predictedScore: "2-0",
+      keyFactors: ["form"],
+      analysis: "Mexico at home",
+      source: "llm",
+    });
+
+    expect(db.select().from(predictionLog).where(eq(predictionLog.matchId, matchId)).get()).toBeUndefined();
+
+    const result = backfillPredictionAccuracyLogs();
+    expect(result.attempted).toBeGreaterThanOrEqual(1);
+    expect(result.added).toBeGreaterThanOrEqual(1);
+
+    const row = db.select().from(predictionLog).where(eq(predictionLog.matchId, matchId)).get();
+    expect(row?.actual).toBe("home");
+    expect(row?.brier).not.toBeNull();
+  });
+
+  it("does not overwrite an existing log row", () => {
+    const db = getDb();
+    db.insert(actualResults)
+      .values({
+        matchId,
+        homeScore: 2,
+        awayScore: 0,
+        et: 0,
+        pens: 0,
+        winnerTeamId: "mex",
+        confirmed: 1,
+        source: "test",
+        confirmedAt: "2026-06-11T22:00:00.000Z",
+        confirmedBy: "auto",
+      })
+      .run();
+
+    db.insert(predictionLog)
+      .values({
+        id: `log-${matchId}`,
+        matchId,
+        cacheKey: buildCacheKey("mex", "rsa", "group", "vllm", "test-model"),
+        predicted: JSON.stringify({ home: 40, draw: 30, away: 30 }),
+        actual: "home",
+        brier: 0.123,
+        logLoss: 0.5,
+        createdAt: "2026-06-11T22:00:00.000Z",
+      })
+      .run();
+
+    savePrediction({
+      homeTeamId: "mex",
+      awayTeamId: "rsa",
+      stage: "group",
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 90,
+      drawPct: 5,
+      awayWinPct: 5,
+      predictedScore: "3-0",
+      keyFactors: ["form"],
+      analysis: "Much later analysis",
+      source: "llm",
+    });
+
+    const result = backfillPredictionAccuracyLogs();
+    expect(result.added).toBe(0);
+
+    const row = db.select().from(predictionLog).where(eq(predictionLog.matchId, matchId)).get();
+    expect(row?.brier).toBe(0.123);
+  });
+
+  it("runs automatically when loading the accuracy summary", () => {
+    const db = getDb();
+    db.insert(actualResults)
+      .values({
+        matchId,
+        homeScore: 2,
+        awayScore: 0,
+        et: 0,
+        pens: 0,
+        winnerTeamId: "mex",
+        confirmed: 1,
+        source: "test",
+        confirmedAt: "2026-06-11T22:00:00.000Z",
+        confirmedBy: "auto",
+      })
+      .run();
+
+    savePrediction({
+      homeTeamId: "mex",
+      awayTeamId: "rsa",
+      stage: "group",
+      provider: "vllm",
+      model: "test-model",
+      homeWinPct: 62,
+      drawPct: 22,
+      awayWinPct: 16,
+      predictedScore: "2-0",
+      keyFactors: ["form"],
+      analysis: "Mexico at home",
+      source: "llm",
+    });
+
+    const summary = getAccuracySummary();
+    expect(summary.worstMisses.some((m) => m.matchId === matchId)).toBe(true);
   });
 });
