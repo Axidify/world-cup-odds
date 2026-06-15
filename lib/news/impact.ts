@@ -41,10 +41,14 @@ export function getNewsImpactFixtureDays(): number {
   return Number.isFinite(n) && n > 0 ? n : 14;
 }
 
-export function scaleNewsDeltaForFixture(delta: number, kickoffIso?: string): number {
+export function scaleNewsDeltaForFixture(
+  delta: number,
+  kickoffIso?: string,
+  referenceTimeMs: number = Date.now(),
+): number {
   if (delta === 0) return 0;
   if (!kickoffIso) return delta;
-  const daysUntil = (new Date(kickoffIso).getTime() - Date.now()) / 86_400_000;
+  const daysUntil = (new Date(kickoffIso).getTime() - referenceTimeMs) / 86_400_000;
   if (daysUntil <= 0) return delta;
   const window = getNewsImpactFixtureDays();
   if (daysUntil >= window) return Math.round(delta * 0.2);
@@ -108,10 +112,14 @@ export function getTeamNewsImpact(teamId: string): TeamNewsImpact {
   return impact;
 }
 
-export function getTeamNewsImpactForFixture(teamId: string, kickoffIso?: string): TeamNewsImpact {
+export function getTeamNewsImpactForFixture(
+  teamId: string,
+  kickoffIso?: string,
+  referenceTimeMs?: number,
+): TeamNewsImpact {
   const base = getTeamNewsImpact(teamId);
   if (!kickoffIso || base.eloDelta === 0) return base;
-  const scaled = scaleNewsDeltaForFixture(base.eloDelta, kickoffIso);
+  const scaled = scaleNewsDeltaForFixture(base.eloDelta, kickoffIso, referenceTimeMs);
   if (scaled === base.eloDelta) return base;
   return { teamId, eloDelta: scaled, reasons: base.reasons };
 }
@@ -160,22 +168,30 @@ export function getPairNewsImpact(
   homeTeamId: string,
   awayTeamId: string,
   kickoffIso?: string,
+  referenceTimeMs?: number,
 ): PairNewsImpact {
   return {
     home: kickoffIso
-      ? getTeamNewsImpactForFixture(homeTeamId, kickoffIso)
+      ? getTeamNewsImpactForFixture(homeTeamId, kickoffIso, referenceTimeMs)
       : getTeamNewsImpact(homeTeamId),
     away: kickoffIso
-      ? getTeamNewsImpactForFixture(awayTeamId, kickoffIso)
+      ? getTeamNewsImpactForFixture(awayTeamId, kickoffIso, referenceTimeMs)
       : getTeamNewsImpact(awayTeamId),
   };
 }
+
+export type FixtureNewsOverlayOptions = {
+  kickoffIso?: string;
+  /** Evaluate days-until-kickoff from this instant (defaults to now). */
+  referenceTimeMs?: number;
+};
 
 /** Fixture-oriented win percentages (0–100) with optional news overlay. */
 export function fixturePercentagesWithNews(
   prediction: Prediction,
   homeTeamId: string,
   awayTeamId: string,
+  options: FixtureNewsOverlayOptions = {},
 ): {
   homeWinPct: number;
   drawPct: number;
@@ -191,7 +207,12 @@ export function fixturePercentagesWithNews(
     return { homeWinPct, drawPct, awayWinPct, newsAdjusted: false };
   }
 
-  const { home, away } = getPairNewsImpact(homeTeamId, awayTeamId);
+  const { home, away } = getPairNewsImpact(
+    homeTeamId,
+    awayTeamId,
+    options.kickoffIso,
+    options.referenceTimeMs,
+  );
   const result = adjustProbabilities(homeWinPct, drawPct, awayWinPct, home.eloDelta, away.eloDelta);
   return {
     homeWinPct: result.homeWinPct,
@@ -206,8 +227,9 @@ export function fixtureProbabilitiesWithNews(
   prediction: Prediction,
   homeTeamId: string,
   awayTeamId: string,
+  options: FixtureNewsOverlayOptions = {},
 ): { home: number; draw: number; away: number; newsAdjusted: boolean } {
-  const pct = fixturePercentagesWithNews(prediction, homeTeamId, awayTeamId);
+  const pct = fixturePercentagesWithNews(prediction, homeTeamId, awayTeamId, options);
   return {
     home: pct.homeWinPct / 100,
     draw: pct.drawPct / 100,
