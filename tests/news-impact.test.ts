@@ -5,6 +5,7 @@ import {
   applyNewsImpactToStoredPrediction,
   computeImpactFromEvents,
   fixtureProbabilitiesWithNews,
+  scaleNewsDeltaForFixture,
 } from "@/lib/news/impact";
 
 describe("news impact scoring", () => {
@@ -80,6 +81,22 @@ describe("probability adjustment", () => {
     const b = adjustProbabilities(30, 30, 40, 0, -40);
     expect(a.homeWinPct).toBeCloseTo(b.awayWinPct, 1);
     expect(a.awayWinPct).toBeCloseTo(b.homeWinPct, 1);
+  });
+});
+
+describe("scaleNewsDeltaForFixture", () => {
+  const kickoff = "2026-06-15T18:00:00.000Z";
+
+  it("uses full delta at kickoff when reference time is kickoff", () => {
+    const atKickoff = new Date(kickoff).getTime();
+    expect(scaleNewsDeltaForFixture(-30, kickoff, atKickoff)).toBe(-30);
+  });
+
+  it("scales delta down when reference time is well before kickoff", () => {
+    const sevenDaysBefore = new Date(kickoff).getTime() - 7 * 86_400_000;
+    const scaled = scaleNewsDeltaForFixture(-30, kickoff, sevenDaysBefore);
+    expect(scaled).toBeLessThan(0);
+    expect(Math.abs(scaled)).toBeLessThan(30);
   });
 });
 
