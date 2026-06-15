@@ -61,6 +61,12 @@ export function upsertLiveScore(input: {
   return getLiveScore(input.matchId)!;
 }
 
+export function deleteLiveScore(matchId: string): boolean {
+  const db = getDb();
+  const changes = db.delete(liveScores).where(eq(liveScores.matchId, matchId)).run().changes;
+  return changes > 0;
+}
+
 export function getLiveScore(matchId: string): LiveScoreRow | null {
   const db = getDb();
   const row = db.select().from(liveScores).where(eq(liveScores.matchId, matchId)).get();

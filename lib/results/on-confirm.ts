@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { predictionLog, predictions } from "@/lib/db/schema";
 import { updateEloForMatch, recomputeEloFromConfirmedResults } from "@/lib/calibration/elo";
 import { logPredictionAccuracy } from "@/lib/calibration/metrics";
+import { deleteLiveScore } from "@/lib/results/live-scores/store";
 import { confirmResult, deleteResult, getResult, unconfirmResult, upsertConfirmedResult } from "./store";
 
 export function markTeamStale(teamId: string): void {
@@ -115,6 +116,7 @@ export function finalizeResultReset(matchId: string): boolean {
   if (wasConfirmed && !finalizeResultUnconfirmation(matchId)) return false;
 
   if (!deleteResult(matchId)) return false;
+  deleteLiveScore(matchId);
 
   if (wasConfirmed) {
     void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {

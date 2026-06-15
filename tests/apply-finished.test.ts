@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Match } from "@/lib/types";
 import { getDb } from "@/lib/db";
-import { actualResults } from "@/lib/db/schema";
+import { actualResults, liveScores } from "@/lib/db/schema";
+import { upsertLiveScore } from "@/lib/results/live-scores/store";
 import {
   applyFinishedResultsToTargets,
   hasStablePendingScore,
@@ -34,7 +35,9 @@ function parsed(overrides: Partial<ParsedFinishedResult> = {}): ParsedFinishedRe
 
 describe("applyFinishedResultsToTargets", () => {
   beforeEach(() => {
-    getDb().delete(actualResults).run();
+    const db = getDb();
+    db.delete(actualResults).run();
+    db.delete(liveScores).run();
   });
 
   it("holds first sighting pending without confirming", () => {
@@ -143,6 +146,56 @@ describe("applyFinishedResultsToTargets", () => {
 
     expect(summary).toEqual({ confirmed: 0, synced: 0, failed: 0 });
     expect(getResult("grp-h-1")).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it("ignores FT feed when live-scores still report in-play after the live window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T18:05:00.000Z"));
+
+    const espCpv: Match = {
+      id: "grp-h-1",
+      stage: "group",
+      group: "H",
+      homeTeamId: "esp",
+      awayTeamId: "cpv",
+      date: "2026-06-15T16:00:00.000Z",
+      venue: "Atlanta",
+    };
+
+    upsertLiveScore({
+      matchId: "grp-h-1",
+      homeScore: 0,
+      awayScore: 0,
+      status: "IN_PLAY",
+      minute: "62",
+    });
+
+    const db = getDb();
+    db.insert(actualResults)
+      .values({
+        matchId: "grp-h-1",
+        homeScore: 3,
+        awayScore: 1,
+        et: 0,
+        pens: 0,
+        winnerTeamId: null,
+        confirmed: 0,
+        source: "test",
+        syncedAt: "2026-06-15T18:00:00.000Z",
+        confirmedAt: null,
+        confirmedBy: null,
+      })
+      .run();
+
+    const map = new Map([
+      ["grp-h-1", parsed({ homeScore: 3, awayScore: 1, corroboratedByLive: true })],
+    ]);
+    const summary = applyFinishedResultsToTargets([espCpv], map);
+
+    expect(summary.confirmed).toBe(0);
+    expect(getResult("grp-h-1")?.confirmed).toBe(false);
 
     vi.useRealTimers();
   });
