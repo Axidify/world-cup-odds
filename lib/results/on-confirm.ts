@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { predictionLog, predictions } from "@/lib/db/schema";
 import { updateEloForMatch, recomputeEloFromConfirmedResults } from "@/lib/calibration/elo";
 import { logPredictionAccuracy } from "@/lib/calibration/metrics";
-import { confirmResult, unconfirmResult, upsertConfirmedResult } from "./store";
+import { confirmResult, deleteResult, getResult, unconfirmResult, upsertConfirmedResult } from "./store";
 
 export function markTeamStale(teamId: string): void {
   const db = getDb();
@@ -102,6 +102,25 @@ export function applyAdminConfirmedResult(input: {
   void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {
     scheduleAutoSimulation("result_confirmed");
   });
+
+  return true;
+}
+
+/** Drop a stored result entirely (admin fix for bad auto-confirms during live play). */
+export function finalizeResultReset(matchId: string): boolean {
+  const existing = getResult(matchId);
+  if (!existing) return false;
+
+  const wasConfirmed = existing.confirmed;
+  if (wasConfirmed && !finalizeResultUnconfirmation(matchId)) return false;
+
+  if (!deleteResult(matchId)) return false;
+
+  if (wasConfirmed) {
+    void import("@/lib/pipeline/auto-pipeline").then(({ scheduleAutoSimulation }) => {
+      scheduleAutoSimulation("result_reset");
+    });
+  }
 
   return true;
 }

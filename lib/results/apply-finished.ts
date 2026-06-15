@@ -1,4 +1,5 @@
 import type { Match } from "@/lib/types";
+import { getMatchLifecycle } from "@/lib/match/lifecycle";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
 import { getResult, isResultConfirmable, upsertPendingResult } from "@/lib/results/store";
 
@@ -36,6 +37,13 @@ export function applyFinishedResultsToTargets(
   for (const match of targets) {
     const parsed = finishedByMatchId.get(match.id);
     if (!parsed) continue;
+
+    if (getMatchLifecycle(match.date, false) === "live") {
+      console.warn(
+        `[poller] results ${match.id}: match still in live window, ignoring FT feed`,
+      );
+      continue;
+    }
 
     try {
       const scoreStable =

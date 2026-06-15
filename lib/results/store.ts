@@ -182,6 +182,13 @@ export function confirmResult(
   return getResult(matchId);
 }
 
+export function deleteResult(matchId: string): boolean {
+  const db = getDb();
+  const changes = db.delete(actualResults).where(eq(actualResults.matchId, matchId)).run()
+    .changes;
+  return changes > 0;
+}
+
 /** Revert a confirmed result to pending (admin fix for bad auto-confirms). */
 export function unconfirmResult(matchId: string): boolean {
   const db = getDb();

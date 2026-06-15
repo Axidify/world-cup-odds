@@ -86,7 +86,9 @@ async function main() {
     }
   };
 
-  await runResults(isFootballDataConfigured());
+  // Never backfill on startup — that bypasses the post-kickoff FT window and can
+  // auto-confirm in-play matches when football-data misreports FINISHED.
+  await runResults(false);
   await runLiveScores();
   await runNews();
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Match } from "@/lib/types";
 import { getDb } from "@/lib/db";
 import { actualResults } from "@/lib/db/schema";
@@ -122,6 +122,29 @@ describe("applyFinishedResultsToTargets", () => {
 
     expect(summary.confirmed).toBe(0);
     expect(getResult("grp-b-2")?.confirmed).toBe(false);
+  });
+
+  it("ignores FT feed while the match is still in the live window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T17:00:00.000Z"));
+
+    const espCpv: Match = {
+      id: "grp-h-1",
+      stage: "group",
+      group: "H",
+      homeTeamId: "esp",
+      awayTeamId: "cpv",
+      date: "2026-06-15T16:00:00.000Z",
+      venue: "Atlanta",
+    };
+
+    const map = new Map([["grp-h-1", parsed({ homeScore: 3, awayScore: 1, corroboratedByLive: true })]]);
+    const summary = applyFinishedResultsToTargets([espCpv], map);
+
+    expect(summary).toEqual({ confirmed: 0, synced: 0, failed: 0 });
+    expect(getResult("grp-h-1")).toBeNull();
+
+    vi.useRealTimers();
   });
 
   it("confirms on first poll when last live score corroborates the FT line", () => {
