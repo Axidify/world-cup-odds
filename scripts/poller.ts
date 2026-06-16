@@ -109,8 +109,21 @@ async function main() {
   const scheduleResultsLoop = async () => {
     for (;;) {
       const plan = getResultsPollPlan(resultsIntervalMs);
+
       if (plan.shouldPoll) {
         await runResults(false);
+      } else if (isFootballDataConfigured()) {
+        try {
+          const { runResultsReconcileJob } = await import("@/lib/jobs/poll-results");
+          const fixed = await runResultsReconcileJob();
+          if (fixed > 0) {
+            console.log(`[poller] results reconcile: fixed=${fixed}`);
+          }
+          const wake = new Date(plan.nextPollAt).toISOString();
+          console.log(`[poller] results idle — ${plan.reason}; next check ${wake}`);
+        } catch (err) {
+          console.error("[poller] results reconcile failed:", err);
+        }
       } else {
         const wake = new Date(plan.nextPollAt).toISOString();
         console.log(`[poller] results idle — ${plan.reason}; next check ${wake}`);

@@ -1,6 +1,5 @@
 import type { Match } from "@/lib/types";
-import { getMatchLifecycle } from "@/lib/match/lifecycle";
-import { isFixtureInPlayOnLiveFeed } from "@/lib/results/in-play-guard";
+import { shouldDeferFtResultPoll } from "@/lib/results/confirm-guards";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
 import { getResult, isResultConfirmable, upsertPendingResult } from "@/lib/results/store";
 
@@ -39,16 +38,9 @@ export function applyFinishedResultsToTargets(
     const parsed = finishedByMatchId.get(match.id);
     if (!parsed) continue;
 
-    if (getMatchLifecycle(match.date, false) === "live") {
+    if (shouldDeferFtResultPoll(match)) {
       console.warn(
-        `[poller] results ${match.id}: match still in live window, ignoring FT feed`,
-      );
-      continue;
-    }
-
-    if (isFixtureInPlayOnLiveFeed(match.id)) {
-      console.warn(
-        `[poller] results ${match.id}: live feed still in-play, ignoring FT feed`,
+        `[poller] results ${match.id}: match still in play, ignoring FT feed`,
       );
       continue;
     }

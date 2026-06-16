@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { liveScores } from "@/lib/db/schema";
+import { isLiveFootballDataStatus } from "@/lib/results/football-data/client";
 import { getResult } from "@/lib/results/store";
 
 export type LiveScoreRow = {
@@ -78,18 +79,19 @@ export function listLiveScores(): LiveScoreRow[] {
   return db.select().from(liveScores).all().map(rowToLiveScore);
 }
 
-/** Drop live rows no longer in the feed, but keep snapshots until the result is confirmed. */
+/** Drop rows no longer tracked live; keep finished snapshots until confirm when useful. */
 export function pruneLiveScores(currentlyLiveMatchIds: string[]): void {
   const db = getDb();
   const keep = new Set(currentlyLiveMatchIds);
-  const rows = db.select({ matchId: liveScores.matchId }).from(liveScores).all();
+  const rows = db.select().from(liveScores).all();
 
   const remove = rows
-    .map((row) => row.matchId)
-    .filter((matchId) => {
-      if (keep.has(matchId)) return false;
-      return getResult(matchId)?.confirmed === true;
-    });
+    .filter((row) => {
+      if (keep.has(row.matchId)) return false;
+      if (getResult(row.matchId)?.confirmed === true) return true;
+      return isLiveFootballDataStatus(row.status ?? undefined);
+    })
+    .map((row) => row.matchId);
 
   if (remove.length === 0) return;
   db.delete(liveScores).where(inArray(liveScores.matchId, remove)).run();

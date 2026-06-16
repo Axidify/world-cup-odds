@@ -1,14 +1,17 @@
 import { getResolvedMatches } from "@/lib/data/resolved";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
+import { isFixtureInPlayOnLiveFeed } from "@/lib/results/in-play-guard";
 import { getResult } from "@/lib/results/store";
 import type { Match } from "@/lib/types";
 
-/** Fixtures currently in the kickoff → ~2h post-kickoff live window (not yet confirmed). */
+/** Unconfirmed fixtures we should keep polling for in-play scores. */
 export function listMatchesInLiveWindow(now = Date.now()): Match[] {
   return getResolvedMatches().filter((match) => {
     if (match.homeTeamId === "TBD" || match.awayTeamId === "TBD") return false;
     if (getResult(match.id)?.confirmed) return false;
-    return getMatchLifecycle(match.date, false, now) === "live";
+    if (getMatchLifecycle(match.date, false, now) === "live") return true;
+    // Past the 2h lifecycle window but the feed still shows in-play (extra time, etc.).
+    return isFixtureInPlayOnLiveFeed(match.id);
   });
 }
 

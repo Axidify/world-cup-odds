@@ -2,11 +2,19 @@ import type { Match } from "@/lib/types";
 import { extractMatchResult } from "@/lib/ai/extract-result";
 import { getTeamMap } from "@/lib/data/load";
 import { getResolvedMatches } from "@/lib/data/resolved";
+import { hasStablePendingScore } from "@/lib/results/apply-finished";
+import { shouldDeferFtResultPoll } from "@/lib/results/confirm-guards";
 import {
   isFootballDataConfigured,
   pollResultsFromFootballData,
   reconcileFootballDataConfirmedResults,
 } from "@/lib/results/football-data";
+import {
+  fetchWorldCupMatchesForLocal,
+  isLinkedMatchFinishedOnFootballData,
+  isLinkedMatchInPlayOnFootballData,
+} from "@/lib/results/football-data/match-status";
+import type { FootballDataMatch } from "@/lib/results/football-data/types";
 import { snippetsAgreeOnScore } from "@/lib/results/score-agreement";
 import { isSearchConfigured, searchWeb } from "@/lib/search/provider";
 import { finalizeResultConfirmation } from "@/lib/results/on-confirm";
@@ -81,6 +89,7 @@ async function searchMatchSnippets(match: Match) {
 
 async function pollMatchResultFromSearch(
   matchId: string,
+  apiMatches?: FootballDataMatch[],
 ): Promise<"synced" | "confirmed" | "skipped" | "failed"> {
   const matches = getResolvedMatches();
   const match = matches.find((m) => m.id === matchId);
@@ -88,6 +97,27 @@ async function pollMatchResultFromSearch(
 
   const existing = getResult(matchId);
   if (existing?.confirmed) return "skipped";
+
+  if (shouldDeferFtResultPoll(match)) {
+    console.warn(`[poller] results ${matchId}: match still in play, deferring search`);
+    return "skipped";
+  }
+
+  if (isFootballDataConfigured()) {
+    if (existing?.source?.includes("football-data")) {
+      return "skipped";
+    }
+
+    const wcMatches = apiMatches ?? (await fetchWorldCupMatchesForLocal([match]));
+    if (isLinkedMatchInPlayOnFootballData(match, wcMatches)) {
+      console.warn(`[poller] results ${matchId}: football-data in-play, deferring search`);
+      return "skipped";
+    }
+    if (isLinkedMatchFinishedOnFootballData(match, wcMatches)) {
+      console.warn(`[poller] results ${matchId}: football-data finished, deferring search`);
+      return "skipped";
+    }
+  }
 
   try {
     const snippets = await searchMatchSnippets(match);
@@ -118,6 +148,11 @@ async function pollMatchResultFromSearch(
       extractedAt: new Date().toISOString(),
     });
 
+    const scoreStable = hasStablePendingScore(matchId, {
+      homeScore: extracted.homeScore,
+      awayScore: extracted.awayScore,
+    });
+
     upsertPendingResult({
       matchId: extracted.matchId,
       homeScore: extracted.homeScore,
@@ -130,6 +165,10 @@ async function pollMatchResultFromSearch(
 
     const row = getResult(matchId);
     if (!row || !isResultConfirmable(row)) {
+      return "synced";
+    }
+
+    if (!scoreStable) {
       return "synced";
     }
 
@@ -160,6 +199,18 @@ export async function pollMatchResult(matchId: string): Promise<"synced" | "conf
   return pollMatchResultFromSearch(matchId);
 }
 
+/** Re-fetch football-data for auto-confirmed rows (runs even when no fixtures need polling). */
+export async function runResultsReconcileJob(): Promise<number> {
+  if (!isFootballDataConfigured()) return 0;
+
+  const fixed = await reconcileFootballDataConfirmedResults();
+  if (fixed > 0) {
+    const { scheduleAutoSimulation } = await import("@/lib/pipeline/auto-pipeline");
+    scheduleAutoSimulation("poll_results");
+  }
+  return fixed;
+}
+
 export async function runResultsPollJob(options: { backfill?: boolean } = {}): Promise<{
   polled: number;
   confirmed: number;
@@ -172,11 +223,19 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
   let confirmed = 0;
 
   if (isFootballDataConfigured()) {
-    confirmed += await reconcileFootballDataConfirmedResults();
+    confirmed += await runResultsReconcileJob();
   }
   let synced = 0;
   let failed = 0;
   let remaining = targets;
+
+  let wcMatches: FootballDataMatch[] | undefined;
+  if (isFootballDataConfigured() && isSearchConfigured()) {
+    const searchTargets = targets.filter((m) => !getResult(m.id)?.confirmed);
+    if (searchTargets.length > 0) {
+      wcMatches = await fetchWorldCupMatchesForLocal(searchTargets);
+    }
+  }
 
   for (const provider of chain) {
     remaining = targetsStillNeedingResults(remaining);
@@ -191,7 +250,7 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
     }
 
     for (const match of remaining) {
-      const outcome = await pollMatchResultFromSearch(match.id);
+      const outcome = await pollMatchResultFromSearch(match.id, wcMatches);
       if (outcome === "confirmed") confirmed += 1;
       else if (outcome === "synced") synced += 1;
       else if (outcome === "failed") failed += 1;

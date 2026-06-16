@@ -53,12 +53,26 @@ describe("live snapshot for FT confirmation", () => {
     expect(parsed.corroboratedByLive).toBe(true);
   });
 
-  it("keeps unconfirmed live snapshots after the match leaves the live feed", () => {
+  it("drops stale in-play snapshots when the fixture left live tracking", () => {
     upsertLiveScore({
       matchId: "grp-b-2",
       homeScore: 1,
       awayScore: 1,
       status: "IN_PLAY",
+      minute: "90",
+    });
+
+    pruneLiveScores([]);
+
+    expect(getCorroboratingLiveScore("grp-b-2")).toBeNull();
+  });
+
+  it("keeps finished-status snapshots until the result is confirmed", () => {
+    upsertLiveScore({
+      matchId: "grp-b-2",
+      homeScore: 1,
+      awayScore: 1,
+      status: "FINISHED",
       minute: "90",
     });
 
