@@ -79,6 +79,15 @@ describe("simulator", () => {
     }
   });
 
+  it("survival champion column matches main champion odds", () => {
+    const store = createSyntheticPredictionStore("vllm");
+    const bundle = runMonteCarloBundle(store, 400, 12345);
+    for (const [teamId, pct] of Object.entries(bundle.championOdds)) {
+      const survivalChampion = bundle.survivalOdds[teamId]?.champion;
+      expect(survivalChampion, teamId).toBeCloseTo(pct, 5);
+    }
+  });
+
   it("representative path is reproducible with the same seed", () => {
     const store = createSyntheticPredictionStore("vllm");
     const iterations = 120;

@@ -382,7 +382,6 @@ function recordSurvival(
   counts: Map<string, Record<SurvivalStage, number>>,
   ctx: TournamentContext,
   path: KnockoutPathMatch[],
-  championTeamId: string,
 ): void {
   for (const id of qualifiedTeamIds(ctx)) {
     const row = counts.get(id);
@@ -400,10 +399,6 @@ function recordSurvival(
       const row = counts.get(m.winnerTeamId);
       if (row) row[survival] += 1;
     }
-  }
-  if (championTeamId) {
-    const row = counts.get(championTeamId);
-    if (row) row.champion += 1;
   }
 }
 
@@ -525,7 +520,7 @@ export function runMonteCarloBundle(
     }
     const { championTeamId, path } = runKnockout(store, ctx, confirmed, rng, true);
     championCounts.set(championTeamId, (championCounts.get(championTeamId) ?? 0) + 1);
-    recordSurvival(survivalCounts, ctx, path, championTeamId);
+    recordSurvival(survivalCounts, ctx, path);
   }
 
   const championOdds: ChampionOddsMap = {};

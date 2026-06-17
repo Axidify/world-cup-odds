@@ -25,7 +25,8 @@ export function SurvivalOddsTable({ teams, survival, championOdds, limit = 20 }:
       <div className="border-b border-border bg-surface-2 px-4 py-3">
         <h2 className="text-sm font-bold">Tournament depth</h2>
         <p className="mt-1 text-xs text-text-muted">
-          % of simulations where each team reaches each round (same Monte Carlo run as champion odds).
+          % of simulations where each team reaches each round. The Champion column matches the main
+          table&apos;s Current % (wins the final).
         </p>
       </div>
       <div className="scrollbar-themed overflow-x-auto">
