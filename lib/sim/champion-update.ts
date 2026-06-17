@@ -1,7 +1,7 @@
 import type { ChampionOddsMap, SimulationResult } from "@/lib/types";
 import {
+  getComparisonBaselineSimulation,
   getLatestSimulation,
-  getPreviousSimulation,
   getSimulationStaleState,
   type SimulationStaleState,
 } from "@/lib/sim/simulation-cache";
@@ -58,7 +58,7 @@ function buildResultLines(
 
 export function getChampionUpdateContext(): ChampionUpdateContext {
   const after = getLatestSimulation();
-  const before = getPreviousSimulation();
+  const before = after ? getComparisonBaselineSimulation(after) : null;
   const staleState = getSimulationStaleState();
   const pipelineActive = isPipelineActive();
 

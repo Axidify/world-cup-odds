@@ -13,7 +13,10 @@ import { getConfirmedResults } from "@/lib/sim/actual-results";
 import { collectMissingPairings } from "@/lib/sim/gap-analysis";
 import { loadPredictionStore } from "@/lib/sim/prediction-store";
 import { runTournamentSimulation, TournamentSimulationError } from "@/lib/sim/run-tournament";
-import { getSimulationStaleState, getLatestSimulation } from "@/lib/sim/simulation-cache";
+import {
+  getLatestSimulation,
+  needsSimulationRerun,
+} from "@/lib/sim/simulation-cache";
 import { tryAcquireTournamentLock, releaseTournamentLock } from "@/lib/sim/tournament-lock";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 import { getPipelineState, writePipelineState, type PipelineState } from "@/lib/pipeline/pipeline-state";
@@ -250,7 +253,6 @@ export async function runStartupPipeline(): Promise<void> {
   if (!config.enabled || !config.onStart) return;
 
   const sim = getLatestSimulation();
-  const stale = getSimulationStaleState();
 
   if (!config.analyzeMissing && config.eloSeedMissing) {
     const provider = resolveActiveProvider();
@@ -271,7 +273,7 @@ export async function runStartupPipeline(): Promise<void> {
     }
   }
 
-  if (!sim || stale.stale) {
+  if (!sim || needsSimulationRerun()) {
     await enqueuePipelineRun("startup");
   }
 }

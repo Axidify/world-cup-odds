@@ -26,6 +26,17 @@ export function countConfirmedSince(sinceIso: string): number {
   return row?.n ?? 0;
 }
 
+/** Confirmed results locked in at or before `untilIso` (inclusive). */
+export function countConfirmedAtOrBefore(untilIso: string): number {
+  const db = getDb();
+  const row = db
+    .select({ n: count() })
+    .from(actualResults)
+    .where(and(eq(actualResults.confirmed, 1), lte(actualResults.confirmedAt, untilIso)))
+    .get();
+  return row?.n ?? 0;
+}
+
 export type ConfirmedResultSummary = {
   matchId: string;
   label: string;

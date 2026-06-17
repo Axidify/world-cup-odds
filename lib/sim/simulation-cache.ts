@@ -4,7 +4,11 @@ import { getDb } from "@/lib/db";
 import { predictions, simulationCache } from "@/lib/db/schema";
 import { resolveActiveProvider } from "@/lib/ai/settings";
 import { buildStaleAnalyzeQueue } from "@/lib/ai/preanalyze";
-import { countConfirmedSince, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
+import {
+  countConfirmedAtOrBefore,
+  countConfirmedSince,
+  getLatestConfirmedAt,
+} from "@/lib/results/confirmed-stats";
 
 function rowToSimulation(row: typeof simulationCache.$inferSelect): SimulationResult {
   return {
@@ -30,7 +34,7 @@ export function getLatestSimulation(): SimulationResult | null {
   return rowToSimulation(row);
 }
 
-/** Prior simulation run — used for before/after champion odds on updates. */
+/** Immediately prior simulation row — adjacent in the cache. */
 export function getPreviousSimulation(): SimulationResult | null {
   const db = getDb();
   const rows = db
@@ -41,6 +45,33 @@ export function getPreviousSimulation(): SimulationResult | null {
     .all();
   if (rows.length < 2) return null;
   return rowToSimulation(rows[1]);
+}
+
+/**
+ * Baseline for champion odds comparison: the newest older sim that had fewer
+ * confirmed results than `after`. Skips duplicate runs at the same confirm count
+ * (e.g. poll_results then startup). Falls back to the adjacent prior row when
+ * every older sim shares the same confirm count (prediction-only refresh).
+ */
+export function getComparisonBaselineSimulation(after: SimulationResult): SimulationResult | null {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(simulationCache)
+    .orderBy(desc(simulationCache.runAt))
+    .all();
+
+  const afterCount = countConfirmedAtOrBefore(after.runAt);
+
+  for (let i = 1; i < rows.length; i++) {
+    const candidate = rowToSimulation(rows[i]!);
+    if (countConfirmedAtOrBefore(candidate.runAt) < afterCount) {
+      return candidate;
+    }
+  }
+
+  if (rows.length >= 2) return rowToSimulation(rows[1]!);
+  return null;
 }
 
 export function saveSimulation(result: SimulationResult): void {
