@@ -11,6 +11,7 @@ import {
 import { getSimulationStaleState, getLatestSimulation } from "@/lib/sim/simulation-cache";
 import { formatSimulationStaleMessage } from "@/lib/sim/stale-messages";
 import { getPendingResults, getResult } from "@/lib/results/store";
+import { countAllConfirmed, getLatestConfirmedAt } from "@/lib/results/confirmed-stats";
 import { getPollerStatus } from "@/lib/ops/poller-heartbeat";
 import { getPipelineConfig } from "@/lib/pipeline/config";
 import { isPipelineActive, getReconciledPipelineState } from "@/lib/pipeline/auto-pipeline";
@@ -92,6 +93,10 @@ export async function GET() {
       liveCount,
       awaitingCount,
       matches: activeMatches.slice(0, 6),
+    },
+    confirmedResults: {
+      count: countAllConfirmed(),
+      latestConfirmedAt: getLatestConfirmedAt(),
     },
     pipeline: {
       config: getPipelineConfig(),
