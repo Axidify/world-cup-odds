@@ -11,6 +11,7 @@ export {
 export type { FootballDataStatus } from "@/lib/results/football-data/client";
 export {
   pollResultsFromFootballData,
+  processFootballDataFinishedTargets,
   reconcileFootballDataConfirmedResults,
 } from "@/lib/results/football-data/poll";
 export {

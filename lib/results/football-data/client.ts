@@ -1,4 +1,9 @@
 import type { FootballDataMatch } from "@/lib/results/football-data/types";
+import {
+  peekWorldCupMatchesCache,
+  storeWorldCupMatchesCache,
+} from "@/lib/results/football-data/cache";
+import { withFootballDataRetry } from "@/lib/results/football-data/request";
 
 const DEFAULT_BASE = "https://api.football-data.org";
 
@@ -28,14 +33,25 @@ export type FootballDataStatus = {
 };
 
 export async function fetchWorldCupMatches(
-  options: { status?: string } = {},
+  options: { status?: string; skipCache?: boolean } = {},
 ): Promise<FootballDataMatch[]> {
+  if (!options.status && !options.skipCache) {
+    const cached = peekWorldCupMatchesCache();
+    if (cached) return cached;
+  }
+
   const season = getFootballDataSeason();
   const params = new URLSearchParams({ season });
   if (options.status) params.set("status", options.status);
   const url = `${baseUrl()}/v4/competitions/WC/matches?${params.toString()}`;
-  const json = await fetchFootballDataJson<{ matches?: FootballDataMatch[] }>(url);
-  return json.matches ?? [];
+  const json = await withFootballDataRetry(() =>
+    fetchFootballDataJson<{ matches?: FootballDataMatch[] }>(url),
+  );
+  const matches = json.matches ?? [];
+  if (!options.status) {
+    storeWorldCupMatchesCache(matches);
+  }
+  return matches;
 }
 
 async function fetchFootballDataJson<T>(url: string): Promise<T> {
@@ -64,7 +80,7 @@ async function fetchFootballDataJson<T>(url: string): Promise<T> {
 /** Single-match detail — includes minute when the competition list omits it. */
 export async function fetchFootballDataMatch(apiMatchId: number): Promise<FootballDataMatch> {
   const url = `${baseUrl()}/v4/matches/${apiMatchId}`;
-  return fetchFootballDataJson<FootballDataMatch>(url);
+  return withFootballDataRetry(() => fetchFootballDataJson<FootballDataMatch>(url));
 }
 
 export async function getFootballDataStatus(): Promise<FootballDataStatus> {
@@ -103,8 +119,14 @@ export function isLiveFootballDataStatus(status: string | undefined): boolean {
   return normalized === "LIVE" || normalized === "IN_PLAY" || normalized === "PAUSED";
 }
 
-/** LIVE filter first; fall back to scanning all WC matches for in-play rows. */
+/** Prefer cached full list; only hit LIVE filter when the cache is cold. */
 export async function fetchLiveWorldCupMatches(): Promise<FootballDataMatch[]> {
+  const cached = peekWorldCupMatchesCache();
+  if (cached) {
+    const inPlay = cached.filter((m) => isLiveFootballDataStatus(m.status));
+    if (inPlay.length > 0) return inPlay;
+  }
+
   try {
     const live = await fetchWorldCupMatches({ status: "LIVE" });
     if (live.length > 0) return live;

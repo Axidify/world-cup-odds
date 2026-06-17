@@ -32,9 +32,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid admin PIN" }, { status: 403 });
   }
 
-  const summary = await runResultsPollJob();
-  return NextResponse.json({
-    summary,
-    pendingResults: getPendingResults(),
-  });
+  try {
+    const summary = await runResultsPollJob();
+    return NextResponse.json({
+      summary,
+      pendingResults: getPendingResults(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Results poll failed";
+    console.error("[admin] poll-results:", message);
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }

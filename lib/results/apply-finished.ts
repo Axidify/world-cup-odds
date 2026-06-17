@@ -14,6 +14,8 @@ export type ParsedFinishedResult = {
   listDetailAgree?: boolean;
   /** Last in-play snapshot agrees with (or corrected) this FT score. */
   corroboratedByLive?: boolean;
+  /** football-data.org reports FINISHED for this fixture. */
+  apiFinished?: boolean;
 };
 
 /** Same score must appear on two consecutive polls before auto-confirm. */
@@ -38,7 +40,7 @@ export function applyFinishedResultsToTargets(
     const parsed = finishedByMatchId.get(match.id);
     if (!parsed) continue;
 
-    if (shouldDeferFtResultPoll(match)) {
+    if (shouldDeferFtResultPoll(match, Date.now(), { apiFinished: parsed.apiFinished })) {
       console.warn(
         `[poller] results ${match.id}: match still in play, ignoring FT feed`,
       );
@@ -47,7 +49,9 @@ export function applyFinishedResultsToTargets(
 
     try {
       const scoreStable =
-        hasStablePendingScore(match.id, parsed) || parsed.corroboratedByLive === true;
+        hasStablePendingScore(match.id, parsed) ||
+        parsed.corroboratedByLive === true ||
+        parsed.listDetailAgree === true;
 
       upsertPendingResult({
         matchId: match.id,

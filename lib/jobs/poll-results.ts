@@ -8,9 +8,9 @@ import {
   isFootballDataConfigured,
   pollResultsFromFootballData,
   reconcileFootballDataConfirmedResults,
+  fetchWorldCupMatches,
 } from "@/lib/results/football-data";
 import {
-  fetchWorldCupMatchesForLocal,
   isLinkedMatchFinishedOnFootballData,
   isLinkedMatchInPlayOnFootballData,
 } from "@/lib/results/football-data/match-status";
@@ -89,7 +89,7 @@ async function searchMatchSnippets(match: Match) {
 
 async function pollMatchResultFromSearch(
   matchId: string,
-  apiMatches?: FootballDataMatch[],
+  apiMatches?: FootballDataMatch[] | null,
 ): Promise<"synced" | "confirmed" | "skipped" | "failed"> {
   const matches = getResolvedMatches();
   const match = matches.find((m) => m.id === matchId);
@@ -108,14 +108,29 @@ async function pollMatchResultFromSearch(
       return "skipped";
     }
 
-    const wcMatches = apiMatches ?? (await fetchWorldCupMatchesForLocal([match]));
-    if (isLinkedMatchInPlayOnFootballData(match, wcMatches)) {
-      console.warn(`[poller] results ${matchId}: football-data in-play, deferring search`);
-      return "skipped";
-    }
-    if (isLinkedMatchFinishedOnFootballData(match, wcMatches)) {
-      console.warn(`[poller] results ${matchId}: football-data finished, deferring search`);
-      return "skipped";
+    if (apiMatches) {
+      if (isLinkedMatchInPlayOnFootballData(match, apiMatches)) {
+        console.warn(`[poller] results ${matchId}: football-data in-play, deferring search`);
+        return "skipped";
+      }
+      if (isLinkedMatchFinishedOnFootballData(match, apiMatches)) {
+        console.warn(`[poller] results ${matchId}: football-data finished, deferring search`);
+        return "skipped";
+      }
+    } else {
+      try {
+        const wcMatches = await fetchWorldCupMatches();
+        if (isLinkedMatchInPlayOnFootballData(match, wcMatches)) {
+          console.warn(`[poller] results ${matchId}: football-data in-play, deferring search`);
+          return "skipped";
+        }
+        if (isLinkedMatchFinishedOnFootballData(match, wcMatches)) {
+          console.warn(`[poller] results ${matchId}: football-data finished, deferring search`);
+          return "skipped";
+        }
+      } catch {
+        // proceed with search if status check unavailable
+      }
     }
   }
 
@@ -221,56 +236,79 @@ export async function runResultsPollJob(options: { backfill?: boolean } = {}): P
   const targets = getMatchesNeedingResults(options);
   const chain = resolveResultsProviderChain();
   let confirmed = 0;
-
-  if (isFootballDataConfigured()) {
-    confirmed += await runResultsReconcileJob();
-  }
   let synced = 0;
   let failed = 0;
-  let remaining = targets;
+  let wcMatches: FootballDataMatch[] | null = null;
 
-  let wcMatches: FootballDataMatch[] | undefined;
-  if (isFootballDataConfigured() && isSearchConfigured()) {
-    const searchTargets = targets.filter((m) => !getResult(m.id)?.confirmed);
-    if (searchTargets.length > 0) {
-      wcMatches = await fetchWorldCupMatchesForLocal(searchTargets);
-    }
-  }
+  try {
+    if (isFootballDataConfigured()) {
+      try {
+        wcMatches = await fetchWorldCupMatches();
+      } catch (err) {
+        console.warn(
+          "[poller] results:",
+          err instanceof Error ? err.message : err,
+        );
+      }
 
-  for (const provider of chain) {
-    remaining = targetsStillNeedingResults(remaining);
-    if (remaining.length === 0) break;
-
-    if (provider === "football-data") {
-      const summary = await pollResultsFromFootballData(remaining);
-      confirmed += summary.confirmed;
-      synced += summary.synced;
-      failed += summary.failed;
-      continue;
+      if (targets.length === 0) {
+        confirmed += await reconcileFootballDataConfirmedResults({
+          apiMatches: wcMatches ?? undefined,
+        });
+      }
     }
 
-    for (const match of remaining) {
-      const outcome = await pollMatchResultFromSearch(match.id, wcMatches);
-      if (outcome === "confirmed") confirmed += 1;
-      else if (outcome === "synced") synced += 1;
-      else if (outcome === "failed") failed += 1;
+    let remaining = targets;
+
+    if (isFootballDataConfigured() && isSearchConfigured() && targets.length > 0 && !wcMatches) {
+      try {
+        wcMatches = await fetchWorldCupMatches();
+      } catch (err) {
+        console.warn(
+          "[poller] results:",
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
-    break;
+
+    for (const provider of chain) {
+      remaining = targetsStillNeedingResults(remaining);
+      if (remaining.length === 0) break;
+
+      if (provider === "football-data") {
+        const summary = await pollResultsFromFootballData(
+          remaining,
+          wcMatches ?? undefined,
+        );
+        confirmed += summary.confirmed;
+        synced += summary.synced;
+        failed += summary.failed;
+        continue;
+      }
+
+      for (const match of remaining) {
+        const outcome = await pollMatchResultFromSearch(match.id, wcMatches ?? undefined);
+        if (outcome === "confirmed") confirmed += 1;
+        else if (outcome === "synced") synced += 1;
+        else if (outcome === "failed") failed += 1;
+      }
+      break;
+    }
+
+    if (confirmed > 0) {
+      const { scheduleAutoSimulation } = await import("@/lib/pipeline/auto-pipeline");
+      scheduleAutoSimulation("poll_results");
+    }
+
+    return {
+      polled: targets.length,
+      confirmed,
+      synced,
+      failed,
+      provider: resolveResultsProvider(),
+    };
+  } finally {
+    const { recordPollerRun } = await import("@/lib/ops/poller-heartbeat");
+    recordPollerRun("results");
   }
-
-  const { recordPollerRun } = await import("@/lib/ops/poller-heartbeat");
-  recordPollerRun("results");
-
-  if (confirmed > 0) {
-    const { scheduleAutoSimulation } = await import("@/lib/pipeline/auto-pipeline");
-    scheduleAutoSimulation("poll_results");
-  }
-
-  return {
-    polled: targets.length,
-    confirmed,
-    synced,
-    failed,
-    provider: resolveResultsProvider(),
-  };
 }

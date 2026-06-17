@@ -28,7 +28,6 @@ function parsed(overrides: Partial<ParsedFinishedResult> = {}): ParsedFinishedRe
     pens: false,
     winnerTeamId: null,
     source: "test",
-    listDetailAgree: true,
     ...overrides,
   };
 }
@@ -38,6 +37,14 @@ describe("applyFinishedResultsToTargets", () => {
     const db = getDb();
     db.delete(actualResults).run();
     db.delete(liveScores).run();
+  });
+
+  it("confirms on first poll when list and detail agree from football-data", () => {
+    const map = new Map([["grp-b-2", parsed({ listDetailAgree: true, apiFinished: true })]]);
+    const summary = applyFinishedResultsToTargets([qatSui], map);
+
+    expect(summary.confirmed).toBe(1);
+    expect(getResult("grp-b-2")?.confirmed).toBe(true);
   });
 
   it("holds first sighting pending without confirming", () => {
