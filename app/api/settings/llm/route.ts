@@ -5,9 +5,11 @@ import { checkProviderHealth } from "@/lib/ai/llm";
 import { resolveActiveProvider, setActiveProvider } from "@/lib/ai/settings";
 import { getDb } from "@/lib/db";
 import type { LLMProvider } from "@/lib/types";
+import { rejectUnlessAdminPin } from "@/lib/utils/admin";
 
 const patchSchema = z.object({
   provider: z.enum(["vllm", "openai", "openrouter", "gemini", "anthropic"]),
+  pin: z.string().min(1),
 });
 
 export async function GET() {
@@ -30,11 +32,20 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   getDb();
-  const body = await request.json();
-  const parsed = patchSchema.safeParse(body);
+  let json: unknown;
+  try {
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = patchSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }
+
+  const denied = rejectUnlessAdminPin(parsed.data.pin);
+  if (denied) return denied;
 
   try {
     setActiveProvider(parsed.data.provider as LLMProvider);

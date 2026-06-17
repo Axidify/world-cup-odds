@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type TeamNewsBlock = {
   teamId: string;
@@ -32,6 +34,11 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pinGate = useAdminPinGate({
+    title: "Refresh squad news",
+    description: "Fetches search results and runs LLM extraction for both teams.",
+    confirmLabel: "Refresh",
+  });
 
   const load = useCallback(async () => {
     try {
@@ -50,29 +57,32 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
     void load();
   }, [load]);
 
-  async function refresh() {
+  const refreshNews: AdminPinAction = async (pin) => {
     setRefreshing(true);
     setError(null);
     try {
       const res = await fetch("/api/sync/news", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId }),
+        body: JSON.stringify({ matchId, pin }),
       });
       const body = (await res.json()) as { error?: string; outcomes?: Record<string, string> };
       if (!res.ok) {
-        throw new Error(body.error ?? "Refresh failed");
+        return { ok: false, status: res.status, error: body.error ?? "Refresh failed" };
       }
       if (body.outcomes && Object.values(body.outcomes).every((o) => o === "failed")) {
-        throw new Error("News sync failed for both teams");
+        return { ok: false, status: 502, error: "News sync failed for both teams" };
       }
       await load();
+      return { ok: true };
     } catch (err) {
-      setError(err instanceof Error ? err.message : "News refresh failed");
+      const message = err instanceof Error ? err.message : "News refresh failed";
+      setError(message);
+      return { ok: false, status: 500, error: message };
     } finally {
       setRefreshing(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -86,8 +96,20 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
     <Card className="p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">Squad news</h2>
-        <Button variant="secondary" className="w-full sm:w-auto" disabled={refreshing} onClick={() => void refresh()}>
-          {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        <Button
+          variant="secondary"
+          className="w-full sm:w-auto"
+          disabled={refreshing || pinGate.loading}
+          onClick={() => {
+            pinGate.setError(null);
+            void pinGate.request(refreshNews);
+          }}
+        >
+          {refreshing || pinGate.loading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <RefreshCw size={14} />
+          )}
           Refresh
         </Button>
       </div>
@@ -145,6 +167,7 @@ export function TeamNewsPanel({ matchId }: { matchId: string }) {
           </div>
         ))}
       </div>
+      <AdminPinDialog {...pinGate.dialogProps} />
     </Card>
   );
 }

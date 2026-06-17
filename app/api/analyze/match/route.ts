@@ -10,10 +10,12 @@ import { resolveActiveProvider } from "@/lib/ai/settings";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { getDb } from "@/lib/db";
 import { consumeRateLimit } from "@/lib/utils/rate-limit";
+import { rejectUnlessAdminPin } from "@/lib/utils/admin";
 
 const bodySchema = z.object({
   matchId: z.string().min(1),
   refresh: z.boolean().optional(),
+  pin: z.string().min(1),
 });
 
 const ANALYZE_LIMIT = Number(process.env.ANALYZE_RATE_LIMIT_PER_MIN ?? 30);
@@ -82,6 +84,9 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+
+  const denied = rejectUnlessAdminPin(parsed.data.pin);
+  if (denied) return denied;
 
   try {
     const prediction = await analyzeMatch(parsed.data.matchId, {

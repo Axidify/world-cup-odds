@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { LLMProvider } from "@/lib/types";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
+import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type ProviderRow = {
   id: LLMProvider;
@@ -62,6 +64,13 @@ function ProviderSwitcher({
 export function ProviderStatus({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<HealthResponse | null>(null);
   const [switching, setSwitching] = useState(false);
+  const pendingProviderRef = useRef<LLMProvider | null>(null);
+  const pinGate = useAdminPinGate({
+    title: "Switch AI provider",
+    description:
+      "Cached predictions were made with a different model. Re-analyze and re-simulate after switching.",
+    confirmLabel: "Switch",
+  });
 
   const load = useCallback(async () => {
     try {
@@ -78,7 +87,35 @@ export function ProviderStatus({ compact = false }: { compact?: boolean }) {
     return () => clearInterval(id);
   }, [load]);
 
-  async function switchProvider(provider: LLMProvider) {
+  const switchProviderAction: AdminPinAction = async (pin) => {
+    const provider = pendingProviderRef.current;
+    if (!provider) {
+      return { ok: false, status: 400, error: "No provider selected" };
+    }
+
+    setSwitching(true);
+    try {
+      const res = await fetch("/api/settings/llm", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, pin }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        return { ok: false, status: res.status, error: body.error ?? "Failed to switch provider" };
+      }
+      pendingProviderRef.current = null;
+      await load();
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to switch provider";
+      return { ok: false, status: 500, error: message };
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  function switchProvider(provider: LLMProvider) {
     if (provider === active?.provider) return;
     const target = data?.providers.find((p) => p.id === provider);
     const ok = window.confirm(
@@ -86,69 +123,68 @@ export function ProviderStatus({ compact = false }: { compact?: boolean }) {
     );
     if (!ok) return;
 
-    setSwitching(true);
-    try {
-      const res = await fetch("/api/settings/llm", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      if (res.ok) await load();
-    } finally {
-      setSwitching(false);
-    }
+    pendingProviderRef.current = provider;
+    pinGate.setError(null);
+    void pinGate.request(switchProviderAction);
   }
 
   const active = data?.active ?? null;
   const online = active?.online ?? false;
   const configured = Boolean(active);
+  const busy = switching || pinGate.loading;
 
   if (compact) {
     return (
-      <div className="hidden items-center gap-2 sm:flex">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold">
-          <span
-            className={`h-2 w-2 shrink-0 rounded-full ${
-              online
-                ? "bg-win shadow-[0_0_0_3px_oklch(0.74_0.15_150/0.25)]"
-                : configured
-                  ? "bg-loss"
-                  : "bg-text-muted"
-            }`}
+      <>
+        <div className="hidden items-center gap-2 sm:flex">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                online
+                  ? "bg-win shadow-[0_0_0_3px_oklch(0.74_0.15_150/0.25)]"
+                  : configured
+                    ? "bg-loss"
+                    : "bg-text-muted"
+              }`}
+            />
+            <span>{active?.label ?? "AI"}</span>
+            <span className="num max-w-[120px] truncate text-text-muted">
+              {active?.model ?? "not configured"}
+            </span>
+          </div>
+          <ProviderSwitcher
+            data={data}
+            active={active}
+            switching={busy}
+            onSwitch={switchProvider}
+            className="hidden lg:flex"
           />
-          <span>{active?.label ?? "AI"}</span>
-          <span className="num max-w-[120px] truncate text-text-muted">
-            {active?.model ?? "not configured"}
+        </div>
+        <AdminPinDialog {...pinGate.dialogProps} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-lg border border-border bg-surface-2 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">AI provider</p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-win" : "bg-loss"}`} />
+          <span className="font-semibold">{active?.label ?? "Not configured"}</span>
+          <span className="num text-sm text-text-muted">
+            {active?.model ?? "Add provider credentials to .env.local"}
           </span>
         </div>
         <ProviderSwitcher
           data={data}
           active={active}
-          switching={switching}
+          switching={busy}
           onSwitch={switchProvider}
-          className="hidden lg:flex"
+          className="mt-3"
         />
       </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-border bg-surface-2 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">AI provider</p>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-win" : "bg-loss"}`} />
-        <span className="font-semibold">{active?.label ?? "Not configured"}</span>
-        <span className="num text-sm text-text-muted">
-          {active?.model ?? "Add provider credentials to .env.local"}
-        </span>
-      </div>
-      <ProviderSwitcher
-        data={data}
-        active={active}
-        switching={switching}
-        onSwitch={switchProvider}
-        className="mt-3"
-      />
-    </div>
+      <AdminPinDialog {...pinGate.dialogProps} />
+    </>
   );
 }

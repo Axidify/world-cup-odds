@@ -7,21 +7,16 @@ import { pollTeamNews } from "@/lib/jobs/poll-news";
 import { getTeamNewsSummary } from "@/lib/news/store";
 import { isSearchConfigured } from "@/lib/search/provider";
 import { getDb } from "@/lib/db";
+import { rejectUnlessAdminPin } from "@/lib/utils/admin";
 
 const bodySchema = z.object({
   matchId: z.string().min(1).optional(),
   teamId: z.string().min(1).optional(),
+  pin: z.string().min(1),
 });
 
 export async function POST(request: Request) {
   getDb();
-
-  if (!isSearchConfigured()) {
-    return NextResponse.json({ error: "No search provider is configured" }, { status: 503 });
-  }
-  if (!isProviderReady()) {
-    return NextResponse.json({ error: "No LLM provider is configured" }, { status: 503 });
-  }
 
   let json: unknown;
   try {
@@ -33,6 +28,16 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success || (!parsed.data.matchId && !parsed.data.teamId)) {
     return NextResponse.json({ error: "matchId or teamId required" }, { status: 400 });
+  }
+
+  const denied = rejectUnlessAdminPin(parsed.data.pin);
+  if (denied) return denied;
+
+  if (!isSearchConfigured()) {
+    return NextResponse.json({ error: "No search provider is configured" }, { status: 503 });
+  }
+  if (!isProviderReady()) {
+    return NextResponse.json({ error: "No LLM provider is configured" }, { status: 503 });
   }
 
   const teamIds: string[] = [];

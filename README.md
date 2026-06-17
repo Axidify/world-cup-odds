@@ -58,8 +58,8 @@ For how predictions, simulation, Elo, and the poller fit together, see **[docs/A
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/ai/health` | GET | Active provider status |
-| `/api/settings/llm` | GET/PATCH | Switch LLM provider |
-| `/api/analyze/match` | GET/POST | Single-match analysis |
+| `/api/settings/llm` | GET/PATCH | Read/switch LLM provider (`ADMIN_PIN` on PATCH) |
+| `/api/analyze/match` | GET/POST | Read cached prediction / run analysis (`ADMIN_PIN` on POST) |
 | `/api/analyze/bulk` | GET/POST/DELETE | Bulk analyze job + status / cancel |
 | `/api/analyze/tournament` | POST | Run simulation (Monte Carlo, `ADMIN_PIN`) |
 | `/api/odds/champion` | GET | Latest champion odds cache |
@@ -69,7 +69,7 @@ For how predictions, simulation, Elo, and the poller fit together, see **[docs/A
 | `/api/sync/results` | POST | Admin manual result entry (`ADMIN_PIN`) |
 | `/api/accuracy` | GET | Prediction accuracy metrics |
 | `/api/news/[matchId]` | GET | Squad news + Elo for both teams |
-| `/api/sync/news` | POST | On-demand news refresh (`matchId` or `teamId`) |
+| `/api/sync/news` | POST | On-demand news refresh (`matchId` or `teamId`, `ADMIN_PIN`) |
 | `/api/tournament/status` | GET | Simulation staleness, pending results, pipeline state |
 | `/api/simulation/sample-path` | GET | Random knockout draw for bracket UI |
 | `/api/admin/export` | GET | JSON backup (`?pin=`) |

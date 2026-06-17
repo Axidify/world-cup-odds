@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
 import type { MatchPredictionView } from "@/lib/types";
+import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProbabilityBars } from "@/components/ProbabilityBars";
+import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type Props = {
   matchId: string;
@@ -19,6 +21,12 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [refreshAfterAnalyze, setRefreshAfterAnalyze] = useState(false);
+  const pinGate = useAdminPinGate({
+    title: "Analyze match",
+    description: "Runs a single LLM analysis for this fixture. Uses API credits.",
+    confirmLabel: "Analyze",
+  });
 
   useEffect(() => {
     let active = true;
@@ -37,27 +45,39 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
     };
   }, []);
 
-  async function run(refresh = false) {
+  const analyzeMatch: AdminPinAction = async (pin) => {
     if (bulkRunning) {
-      setError("Bulk analyze is running — try again when it finishes");
-      return;
+      return { ok: false, status: 429, error: "Bulk analyze is running — try again when it finishes" };
     }
+
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/analyze/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, refresh }),
+        body: JSON.stringify({ matchId, refresh: refreshAfterAnalyze, pin }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Analysis failed");
+      if (!res.ok) {
+        return { ok: false, status: res.status, error: data.error ?? "Analysis failed" };
+      }
       setPrediction(data.prediction);
+      return { ok: true };
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      const message = err instanceof Error ? err.message : "Analysis failed";
+      setError(message);
+      return { ok: false, status: 500, error: message };
     } finally {
       setLoading(false);
     }
+  };
+
+  function requestAnalyze(refresh: boolean) {
+    setRefreshAfterAnalyze(refresh);
+    pinGate.setError(null);
+    setError(null);
+    void pinGate.request(analyzeMatch);
   }
 
   if (!prediction) {
@@ -66,9 +86,15 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
         <Sparkles className="mx-auto mb-3 text-brand" size={28} />
         <p className="text-sm text-text-muted">No AI prediction yet for this match.</p>
         {error && <p className="mt-2 text-xs text-loss">{error}</p>}
-        <Button variant="primary" className="mt-4" disabled={loading || bulkRunning} onClick={() => run(false)}>
-          {loading ? "Analyzing…" : "Analyze match"}
+        <Button
+          variant="primary"
+          className="mt-4"
+          disabled={loading || bulkRunning || pinGate.loading}
+          onClick={() => requestAnalyze(false)}
+        >
+          {loading || pinGate.loading ? "Analyzing…" : "Analyze match"}
         </Button>
+        <AdminPinDialog {...pinGate.dialogProps} />
       </Card>
     );
   }
@@ -97,8 +123,13 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
             )}
           </div>
         </div>
-        <Button variant="ghost" className="shrink-0 self-start" disabled={loading || bulkRunning} onClick={() => run(true)}>
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+        <Button
+          variant="ghost"
+          className="shrink-0 self-start"
+          disabled={loading || bulkRunning || pinGate.loading}
+          onClick={() => requestAnalyze(true)}
+        >
+          <RefreshCw size={14} className={loading || pinGate.loading ? "animate-spin" : ""} />
           Refresh
         </Button>
       </div>
@@ -132,6 +163,12 @@ export function MatchAnalysis({ matchId, homeName, awayName, initial }: Props) {
         Generated {new Date(prediction.generatedAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC
         {prediction.fromCache ? " · cached" : " · fresh"}
       </p>
+
+      <AdminPinDialog
+        {...pinGate.dialogProps}
+        title={refreshAfterAnalyze ? "Re-analyze match" : "Analyze match"}
+        confirmLabel={refreshAfterAnalyze ? "Re-analyze" : "Analyze"}
+      />
     </div>
   );
 }
