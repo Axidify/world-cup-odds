@@ -54,11 +54,17 @@ export function SurvivalOddsTable({ teams, survival, championOdds, limit = 20 }:
                       {team.name}
                     </span>
                   </td>
-                  {SURVIVAL_STAGES.map((stage) => (
+                  {SURVIVAL_STAGES.map((stage) => {
+                    const value =
+                      stage === "champion" && championOdds?.[teamId] != null
+                        ? championOdds[teamId]
+                        : row[stage];
+                    return (
                     <td key={stage} className="num px-3 py-2.5 text-right text-text-muted">
-                      {row[stage].toFixed(1)}%
+                      {value.toFixed(1)}%
                     </td>
-                  ))}
+                    );
+                  })}
                 </tr>
               );
             })}

@@ -3,6 +3,7 @@ import { Flag } from "@/components/Flag";
 import { SanityAlertsPanel } from "@/components/SanityAlertsPanel";
 import { SimulationPanel } from "@/components/SimulationPanel";
 import { SurvivalOddsTable } from "@/components/SurvivalOddsTable";
+import { ChampionUncertaintyNote, ChampionAccuracyCallout } from "@/components/ChampionUncertaintyNote";
 import { Card } from "@/components/ui/Card";
 import { getChampionUpdateContext } from "@/lib/sim/champion-update";
 import { getLatestSimulation } from "@/lib/sim/simulation-cache";
@@ -48,6 +49,11 @@ export default function ChampionPage() {
       </p>
 
       <ChampionOddsUpdate context={update} />
+      <ChampionUncertaintyNote
+        topTeamName={ranked[0]?.team.name ?? null}
+        topPct={ranked[0]?.pct ?? null}
+      />
+      <ChampionAccuracyCallout />
       <SanityAlertsPanel alerts={extras?.sanityAlerts ?? []} />
 
       <div className="mt-4">

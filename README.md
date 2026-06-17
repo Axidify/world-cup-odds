@@ -40,7 +40,7 @@ For local vLLM on an H100, see **[docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.
 
 For cloud hosting, see **[docs/RAILWAY.md](docs/RAILWAY.md)**.
 
-For how predictions, simulation, Elo, and the poller fit together, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+For how predictions, simulation, Elo, and the poller fit together, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. For the validation & credibility roadmap, see **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ## Pages
 

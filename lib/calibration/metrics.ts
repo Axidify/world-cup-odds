@@ -8,6 +8,9 @@ import { fixtureProbabilitiesWithNews } from "@/lib/news/impact";
 import type { Match, Prediction } from "@/lib/types";
 import { getResolvedMatch } from "@/lib/data/resolved";
 import { formatStageLabel } from "@/lib/utils/match-label";
+import { eloProbabilitiesAtKickoff } from "@/lib/calibration/elo-at-kickoff";
+
+import { MIN_ACCURACY_SAMPLE } from "@/lib/calibration/constants";
 
 export type ActualOutcome = "home" | "draw" | "away";
 
@@ -39,12 +42,22 @@ export type NewsAccuracyComparison = {
   newsAdjustedCount: number;
 };
 
+export type EloAccuracyComparison = {
+  count: number;
+  avgAiBrier: number | null;
+  avgEloBrier: number | null;
+  /** Positive when AI Brier is lower (better) than pure Elo at kickoff. */
+  brierImprovement: number | null;
+};
+
 export type AccuracySummary = {
   count: number;
   avgBrier: number | null;
   avgLogLoss: number | null;
   directionAccuracy: number | null;
   newsImpact: NewsAccuracyComparison | null;
+  eloBaseline: EloAccuracyComparison | null;
+  sampleMaturity: "none" | "early" | "meaningful";
   byStage: Record<string, { count: number; avgBrier: number | null; directionAccuracy: number | null }>;
   calibrationBins: Array<{ bin: string; predicted: number; actual: number; count: number }>;
   worstMisses: Array<{
@@ -212,6 +225,41 @@ function computeNewsAccuracyComparison(entries: PredictionLogEntry[]): NewsAccur
   };
 }
 
+function computeEloAccuracyComparison(entries: PredictionLogEntry[]): EloAccuracyComparison | null {
+  if (entries.length === 0) return null;
+
+  let aiBrierSum = 0;
+  let eloBrierSum = 0;
+  let count = 0;
+
+  for (const e of entries) {
+    const eloProbs = eloProbabilitiesAtKickoff(e.matchId);
+    if (!eloProbs) continue;
+    const aiProbs = storedPredictedToProbs(e.predicted);
+    aiBrierSum += computeBrier(aiProbs, e.actual);
+    eloBrierSum += computeBrier(eloProbs, e.actual);
+    count += 1;
+  }
+
+  if (count === 0) return null;
+
+  const avgAiBrier = aiBrierSum / count;
+  const avgEloBrier = eloBrierSum / count;
+
+  return {
+    count,
+    avgAiBrier: Math.round(avgAiBrier * 1000) / 1000,
+    avgEloBrier: Math.round(avgEloBrier * 1000) / 1000,
+    brierImprovement: Math.round((avgEloBrier - avgAiBrier) * 1000) / 1000,
+  };
+}
+
+function sampleMaturity(count: number): AccuracySummary["sampleMaturity"] {
+  if (count === 0) return "none";
+  if (count < MIN_ACCURACY_SAMPLE) return "early";
+  return "meaningful";
+}
+
 export function pickFavoriteOutcome(
   predicted: { home: number; draw: number; away: number },
   stage?: string,
@@ -355,6 +403,8 @@ export function getAccuracySummary(): AccuracySummary {
       avgLogLoss: null,
       directionAccuracy: null,
       newsImpact: null,
+      eloBaseline: null,
+      sampleMaturity: "none",
       byStage: {},
       calibrationBins: [],
       worstMisses: [],
@@ -444,6 +494,8 @@ export function getAccuracySummary(): AccuracySummary {
     avgLogLoss: Math.round(avgLogLoss * 1000) / 1000,
     directionAccuracy: Math.round((directionHits / entries.length) * 1000) / 10,
     newsImpact: computeNewsAccuracyComparison(entries),
+    eloBaseline: computeEloAccuracyComparison(entries),
+    sampleMaturity: sampleMaturity(entries.length),
     byStage,
     calibrationBins,
     worstMisses,

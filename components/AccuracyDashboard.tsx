@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { AccuracySummary } from "@/lib/calibration/metrics";
+import { MIN_ACCURACY_SAMPLE } from "@/lib/calibration/constants";
 import { formatStageLabel } from "@/lib/utils/match-label";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -147,6 +148,19 @@ export function AccuracyDashboard() {
 
   return (
     <div className="space-y-6">
+      {data.sampleMaturity === "early" && (
+        <Card className="border-brand/30 bg-brand-tint/10 p-5">
+          <p className="text-sm text-text-muted">
+            <strong className="text-text">Early sample.</strong> {data.count} of{" "}
+            {MIN_ACCURACY_SAMPLE}+ matches needed before calibration curves are meaningful. Metrics
+            below are directional only.{" "}
+            <Link href="/how-it-works" className="font-semibold text-brand hover:underline">
+              How we grade picks
+            </Link>
+          </p>
+        </Card>
+      )}
+
       <Card className="border-border bg-surface-2/40 p-5">
         <h2 className="text-sm font-bold">How to read this page</h2>
         <ul className="mt-3 space-y-2 text-sm text-text-muted">
@@ -255,6 +269,39 @@ export function AccuracyDashboard() {
                 </span>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {data.eloBaseline && data.eloBaseline.count > 0 && (
+        <Card className="p-5">
+          <h2 className="text-sm font-bold">AI vs pure Elo</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            For {data.eloBaseline.count} graded match{data.eloBaseline.count === 1 ? "" : "es"}, we
+            compare stored AI odds to Elo-only probabilities at kickoff (pre-match ratings, no LLM).
+            {data.eloBaseline.brierImprovement != null && data.eloBaseline.brierImprovement > 0
+              ? " Lower Brier is better — AI is ahead on average."
+              : data.eloBaseline.brierImprovement != null && data.eloBaseline.brierImprovement < 0
+                ? " Lower Brier is better — pure Elo is ahead on average."
+                : " Scores are tied so far."}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
+            <div className="rounded-lg bg-surface-2 p-3">
+              <div className="text-xs text-text-muted">AI Brier</div>
+              <div className="num mt-1 font-bold">{data.eloBaseline.avgAiBrier?.toFixed(3) ?? "—"}</div>
+            </div>
+            <div className="rounded-lg bg-surface-2 p-3">
+              <div className="text-xs text-text-muted">Elo-only Brier</div>
+              <div className="num mt-1 font-bold">{data.eloBaseline.avgEloBrier?.toFixed(3) ?? "—"}</div>
+            </div>
+            <div className="rounded-lg bg-surface-2 p-3">
+              <div className="text-xs text-text-muted">AI improvement</div>
+              <div className="num mt-1 font-bold">
+                {data.eloBaseline.brierImprovement != null
+                  ? `${data.eloBaseline.brierImprovement >= 0 ? "+" : ""}${data.eloBaseline.brierImprovement.toFixed(3)}`
+                  : "—"}
+              </div>
+            </div>
           </div>
         </Card>
       )}

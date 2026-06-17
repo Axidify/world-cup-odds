@@ -6,18 +6,26 @@ import {
   shouldRefreshForConfirmedResults,
   type ConfirmedResultsSnapshot,
 } from "@/lib/results/confirmed-sync";
+import {
+  shouldRefreshForSimulation,
+  type SimulationSnapshot,
+} from "@/lib/tournament/status-sync";
 
 type StatusResponse = {
   confirmedResults?: ConfirmedResultsSnapshot;
+  simulation?: { runAt: string } | null;
+  pipeline?: { active: boolean };
   matchActivity?: { liveCount: number; awaitingCount: number };
 };
 
 const POLL_MS_IDLE = 30_000;
 const POLL_MS_ACTIVE = 15_000;
+const POLL_MS_PIPELINE = 5_000;
 
-export function ConfirmedResultsRefresher() {
+export function TournamentStatusRefresher() {
   const router = useRouter();
-  const snapshotRef = useRef<ConfirmedResultsSnapshot | null>(null);
+  const confirmedRef = useRef<ConfirmedResultsSnapshot | null>(null);
+  const simulationRef = useRef<SimulationSnapshot | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -40,17 +48,33 @@ export function ConfirmedResultsRefresher() {
         }
 
         const data = (await res.json()) as StatusResponse;
-        const block = data.confirmedResults;
-        if (block) {
-          if (shouldRefreshForConfirmedResults(snapshotRef.current, block)) {
-            router.refresh();
+        let shouldRefresh = false;
+
+        const confirmed = data.confirmedResults;
+        if (confirmed) {
+          if (shouldRefreshForConfirmedResults(confirmedRef.current, confirmed)) {
+            shouldRefresh = true;
           }
-          snapshotRef.current = block;
+          confirmedRef.current = confirmed;
         }
 
-        const activity = data.matchActivity;
-        if (activity && (activity.liveCount > 0 || activity.awaitingCount > 0)) {
-          nextDelay = POLL_MS_ACTIVE;
+        const sim: SimulationSnapshot = { runAt: data.simulation?.runAt ?? null };
+        if (shouldRefreshForSimulation(simulationRef.current, sim)) {
+          shouldRefresh = true;
+        }
+        simulationRef.current = sim;
+
+        if (shouldRefresh) {
+          router.refresh();
+        }
+
+        if (data.pipeline?.active) {
+          nextDelay = POLL_MS_PIPELINE;
+        } else {
+          const activity = data.matchActivity;
+          if (activity && (activity.liveCount > 0 || activity.awaitingCount > 0)) {
+            nextDelay = POLL_MS_ACTIVE;
+          }
         }
       } catch {
         // keep polling

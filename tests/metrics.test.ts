@@ -106,10 +106,17 @@ describe("calibration metrics", () => {
   it("reports news impact comparison when baseline is stored", () => {
     const summary = getAccuracySummary();
     expect(summary).toHaveProperty("newsImpact");
+    expect(summary).toHaveProperty("eloBaseline");
+    expect(summary).toHaveProperty("sampleMaturity");
     if (summary.newsImpact) {
       expect(summary.newsImpact.countWithBaseline).toBeGreaterThan(0);
       expect(summary.newsImpact.avgBaselineBrier).not.toBeNull();
       expect(summary.newsImpact.avgNewsBrier).not.toBeNull();
+    }
+    if (summary.eloBaseline) {
+      expect(summary.eloBaseline.count).toBeGreaterThan(0);
+      expect(summary.eloBaseline.avgAiBrier).not.toBeNull();
+      expect(summary.eloBaseline.avgEloBrier).not.toBeNull();
     }
   });
 });

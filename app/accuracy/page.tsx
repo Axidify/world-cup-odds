@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AccuracyDashboard } from "@/components/AccuracyDashboard";
 import { SanityAlertsPanel } from "@/components/SanityAlertsPanel";
 import { getLatestSimulation } from "@/lib/sim/simulation-cache";
@@ -16,7 +17,10 @@ export default function AccuracyPage() {
       </h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-muted">
         After each match is confirmed, we compare the AI&apos;s pre-match odds to what actually
-        happened. This page is our report card — no betting advice, just honest scoring.
+        happened. This page is our report card — no betting advice, just honest scoring.{" "}
+        <Link href="/how-it-works" className="font-semibold text-brand hover:underline">
+          Methodology
+        </Link>
       </p>
 
       <SanityAlertsPanel alerts={extras?.sanityAlerts ?? []} />
