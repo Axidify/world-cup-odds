@@ -459,7 +459,11 @@ export function getAccuracySummary(): AccuracySummary {
     }));
 
   const worstMisses = [...entries]
-    .sort((a, b) => b.brier - a.brier)
+    .sort((a, b) => {
+      const dateA = getResolvedMatch(a.matchId)?.date ?? "";
+      const dateB = getResolvedMatch(b.matchId)?.date ?? "";
+      return dateB.localeCompare(dateA);
+    })
     .map((e) => {
       const match = getResolvedMatch(e.matchId);
       if (!match) {

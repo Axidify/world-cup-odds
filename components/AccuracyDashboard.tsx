@@ -201,7 +201,7 @@ export function AccuracyDashboard() {
               <h2 className="text-sm font-bold">Graded matches</h2>
               <p className="mt-1 text-xs text-text-muted">
                 {gradedMatches.length} confirmed match{gradedMatches.length === 1 ? "" : "es"} · sorted
-                by probability error (worst first)
+                by date (newest first)
               </p>
             </div>
             {matchPageCount > 1 && (
