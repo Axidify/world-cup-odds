@@ -5,7 +5,8 @@ import { GroupCard } from "@/components/GroupCard";
 import { OfficialResultsBanner } from "@/components/OfficialResultsBanner";
 import { ResultsSyncBanner } from "@/components/ResultsSyncBanner";
 import { SimulationPanel } from "@/components/SimulationPanel";
-import { formatUtcDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
+import { ClientTimezoneName } from "@/components/ClientDateText";
+import { formatUtcDateTime } from "@/lib/utils/dates";
 import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import type { GroupAssignment, GroupStanding, Match, PlayedMatchResult, Team } from "@/lib/types";
 
@@ -69,8 +70,9 @@ export function GroupsView({
           ? ` · ${confirmedGroupMatches} confirmed result${confirmedGroupMatches === 1 ? "" : "s"}`
           : ""}
       </p>
-      <p className="mt-1 text-xs text-text-muted" suppressHydrationWarning>
-        Fixture times in your timezone ({getLocalTimezoneName()}). Highlighted: live, later today, or tomorrow.
+      <p className="mt-1 text-xs text-text-muted">
+        Fixture times in your timezone (<ClientTimezoneName />
+        ). Highlighted: live, later today, or tomorrow.
       </p>
 
       <div className="mt-4">

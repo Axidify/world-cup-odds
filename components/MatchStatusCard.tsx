@@ -11,7 +11,11 @@ import {
   getMatchLifecycle,
 } from "@/lib/match/lifecycle";
 import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
-import { formatLocalDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
+import {
+  ClientLocalDateTime,
+  ClientLocalTime,
+  ClientTimezoneName,
+} from "@/components/ClientDateText";
 
 type StatusResponse = {
   resultsPoll?: { intervalMinutes: number; nextPollAt: string; shouldPoll: boolean };
@@ -187,16 +191,13 @@ export function MatchStatusCard({
         </div>
       ) : null}
 
-      <p
-        className="mt-4 text-center text-xs leading-relaxed text-text-muted"
-        suppressHydrationWarning
-      >
-        {formatLocalDateTime(kickoffIso)} ({getLocalTimezoneName()}) · {venue}
+      <p className="mt-4 text-center text-xs leading-relaxed text-text-muted">
+        <ClientLocalDateTime iso={kickoffIso} /> (<ClientTimezoneName />) · {venue}
       </p>
 
       {lifecycle === "live" && live ? (
         <p className="mt-2 text-center text-[11px] text-text-muted">
-          Updated {new Date(live.syncedAt).toLocaleTimeString()} · football-data.org live feed
+          Updated <ClientLocalTime iso={live.syncedAt} /> · football-data.org live feed
         </p>
       ) : lifecycle !== "confirmed" ? (
         <p className="mt-2 text-center text-xs text-text-muted">
@@ -208,8 +209,9 @@ export function MatchStatusCard({
         <p className="num mt-3 hidden text-center text-[10px] text-text-muted md:block">
           Results poller{" "}
           {poll.shouldPoll
-            ? `active · next check ${new Date(poll.nextPollAt).toLocaleTimeString()}`
-            : `next window ${new Date(poll.nextPollAt).toLocaleTimeString()}`}
+            ? `active · next check `
+            : `next window `}
+          <ClientLocalTime iso={poll.nextPollAt} />
         </p>
       ) : null}
     </Card>

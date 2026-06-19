@@ -1,6 +1,6 @@
 "use client";
 
-import { formatLocalDateTime, getLocalTimezoneName } from "@/lib/utils/dates";
+import { ClientLocalDateTime, ClientTimezoneName } from "@/components/ClientDateText";
 
 type Props = {
   kickoffIso: string;
@@ -10,8 +10,8 @@ type Props = {
 
 export function LocalKickoffLine({ kickoffIso, venue, className = "" }: Props) {
   return (
-    <p className={className} suppressHydrationWarning>
-      {formatLocalDateTime(kickoffIso)} ({getLocalTimezoneName()}) · {venue}
+    <p className={className}>
+      <ClientLocalDateTime iso={kickoffIso} /> (<ClientTimezoneName />) · {venue}
     </p>
   );
 }

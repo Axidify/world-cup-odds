@@ -65,7 +65,8 @@ export default function HowItWorksPage() {
             page grades every confirmed match: Brier score, log loss, favorite-pick rate, and
             calibration bins. We compare AI odds to pure Elo-at-kickoff and to news-adjusted vs
             AI-base lines. Sample size is still small early in the tournament — treat early metrics
-            as directional, not definitive.
+            as directional, not definitive. The graded match list is sorted by kickoff date (newest
+            first).
           </p>
         </Card>
 

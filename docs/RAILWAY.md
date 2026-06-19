@@ -36,7 +36,7 @@ Set these in the service **Variables** tab (use **Raw Editor** for bulk paste).
 | `GEMINI_API_KEY` | If using Gemini |
 | `FOOTBALL_DATA_API_TOKEN` | **Recommended** — results (`FINISHED`) and live scores (`LIVE`/`IN_PLAY`) via [football-data.org](https://www.football-data.org/client/register) (free). |
 | `TAVILY_API_KEY` | News polling; search-based results fallback if no scores API |
-| `ADMIN_PIN` | PIN for admin actions (confirm results, run simulation, bulk analyze, export) |
+| `ADMIN_PIN` | **Required in production** — gates simulation, bulk/single analyze, news sync, LLM switch, result confirm, export (`403` if wrong/missing on `POST`) |
 
 Railway sets `PORT` automatically — do not hard-code it.
 
@@ -53,6 +53,7 @@ AUTO_PIPELINE_ENABLED=1
 AUTO_SIMULATE_ON_RESULTS=1
 AUTO_PIPELINE_ON_START=1
 AUTO_ANALYZE_MISSING=0
+ADMIN_PIN=your-secret-pin
 ```
 
 Copy the rest from `.env.local.example` as needed (simulation seed, news impact, etc.).
@@ -75,6 +76,8 @@ Open the generated `*.up.railway.app` URL. Migrations run automatically on first
 | App loads | `/` |
 | LLM configured | `/api/ai/health` |
 | Poller running | Service **Logs** → `[poller] Scheduled. Press Ctrl+C to stop.` |
+| Admin PIN works | `POST /api/analyze/match` with bad `pin` → `403` |
+| No hydration errors | Browser devtools console on `/` — should be clean (no React #418) |
 
 ## 7. Custom domain (optional)
 
@@ -92,6 +95,8 @@ APP_URL=https://your-domain.com
 | Data lost after redeploy | Attach a volume at `/data` and set `DATABASE_PATH=/data/worldcup.db`. |
 | Poller bulk-analyze fails | Set `APP_URL` to your public HTTPS URL (not `localhost`). |
 | 502 / app not reachable | Check logs; confirm `HOSTNAME=0.0.0.0` (set in Dockerfile). |
+| React hydration warning in console | Usually timezone `toLocaleString()` mismatch — see `components/ClientDateText.tsx`. |
+| `403 Invalid admin PIN` on UI actions | Set `ADMIN_PIN` on Railway and enter it in the admin dialog. |
 
 ## Cost
 

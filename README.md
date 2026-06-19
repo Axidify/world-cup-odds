@@ -51,6 +51,7 @@ For how predictions, simulation, Elo, and the poller fit together, see **[docs/A
 | `/bracket` | Official and simulated knockout paths (consensus, leader, random) |
 | `/champion` | All 48 teams — champion %, base vs news, survival odds, simulation |
 | `/accuracy` | Brier score, log loss, calibration bins from confirmed results |
+| `/how-it-works` | Methodology — pipeline, news caps, validation, known limits |
 | `/match/[id]` | Match detail — analysis, squad news, Elo, confirmed score |
 
 ## API
@@ -88,6 +89,10 @@ For how predictions, simulation, Elo, and the poller fit together, see **[docs/A
 **Auto-pipeline** (poller, on by default): when results confirm, re-runs simulation automatically (debounced). Dashboard shows “Auto-updating odds and bracket…”. Env: `AUTO_PIPELINE_ENABLED`, `AUTO_SIMULATE_ON_RESULTS`, `AUTO_PIPELINE_ON_START`, `AUTO_ANALYZE_MISSING` (optional LLM gap-fill).
 
 **Pending results:** The poller ingests scores but leaves them unconfirmed until sources agree. The dashboard banner shows how many are waiting. There is no in-app confirm UI today — use `POST /api/results/[matchId]/confirm` with `{ "pin": "…" }`, or rely on auto-confirm.
+
+**Admin PIN (`ADMIN_PIN`):** Required for costly or destructive actions — simulation, bulk analyze, single-match re-analyze (`POST /api/analyze/match`), news sync (`POST /api/sync/news`), LLM provider switch, result confirm/unconfirm, export. Read-only routes (`GET`) stay public.
+
+**Dates & timezones:** Fixture times render in the viewer’s local timezone. Client components use `components/ClientDateText.tsx` (UTC on first paint, then local after mount) to avoid React hydration mismatches between server (UTC) and browser.
 
 ## Scripts
 

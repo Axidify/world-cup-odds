@@ -7,7 +7,7 @@ import { DashboardMatchPrediction } from "@/components/DashboardMatchPrediction"
 import { LiveMatchBadge } from "@/components/LiveMatchBadge";
 import { Flag } from "@/components/Flag";
 import type { FixtureWinProbs } from "@/lib/match/group-fixture-probs";
-import { formatLocalDateTime } from "@/lib/utils/dates";
+import { ClientLocalDateTime } from "@/components/ClientDateText";
 
 export type CountdownMatch = {
   matchId: string;
@@ -92,8 +92,8 @@ export function Countdown({
     <div suppressHydrationWarning>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
         {simultaneous ? "Next kickoffs" : "Next match"}
-        <span className="num ml-2 font-normal normal-case" suppressHydrationWarning>
-          · {formatLocalDateTime(targetISO)}
+        <span className="num ml-2 font-normal normal-case">
+          · <ClientLocalDateTime iso={targetISO} />
         </span>
       </p>
 

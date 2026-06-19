@@ -22,6 +22,9 @@ Audited plan for World Cup Odds 2026 — from external reviewer feedback, produc
 | Champion “what changed” baseline | ✅ | `getComparisonBaselineSimulation()` skips duplicate sims at same confirm count |
 | Auto-refresh on confirmed results | ✅ | `TournamentStatusRefresher` |
 | Auto-pipeline on results / startup | ✅ | `AUTO_PIPELINE_*` env flags |
+| React hydration (#418) on dates/theme | ✅ | `ClientDateText.tsx`; theme via `ThemeScript` only |
+| Graded matches sort on `/accuracy` | ✅ | Newest kickoff first (was Brier worst-first) |
+| Admin PIN on costly HTTP routes | ✅ | Analyze, news sync, LLM switch, sim, confirm |
 
 **Edge case (resolved):** Code-only sim fixes do not auto-rerun if `needsSimulationRerun()` is false. One manual re-sim or wait for next confirmed result. Documented in methodology.
 

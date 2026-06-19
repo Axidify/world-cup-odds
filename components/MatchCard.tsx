@@ -6,7 +6,7 @@ import { Flag } from "@/components/Flag";
 import { Card } from "@/components/ui/Card";
 import { getKickoffHighlight, kickoffHighlightCardClass } from "@/lib/match/kickoff-highlight";
 import { getMatchLifecycle } from "@/lib/match/lifecycle";
-import { formatLocalDate } from "@/lib/utils/dates";
+import { ClientLocalDate } from "@/components/ClientDateText";
 import type { Match, Team } from "@/lib/types";
 
 export function MatchCard({ match, teams }: { match: Match; teams: Team[] }) {
@@ -39,7 +39,9 @@ export function MatchCard({ match, teams }: { match: Match; teams: Team[] }) {
         </div>
         <div className="text-right text-xs text-text-muted">
           <div className="uppercase">{match.stage}</div>
-          <div className="num">{formatLocalDate(match.date)}</div>
+          <div className="num">
+            <ClientLocalDate iso={match.date} />
+          </div>
         </div>
       </Card>
     </Link>

@@ -6,6 +6,7 @@ import { Loader2, Trophy } from "lucide-react";
 import { AdminPinDialog } from "@/components/AdminPinDialog";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { ClientLocaleString } from "@/components/ClientDateText";
 import { useAdminPinGate, type AdminPinAction } from "@/lib/hooks/use-admin-pin-action";
 
 type Props = {
@@ -89,7 +90,7 @@ export function SimulationPanel({ hasSimulation, lastRunAt }: Props) {
 
       {lastRunAt && (
         <p className="num text-xs text-text-muted">
-          Last run {new Date(lastRunAt).toLocaleString()}
+          Last run <ClientLocaleString iso={lastRunAt} />
         </p>
       )}
       {missingCount != null && (

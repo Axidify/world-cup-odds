@@ -226,7 +226,7 @@ After each confirm, `logPredictionAccuracy` (`lib/calibration/metrics.ts`) write
 
 Grading uses the **active LLM provider** (same as sim/UI) and news overlay evaluated **at kickoff**, not at confirm time. Log rows are frozen after first write.
 
-The `/accuracy` page and `GET /api/accuracy` aggregate: pick accuracy %, favorite pick rate by confidence band, biggest surprises, news vs baseline Brier.
+The `/accuracy` page and `GET /api/accuracy` aggregate: pick accuracy %, favorite pick rate by confidence band, graded match list (newest first), news vs baseline Brier, and AI vs Elo-at-kickoff comparison.
 
 ### How it improves future predictions
 
@@ -270,6 +270,16 @@ Poller triggers bulk analyze (gap-fill and stale re-analyze) via HTTP to `APP_UR
 | `/champion` | Champion %, survival odds, base (AI without news) vs current (with news) |
 | `/accuracy` | Track record vs confirmed results |
 | `/match/[id]` | Live status, AI prediction, squad news, Elo, confirmed score |
+| `/how-it-works` | Methodology and known limitations |
+
+### Dates, themes, and hydration
+
+- **Theme:** `ThemeScript` in `app/layout.tsx` applies `localStorage` theme to `<html>` before paint. Default dark tokens live on `:root` in `globals.css` (no hardcoded `data-theme` on the server `<html>` tag).
+- **Local times:** Server renders in UTC; browsers expect local timezone. Client components use `components/ClientDateText.tsx` (`ClientLocalDateTime`, `ClientLocaleString`, `ClientTimezoneName`, etc.) — SSR shows a UTC label, then swap to local after mount. Avoid raw `toLocaleString()` in client components that SSR.
+
+### Admin PIN
+
+`ADMIN_PIN` gates `POST` routes that trigger LLM calls, simulation, news sync, provider switch, or result mutation. Poller jobs call the same logic in-process (not via HTTP) so background automation is unaffected.
 
 ## Typical lifecycle
 
@@ -311,6 +321,7 @@ sequenceDiagram
 | Accuracy | `lib/calibration/metrics.ts` |
 | Auto-pipeline | `lib/pipeline/` |
 | Poller entry | `scripts/poller.ts` |
+| Client date hydration | `components/ClientDateText.tsx` |
 | DB schema | `lib/db/schema.ts` |
 
 ## Related docs

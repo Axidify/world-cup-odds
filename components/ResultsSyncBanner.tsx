@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Radio } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { ClientLocalTime } from "@/components/ClientDateText";
 import { formatLiveMinuteDisplay } from "@/lib/match/live-minute";
 import { useLiveScores } from "@/components/LiveScoresProvider";
 
@@ -97,7 +98,7 @@ export function ResultsSyncBanner() {
               {status?.poller?.lastLiveScoresPollAt && (
                 <>
                   {" "}
-                  · live feed {new Date(status.poller.lastLiveScoresPollAt).toLocaleTimeString()}
+                  · live feed <ClientLocalTime iso={status.poller.lastLiveScoresPollAt} />
                 </>
               )}
             </p>
