@@ -36,8 +36,8 @@ describe("getNextUpcomingMatches", () => {
       stage: "r32",
       homeTeamId: "ger",
       awayTeamId: "par",
-      date: "2026-06-29T04:00:00.000Z",
-      venue: "AT&T Stadium, Dallas",
+      date: "2026-06-29T20:30:00.000Z",
+      venue: "Gillette Stadium, Foxborough",
       knockoutRound: 16,
     };
     vi.spyOn(resolved, "getResolvedMatches").mockReturnValue([r32]);
