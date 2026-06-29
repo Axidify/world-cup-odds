@@ -30,10 +30,10 @@ export function contextFromModalStandings(
 
 export function buildConsensusKnockoutPath(
   store: PredictionStore,
-  modalStandings: Record<string, GroupStanding[]>,
+  groupStandings: Record<string, GroupStanding[]>,
   confirmed: Map<string, PlayedMatchResult> = new Map(),
 ): { knockout: KnockoutPathMatch[]; championTeamId: string } {
-  const ctx = contextFromModalStandings(modalStandings);
+  const ctx = contextFromModalStandings(groupStandings);
   const { championTeamId, path } = runKnockout(store, ctx, confirmed, null, true);
   return { knockout: path, championTeamId };
 }
