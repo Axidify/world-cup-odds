@@ -56,6 +56,8 @@ type Props = {
   simulationStale: boolean;
   staleMessage: string | null;
   modalGroupStandings?: Record<string, import("@/lib/types").GroupStanding[]>;
+  consensusGroupStandings?: Record<string, import("@/lib/types").GroupStanding[]>;
+  consensusSeededFromOfficial?: boolean;
   representativePathNote?: string | null;
   championOdds?: Record<string, number>;
   representativeAdvanceProbs?: Record<string, { home: number; away: number }>;
@@ -84,6 +86,8 @@ export function TournamentBracket({
   simulationStale,
   staleMessage,
   modalGroupStandings,
+  consensusGroupStandings,
+  consensusSeededFromOfficial = false,
   representativePathNote,
   championOdds,
   representativeAdvanceProbs = {},
@@ -153,7 +157,9 @@ export function TournamentBracket({
       ? officialStandings
       : storyMode === "sample" && sample
         ? sample.groupStandings
-        : modalGroupStandings ?? projectedStandings;
+        : storyMode === "consensus" && consensusGroupStandings
+          ? consensusGroupStandings
+          : modalGroupStandings ?? projectedStandings;
 
   const activeProjectedChampionId =
     storyMode === "sample" && sample
@@ -345,9 +351,11 @@ export function TournamentBracket({
             </p>
           ) : storyMode === "consensus" ? (
             <p className="leading-relaxed">
-              <strong className="font-semibold text-text">Consensus</strong> — modal group
-              finishers plus the model&apos;s most likely knockout winner at each slot. Still one
-              story, not a joint probability.
+              <strong className="font-semibold text-text">Consensus</strong> —{" "}
+              {consensusSeededFromOfficial
+                ? "official group finishers plus the model's most likely knockout winner at each remaining slot."
+                : "modal group finishers plus the model's most likely knockout winner at each slot."}{" "}
+              Still one story, not a joint probability.
             </p>
           ) : (
             <p>

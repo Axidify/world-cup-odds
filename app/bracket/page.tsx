@@ -1,5 +1,6 @@
 import { TournamentBracket } from "@/components/TournamentBracket";
 import { buildConsensusKnockoutPath } from "@/lib/bracket/consensus-path";
+import { resolveConsensusGroupStandings, isConsensusSeededFromOfficial } from "@/lib/bracket/consensus-standings";
 import { buildAdvanceProbsForKnockoutPath } from "@/lib/bracket/knockout-advance-probs";
 import { buildOfficialKnockoutPath } from "@/lib/bracket/official-knockout";
 import { resolveActiveProvider } from "@/lib/ai/settings";
@@ -47,16 +48,19 @@ export default function BracketPage() {
   const representativeAdvanceProbs = buildRepresentativeAdvanceProbs(
     simulation?.predictedPath.knockout,
   );
-  const modalStandings = simulation?.extras?.modalGroupStandings;
+  const consensusGroupStandings = resolveConsensusGroupStandings(
+    confirmed,
+    simulation?.extras?.modalGroupStandings,
+  );
   const provider = resolveActiveProvider();
   const consensus =
-    modalStandings && provider
+    consensusGroupStandings && provider
       ? (() => {
           try {
             const store = loadPredictionStore(provider);
             const { knockout, championTeamId } = buildConsensusKnockoutPath(
               store,
-              modalStandings,
+              consensusGroupStandings,
               confirmed,
             );
             return {
@@ -98,6 +102,8 @@ export default function BracketPage() {
       representativePathNote={simulation?.extras?.representativePathNote}
       championOdds={simulation?.championOdds}
       representativeAdvanceProbs={representativeAdvanceProbs}
+      consensusGroupStandings={consensusGroupStandings ?? undefined}
+      consensusSeededFromOfficial={isConsensusSeededFromOfficial(confirmed)}
       consensusKnockout={consensus?.knockout}
       consensusChampionId={consensus?.championTeamId}
       consensusAdvanceProbs={consensus?.advanceProbs}
