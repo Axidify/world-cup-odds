@@ -1,4 +1,5 @@
-import { getAllMatches, getTeam } from "@/lib/data/load";
+import { getTeam } from "@/lib/data/load";
+import { getResolvedMatches } from "@/lib/data/resolved";
 import { resolveFixtureWinProbs } from "@/lib/match/group-fixture-probs";
 import {
   DashboardTodaySectionClient,
@@ -14,7 +15,7 @@ export function DashboardTodaySection() {
 
   const candidates: DashboardUpcomingItem[] = [];
 
-  for (const m of getAllMatches()) {
+  for (const m of getResolvedMatches()) {
     if (m.homeTeamId === "TBD" || m.awayTeamId === "TBD") continue;
 
     const kickoffMs = new Date(m.date).getTime();
